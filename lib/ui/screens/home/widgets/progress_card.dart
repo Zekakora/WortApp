@@ -1,0 +1,226 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../providers/database_provider.dart';
+import '../../../../providers/deck_provider.dart';
+import '../../../../providers/study_provider.dart';
+
+class ProgressCard extends ConsumerWidget {
+  final int? deckId;
+
+  const ProgressCard({super.key, this.deckId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (deckId == null) {
+      return _buildEmptyCard(context, colorScheme);
+    }
+
+    final wordCount = ref.watch(wordCountProvider(deckId!));
+    final studyPlan = ref.watch(studyPlanProvider(deckId!));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '今日学习',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    studyPlan.when(
+                      data: (plan) => Text(
+                        plan != null
+                            ? '${plan.newWords.length} / ${plan.reviewWords.length}'
+                            : '0 / 0',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                      ),
+                      loading: () => const CircularProgressIndicator(),
+                      error: (_, __) => Text(
+                        '0 / 0',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                      ),
+                    ),
+                    Text(
+                      '新词 / 复习',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+                // 进度环
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: 0,
+                        strokeWidth: 8,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        color: colorScheme.primary,
+                      ),
+                      Text(
+                        '0%',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _StatItem(
+                  icon: Icons.local_fire_department,
+                  label: '连续打卡',
+                  value: '0 天',
+                  color: Colors.orange,
+                ),
+                wordCount.when(
+                  data: (count) => _StatItem(
+                    icon: Icons.school_outlined,
+                    label: '总词汇',
+                    value: '$count 词',
+                    color: Colors.green,
+                  ),
+                  loading: () => _StatItem(
+                    icon: Icons.school_outlined,
+                    label: '总词汇',
+                    value: '...',
+                    color: Colors.green,
+                  ),
+                  error: (_, __) => _StatItem(
+                    icon: Icons.school_outlined,
+                    label: '总词汇',
+                    value: '0 词',
+                    color: Colors.green,
+                  ),
+                ),
+                studyPlan.when(
+                  data: (plan) => _StatItem(
+                    icon: Icons.schedule,
+                    label: '待复习',
+                    value: '${plan?.dueReviewCount ?? 0} 词',
+                    color: Colors.blue,
+                  ),
+                  loading: () => _StatItem(
+                    icon: Icons.schedule,
+                    label: '待复习',
+                    value: '...',
+                    color: Colors.blue,
+                  ),
+                  error: (_, __) => _StatItem(
+                    icon: Icons.schedule,
+                    label: '待复习',
+                    value: '0 词',
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard(BuildContext context, ColorScheme colorScheme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(
+              Icons.library_books_outlined,
+              size: 48,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '请选择或创建一个词书',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '在词书管理中创建词书并导入单词',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+}
