@@ -19,6 +19,9 @@
 - [x] `words` 表 - 单词存储（含动词三态、名词变格、形容词比较级）
 - [x] `sm2_states` 表 - SM-2 算法状态
 - [x] `conjugation_cache` 表 - 变位数据缓存
+- [x] `ai_lookup_cache` 表 - AI 查词缓存（(word, engine) 唯一键）
+- [x] `ai_request_status` 表 - AI 请求状态记录（成功/失败/错误信息，数据管理用）
+- [x] `study_stats` 表 - 每日学习统计（wordId+date 唯一键，记录出现/错误次数）
 - [x] `settings` 表 - 应用设置存储（使用数据库，非 SharedPreferences）
 
 ### 算法实现
@@ -31,6 +34,8 @@
 - [x] 词书 CRUD（创建、重命名、删除）
 - [x] 词书切换
 - [x] 单词列表（搜索、筛选、熟练度标记）
+- [x] 单词三点菜单删除（确认对话框，删除后自动清理 SM2/变位缓存；无其他词书引用时释放 AI 释义缓存与请求状态）
+- [x] 重置学习进度按钮（新建单词上方，黄色警告弹窗二次确认，清空全部 SM2 状态并归零熟练度）
 - [x] Excel/CSV 导入服务
 - [x] Excel/CSV 导出服务
 
@@ -42,11 +47,16 @@
 - [x] 德语拼写模式（含特殊字符键盘）
 - [x] SM-2 反馈按钮（忘记/模糊/熟悉/简单）
 - [x] 学习完成统计
+- [x] 快闪卡模式（Flash Card，全屏卡片左右滑动评分，iOS 风格动效）
+- [x] 每轮词量与每日上限控制（新词/复习独立限额）+ 抽词兜底循环复习
+- [x] 抓词模式（正常抓词 / 收藏优先 / 只抓收藏）
+- [x] 四选一干扰项全词库随机抽取（池化机制）
+- [x] 学习统计：study_stats 表 + 底部错误统计排行榜（今日/历史，独立二级页面）
 
 ### AI 集成
 - [x] 可配置 AI 服务（支持 OpenAI 兼容格式）
 - [x] 自定义 AI 配置（API Key / API 地址 / 模型名称）
-- [x] 快速预设（MiMo / DeepSeek / OpenAI）
+- [x] 快速预设（MiMo / DeepSeek / OpenAI / Gemini / 通义千问 / 阿里云百炼）
 - [x] AI 查词引擎
 - [x] AI 变位数据生成
 - [x] Wiktionary 查词引擎
@@ -56,6 +66,11 @@
 - [x] AI 批量更新防数据丢失（空释义跳过、overwrite 生效、坏缓存自愈）
 - [x] AI 结果字段落库（复数 nounPlural、名词类型 nounType、词性）
 - [x] AI 词性/名词类型解析源头规范化（兼容 "Verb"/"动词" 等不规范值）
+- [x] 词书页“数据管理”入口（新建单词按钮上方）
+- [x] 数据管理页：单词 AI 释义状态列表（已有释义/请求失败/无释义）+ 筛选 + 一键选择重试
+- [x] AI 请求状态自动记录（引擎真实请求时写入 ai_request_status，缓存命中不记录）
+- [x] 共享批量更新进度对话框组件（BatchUpdateDialog，wordIds/deckId 双模式）
+- [x] 备份 JSON v3：导出/导入含 aiStatus 状态信息（wipe 覆盖模式同步清理）
 
 ### 词性标注系统
 - [x] 词性颜色系统（WordTypeColors）
@@ -86,8 +101,15 @@
 ### 其他功能
 - [x] TTS 德语发音
 - [x] 加词入库（选择词书/新建词书）
-- [x] 设置页面（AI配置、每日上限、TTS语速、宽容拼写）
+- [x] 设置页面（AI配置、每日上限、TTS语速、宽容拼写、主题模式）
 - [x] 词书列表显示词性标签
+- [x] 夜间模式（跟随系统/日间/夜间，Material 3 暗色配色）
+- [x] 单词收藏标记（words.isFavorite）
+- [x] 备份 JSON v4：导出/导入兼容收藏标记与错误统计
+- [x] 平板分屏双栏布局（StudySplitLayout）
+- [x] 单词详情页下滑关闭（SwipeDownDetailRoute）
+- [x] APK 仅打包 64 位架构（arm64-v8a / x86_64），排除 32 位减小体积
+- [x] 完整备份：gradle-wrapper.jar / gradlew 等关键构建文件纳入版本控制
 
 ---
 
@@ -121,7 +143,7 @@
 - [ ] 多语言界面支持
 - [ ] 单元测试覆盖
 - [ ] 名词第二格变格练习
-- [ ] 数据备份/恢复功能
+- [x] 数据备份/恢复功能（JSON v4：含收藏与错误统计）
 
 ---
 
@@ -250,6 +272,40 @@ C:\flutter\bin\flutter build apk --release -v > build\flutter_build.log 2>&1
 - [x] 修复 android-34 SDK 平台不完整问题（Android Studio 重装 Android 14 SDK）
 - [x] Gradle 保持 9.1.0（Flutter 3.44 官方默认，与 AGP 8.13.1 组合验证成功）
 - [x] **APK 构建成功**：`build/app/outputs/flutter-apk/app-release.apk` (61.2MB，BUILD SUCCESSFUL 2m 13s)
+
+### 2026-08-05 (AI 数据管理)
+- [x] 新增 `ai_request_status` 表 + AiStatusDao（schemaVersion 2→3，自动迁移创建新表）
+- [x] AI 引擎接入 statusCallback：真实请求时记录成功/失败状态（缓存命中不重复记录）
+- [x] 词书页添加上方“数据管理”按钮（新建单词 FAB 上方，多选模式隐藏）
+- [x] 数据管理页：状态统计卡片（总单词/已有AI释义/请求失败/无AI释义）+ 筛选 + 勾选重试
+- [x] 一键选择需重试单词（通过 AI 缓存检测已有释义，已更新的单词不会重复请求）
+- [x] 抽取共享 BatchUpdateDialog（word_list/deck_list/data_management 三处复用）
+- [x] 备份 JSON 升级 v3：aiStatus 全表导出/导入恢复，wipe 覆盖时同步清空
+- [x] 测试更新：备份导出/导入/wipe 均验证 aiStatus；`flutter analyze` 无 error，55 个测试全部通过
+
+### 2026-08-05 (单词删除与缓存释放)
+- [x] 单词三点菜单新增“删除单词”（红色确认对话框，提示 AI 缓存释放规则）
+- [x] AppDatabase.deleteWordWithCleanup 事务：删 SM2 状态 + 变位缓存 + 单词记录
+- [x] 跨词书引用检测（忽略大小写，与词书内查重规则一致）：无其他词书引用时释放 ai_lookup_cache 与 ai_request_status
+- [x] 新增 delete_word_cleanup_test.dart（唯一词释放缓存 / 多词书保留缓存 / 大小写差异保留 / 删除不存在不报错）
+- [x] 验证：flutter analyze 无 error，68 个测试全部通过
+
+### 2026-08-05 (重置学习进度)
+- [x] 词书页新建单词上方添加“重置学习进度”按钮（restart_alt 图标）
+- [x] 黄色警告弹窗二次确认（amber 背景 + 警告图标，提示不可恢复）
+- [x] AppDatabase.resetAllLearningProgress 事务：清空全部 sm2_states，proficiency 归零、lastStudyDate 置空，所有单词变回新词
+- [x] 重置后 invalidate studyPlanProvider 全家（主页进度卡与学习计划同步刷新）
+- [x] 新增 reset_progress_test.dart（重置清空 / 变回新词可抽取 / 空库不报错）
+- [x] 验证：flutter analyze 无 error，74 个测试全部通过
+
+### 2026-08-05 (v1.1.0 发布：夜间模式 / 完整备份 / AI 预设扩充)
+- [x] 项目迁移出 OneDrive 至 `D:\Project Data\WortApp`，移除 `org.gradle.vfs.watch=false`（VFS 监控恢复默认）
+- [x] 完整备份：gradle-wrapper.jar / gradlew / gradlew.bat 纳入版本控制（.gitignore 移除相关项）
+- [x] 夜间模式：app_theme.dart 新增 darkTheme()，设置页主题切换（跟随系统/日间/夜间）
+- [x] AI 预设扩充：新增 Gemini / 通义千问 / 阿里云百炼，DeepSeek 模型更新为 deepseek-v4-flash
+- [x] APK 仅打包 64 位架构（abiFilters arm64-v8a/x86_64 + packaging 排除 32 位 .so）
+- [x] 应用图标更新
+- [x] 发布版本：v1.1.0+1，生成 RELEASE_NOTES.md
 
 ### 2026-08-04
 - [x] 修复 AI 批量更新词义后释义未保存问题（空释义覆盖、overwrite 无效、坏缓存命中、提示词截断）

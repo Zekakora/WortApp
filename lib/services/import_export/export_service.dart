@@ -217,6 +217,27 @@ class ExportService {
             'updatedAt': c.updatedAt.toIso8601String(),
           }).toList();
 
+      // AI 请求状态记录（全表导出，数据管理页面据此显示请求成功/失败并可一键重试）
+      final aiStatusRows = await _db.select(_db.aiRequestStatus).get();
+      final aiStatusJson = aiStatusRows.map((s) => {
+            'word': s.word,
+            'engine': s.engine,
+            'status': s.status,
+            'errorMessage': s.errorMessage,
+            'lastRequestAt': s.lastRequestAt.toIso8601String(),
+          }).toList();
+
+      // 每日错误统计（全表导出，按单词分组后挂到对应单词下，恢复时以新 wordId 重建）
+      final statsRows = await _db.select(_db.studyStats).get();
+      final statsByWord = <int, List<Map<String, dynamic>>>{};
+      for (final s in statsRows) {
+        statsByWord.putIfAbsent(s.wordId, () => []).add({
+          'date': s.date.toIso8601String(),
+          'appearances': s.appearances,
+          'errors': s.errors,
+        });
+      }
+
       // 应用设置（全表导出，恢复后 AI 配置、TTS 语速等设置不丢失）
       final settingsRows = await _db.select(_db.settings).get();
       final settingsJson = settingsRows.map((s) => {
@@ -252,6 +273,8 @@ class ExportService {
             'nounType': word.nounType,
             'adjComparative': word.adjComparative,
             'adjSuperlative': word.adjSuperlative,
+            'isFavorite': word.isFavorite,
+            'stats': statsByWord[word.id] ?? const [],
             'createdAt': word.createdAt.toIso8601String(),
             'updatedAt': word.updatedAt.toIso8601String(),
             'sm2': sm2State == null
@@ -292,14 +315,16 @@ class ExportService {
       final backup = <String, dynamic>{
         'app': 'WortApp',
         'type': 'wortapp-backup',
-        'version': 2,
+        'version': 4,
         'exportedAt': DateTime.now().toIso8601String(),
         'deckCount': decksJson.length,
         'wordCount': wordCount,
         'aiCacheCount': aiCacheJson.length,
+        'aiStatusCount': aiStatusJson.length,
         'settingsCount': settingsJson.length,
         'decks': decksJson,
         'aiCache': aiCacheJson,
+        'aiStatus': aiStatusJson,
         'settings': settingsJson,
       };
 

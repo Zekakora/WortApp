@@ -8,6 +8,7 @@ import '../../../../core/utils/german_parser.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
+import '../../../../ui/widgets/study_split_layout.dart';
 
 /// 德语拼写模式
 class SpellModeScreen extends ConsumerStatefulWidget {
@@ -26,6 +27,8 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
   Timer? _debounce;
   /// 记录当前题目单词 id，用于新题下发时触发自动发音
   int _lastWordId = -1;
+  /// 平板分屏：控制右侧单词详情面板的模糊层
+  final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
 
   @override
   void initState() {
@@ -130,93 +133,97 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       appBar: AppBar(
         title: Text('拼写模式 (${session.currentIndex + 1}/${session.words.length})'),
       ),
-      body: Column(
-        children: [
-          LinearProgressIndicator(
-            value: session.progress,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 32),
-                  // 中文提示
-                  Text(
-                    word.chinese,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  if (word.article != null) ...[
-                    const SizedBox(height: 8),
+      body: StudySplitLayout(
+        key: _splitKey,
+        wordId: word.id,
+        left: Column(
+          children: [
+            LinearProgressIndicator(
+              value: session.progress,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+                    // 中文提示
                     Text(
-                      '冠词: ${word.article}',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                      word.chinese,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
                     ),
-                  ],
-                  const SizedBox(height: 8),
-                  // 播放发音按钮
-                  IconButton(
-                    icon: const Icon(Icons.volume_up, size: 32),
-                    onPressed: () => _speak(word.german),
-                  ),
-                  const SizedBox(height: 32),
-                  // 输入框
-                  TextField(
-                    controller: _controller,
-                    enabled: !_answered,
-                    decoration: InputDecoration(
-                      hintText: '输入德语单词...',
-                      errorText: _answered && _isCorrect == false
-                          ? '正确答案: ${word.article != null ? "${word.article} " : ""}${word.german}'
-                          : null,
-                      suffixIcon: _answered
-                          ? Icon(
-                              _isCorrect == true
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                              color: _isCorrect == true
-                                  ? Colors.green
-                                  : Colors.red,
-                            )
-                          : null,
-                    ),
-                    onChanged: _onInputChanged,
-                  ),
-                  const SizedBox(height: 16),
-                  // 德语特殊字符键盘
-                  _buildGermanKeyboard(colorScheme),
-                  const SizedBox(height: 24),
-                  // 宽容拼写提示
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              size: 20, color: colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '支持宽容拼写: ae→ä, oe→ö, ue→ü, ss→ß',
-                              style: Theme.of(context).textTheme.bodySmall,
+                    if (word.article != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '冠词: ${word.article}',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          ),
-                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    // 播放发音按钮
+                    IconButton(
+                      icon: const Icon(Icons.volume_up, size: 32),
+                      onPressed: () => _speak(word.german),
+                    ),
+                    const SizedBox(height: 32),
+                    // 输入框
+                    TextField(
+                      controller: _controller,
+                      enabled: !_answered,
+                      decoration: InputDecoration(
+                        hintText: '输入德语单词...',
+                        errorText: _answered && _isCorrect == false
+                            ? '正确答案: ${word.article != null ? "${word.article} " : ""}${word.german}'
+                            : null,
+                        suffixIcon: _answered
+                            ? Icon(
+                                _isCorrect == true
+                                    ? Icons.check_circle
+                                    : Icons.cancel,
+                                color: _isCorrect == true
+                                    ? Colors.green
+                                    : Colors.red,
+                              )
+                            : null,
+                      ),
+                      onChanged: _onInputChanged,
+                    ),
+                    const SizedBox(height: 16),
+                    // 德语特殊字符键盘
+                    _buildGermanKeyboard(colorScheme),
+                    const SizedBox(height: 24),
+                    // 宽容拼写提示
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: 20, color: colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '支持宽容拼写: ae→ä, oe→ö, ue→ü, ss→ß',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          _buildBottomButton(colorScheme),
-          if (_answered) _buildFeedbackButtons(colorScheme),
-        ],
+            _buildBottomButton(colorScheme),
+            if (_answered) _buildFeedbackButtons(colorScheme),
+          ],
+        ),
       ),
     );
   }
@@ -286,16 +293,17 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 查看单词详情（复用单词本详情页布局），占满整行
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              icon: const Icon(Icons.info_outline, size: 18),
-              label: const Text('查看单词详情'),
-              onPressed: _openWordDetail,
+          // 查看单词详情（复用单词本详情页布局），占满整行；分屏时右侧常驻详情，隐藏该按钮
+          if (!StudySplitLayout.isSplitWidth(context))
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('查看单词详情'),
+                onPressed: _openWordDetail,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -357,6 +365,11 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       _answered = true;
       _isCorrect = result;
     });
+
+    // 拼写正确时自动显示右侧单词详情
+    if (result) {
+      _splitKey.currentState?.reveal();
+    }
 
     if (!result) {
       final capitalResult = GermanParser.checkCapitalization(input, word.german);

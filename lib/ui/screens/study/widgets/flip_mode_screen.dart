@@ -7,6 +7,8 @@ import '../../../../data/database/app_database.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
+import '../../../../ui/widgets/study_split_layout.dart';
+import '../../../../ui/widgets/swipe_down_detail_route.dart';
 
 /// 经典翻牌模式
 class FlipModeScreen extends ConsumerStatefulWidget {
@@ -17,7 +19,7 @@ class FlipModeScreen extends ConsumerStatefulWidget {
 }
 
 class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isFlipped = false;
   /// 名词答题：用户选择的定冠词（die/das/der）
   String? _selectedArticle;
@@ -25,8 +27,26 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
   int? _selectedForWordId;
   /// 记录已自动发音的单词 id，同一题目只播放一次
   int? _lastAutoSpeakWordId;
+  /// 平板分屏：控制右侧单词详情面板的模糊层
+  final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
+  /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
+  bool _submitting = false;
+  /// 切词过渡：正在淡出的旧单词卡片（非 null 时播放退场动画）
+  Word? _exitingWord;
+  /// 旧卡退场时是否显示释义面：退场开始时冻结，防止动画期间闪回单词面
+  bool _exitShowBack = false;
+  /// 垂直拖动累计位移（用于上滑打开单词详情）
+  double _verticalDragAccum = 0;
   late AnimationController _controller;
   late Animation<double> _animation;
+  /// 切词退场动画：旧卡淡出消失
+  late AnimationController _exitController;
+  /// 退场淡出动画（1 → 0）
+  late Animation<double> _exitFade;
+  /// 新卡淡入动画：退场完成后播放（平时处于完成态不透明）
+  late AnimationController _enterController;
+  /// 新卡淡入动画（0 → 1）
+  late Animation<double> _enterFade;
   final FlutterTts _tts = FlutterTts();
 
   @override
@@ -37,7 +57,25 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
       vsync: this,
     );
     _animation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      // iOS/Material 系统标准曲线：强调中段快速过渡、两端舒缓
+      CurvedAnimation(
+          parent: _controller, curve: Curves.easeInOutCubicEmphasized),
+    );
+    _exitController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _exitFade = Tween<double>(begin: 1, end: 0).animate(
+      // 平滑对称的三次 S 曲线，接近 iOS 系统转场手感
+      CurvedAnimation(parent: _exitController, curve: Curves.easeInOutCubic),
+    );
+    _enterController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    )..value = 1.0; // 平时直接显示，仅切词时从 0 播放淡入
+    _enterFade = Tween<double>(begin: 0, end: 1).animate(
+      // 快速起步后缓慢收尾，iOS 内容浮现手感
+      CurvedAnimation(parent: _enterController, curve: Curves.easeOutCubic),
     );
     _initTts();
   }
@@ -50,11 +88,16 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _exitController.dispose();
+    _enterController.dispose();
     _tts.stop();
     super.dispose();
   }
 
   void _flipCard() {
+    // 提交反馈等待或切词退场动画期间禁止翻牌，避免状态错乱
+    if (_submitting || _exitingWord != null) return;
+
     if (_isFlipped) {
       _controller.reverse();
       setState(() => _isFlipped = false);
@@ -77,6 +120,8 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
 
     _controller.forward();
     setState(() => _isFlipped = true);
+    // 翻牌即查看答案，右侧详情面板同步取消模糊
+    _splitKey.currentState?.reveal();
   }
 
   /// 是否为需要先作答定冠词的名词（wordType 缺失但带冠词时按名词处理）
@@ -125,6 +170,23 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
     // 每次发音前应用当前设置的语速，保证设置即时生效
     await _tts.setSpeechRate(ref.read(settingsProvider).ttsSpeed);
     await _tts.speak(text);
+  }
+
+  /// 垂直拖动：累计位移，供上滑打开详情判断
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (_submitting) return;
+    _verticalDragAccum += details.delta.dy;
+  }
+
+  /// 垂直拖动结束：上滑打开单词详情页（分屏时右侧已常驻详情，禁用）
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (_submitting) return;
+    final velocity = details.primaryVelocity ?? 0;
+    if (!StudySplitLayout.isSplitWidth(context) &&
+        (velocity < -700 || _verticalDragAccum < -120)) {
+      _openWordDetail();
+    }
+    _verticalDragAccum = 0;
   }
 
   @override
@@ -178,43 +240,100 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 进度条
-          LinearProgressIndicator(
-            value: session.progress,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: _flipCard,
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _animation,
-                  builder: (context, child) {
-                    final angle = _animation.value * 3.14159;
-                    return Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001)
-                        ..rotateY(angle),
-                      child: angle < 3.14159 / 2
-                          ? _buildFrontCard(colorScheme, word)
-                          : Transform(
-                              alignment: Alignment.center,
-                              transform: Matrix4.identity()..rotateY(3.14159),
-                              child: _buildBackCard(colorScheme, word),
-                            ),
-                    );
-                  },
+      body: StudySplitLayout(
+        key: _splitKey,
+        wordId: word.id,
+        left: Column(
+          children: [
+            // 进度条
+            LinearProgressIndicator(
+              value: session.progress,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: _flipCard,
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
+                child: Center(
+                  // 切卡过渡：旧卡（释义面）先淡出消失，完成后新卡再淡入
+                  child: _buildCardArea(colorScheme, word),
                 ),
               ),
             ),
-          ),
-          // 底部反馈按钮
-          if (_isFlipped) _buildFeedbackButtons(colorScheme),
-        ],
+            // 底部反馈按钮：翻牌前以透明占位保持相同高度，
+            // 保证卡片中心在翻牌前后一致；翻转过 90° 后再淡入显示
+            AnimatedBuilder(
+              animation: _controller,
+              child: _buildFeedbackButtons(colorScheme),
+              builder: (context, child) {
+                // 切词过渡期间隐藏按钮，退场完成后由翻牌状态决定显隐
+                final exiting = _exitingWord != null;
+                final opacity = exiting
+                    ? 0.0
+                    : ((_controller.value - 0.5) / 0.5).clamp(0.0, 1.0);
+                return Opacity(
+                  opacity: opacity,
+                  child: IgnorePointer(ignoring: opacity <= 0, child: child),
+                );
+              },
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  /// 卡片区域：切词过渡时旧卡先淡出，完成后新卡再淡入
+  Widget _buildCardArea(ColorScheme colorScheme, Word word) {
+    final exitingWord = _exitingWord;
+    if (exitingWord != null) {
+      // 退场阶段：仅渲染旧卡（释义面）淡出，新卡待退场完成后再淡入，
+      // 避免新旧卡同时渐变造成视觉冲突
+      final oldCard = _exitShowBack
+          ? _buildBackCard(colorScheme, exitingWord)
+          : _buildFrontCard(colorScheme, exitingWord);
+      return FadeTransition(
+        opacity: _exitFade,
+        child: IgnorePointer(child: oldCard),
+      );
+    }
+    // 正常/切词完成阶段：新卡淡入 + 轻微放大（iOS 内容浮现效果）
+    return FadeTransition(
+      opacity: _enterFade,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.94, end: 1.0).animate(
+          CurvedAnimation(parent: _enterController, curve: Curves.easeOutCubic),
+        ),
+        child: _buildFlippedCard(colorScheme, word),
+      ),
+    );
+  }
+
+  /// 带翻牌动画的卡片
+  Widget _buildFlippedCard(ColorScheme colorScheme, Word word) {
+    // 卡片内容预构建一次，动画帧只更新矩阵变换，避免每帧重建内容
+    final front = _buildFrontCard(colorScheme, word);
+    final back = _buildBackCard(colorScheme, word);
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final angle = _animation.value * 3.14159;
+        final showBack = angle >= 3.14159 / 2;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(angle),
+          child: showBack
+              ? Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..rotateY(3.14159),
+                  child: back,
+                )
+              : front,
+        );
+      },
     );
   }
 
@@ -403,16 +522,17 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 查看单词详情（复用单词本详情页布局），占满整行
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              icon: const Icon(Icons.info_outline, size: 18),
-              label: const Text('查看单词详情'),
-              onPressed: _openWordDetail,
+          // 查看单词详情（复用单词本详情页布局），占满整行；分屏时右侧常驻详情，隐藏该按钮
+          if (!StudySplitLayout.isSplitWidth(context))
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('查看单词详情'),
+                onPressed: _openWordDetail,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -459,24 +579,53 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
     if (word == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
+      SwipeDownDetailRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
     );
   }
 
-  void _onFeedback(FeedbackLevel feedback) {
-    ref.read(studySessionProvider.notifier).submitFeedback(feedback);
+  Future<void> _onFeedback(FeedbackLevel feedback) async {
+    if (_submitting || _exitingWord != null) return;
+    final exitingWord = ref.read(studySessionProvider).currentWord;
+    if (exitingWord == null) return;
 
-    // 重置翻牌与冠词选择状态
+    _submitting = true;
+    // 冻结旧卡退场时的显示状态（评分时必已翻牌，显示释义面），
+    // 同时启动淡出动画并等待反馈提交落库（SM-2 + 会话切到下一词）
+    _exitController.forward(from: 0);
     setState(() {
+      _exitingWord = exitingWord;
+      _exitShowBack = _animation.value >= 0.5;
+    });
+    try {
+      await ref.read(studySessionProvider.notifier).submitFeedback(feedback);
+    } catch (e) {
+      debugPrint('提交反馈失败: $e');
+    } finally {
+      _submitting = false;
+    }
+    if (!mounted) return;
+
+    // 等待退场动画播放完毕（提交较慢时动画早已结束）
+    if (_exitController.isAnimating) {
+      try {
+        await _exitController.forward();
+      } catch (_) {
+        return;
+      }
+    }
+    if (!mounted) return;
+
+    // 退场完成：旧卡已完全淡出，移除旧卡并播放新卡淡入。
+    // 不播放反向翻转动画，避免中途渲染新卡背面泄露下一题答案
+    _controller.reset();
+    _enterController.forward(from: 0);
+    setState(() {
+      _exitingWord = null;
+      _exitShowBack = false;
       _selectedArticle = null;
       _selectedForWordId = null;
+      _isFlipped = false;
     });
-    if (_isFlipped) {
-      _controller.reverse();
-      setState(() {
-        _isFlipped = false;
-      });
-    }
   }
 
   void _showProficiencyDialog(int wordId, int currentProficiency) {

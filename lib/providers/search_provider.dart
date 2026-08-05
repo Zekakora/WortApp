@@ -5,7 +5,6 @@ import '../services/dictionary/ai_dictionary_engine.dart';
 import '../services/dictionary/wiktionary_engine.dart';
 import 'settings_provider.dart';
 import 'database_provider.dart';
-import 'dart:convert';
 
 /// 查词引擎类型
 enum DictionaryEngineType {
@@ -48,6 +47,16 @@ final aiDictionaryEngineProvider = Provider<AIDictionaryEngine?>((ref) {
         return cached?.resultJson;
       }
       return null;
+    },
+    statusCallback: (word, success, error) async {
+      final db = ref.read(databaseProvider);
+      if (db != null) {
+        await db.aiStatusDao.record(
+          word: word,
+          success: success,
+          error: error,
+        );
+      }
     },
   );
 });

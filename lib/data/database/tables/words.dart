@@ -13,6 +13,7 @@ class Words extends Table {
   TextColumn get example => text().nullable()();
   TextColumn get tags => text().nullable()(); // JSON array or comma-separated
   IntColumn get proficiency => integer().withDefault(const Constant(0))(); // 0-5
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))(); // 收藏标记
   DateTimeColumn get lastStudyDate => dateTime().nullable()();
   // 动词三态
   TextColumn get verbPresent => text().nullable()();

@@ -6,6 +6,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
+import '../../../../ui/widgets/study_split_layout.dart';
+import 'distractor_pool_mixin.dart';
 
 /// 看德语选中文模式
 class DeToCnScreen extends ConsumerStatefulWidget {
@@ -15,12 +17,17 @@ class DeToCnScreen extends ConsumerStatefulWidget {
   ConsumerState<DeToCnScreen> createState() => _DeToCnScreenState();
 }
 
-class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
+class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
+    with DistractorPoolMixin {
   int? _selectedAnswer;
   bool _answered = false;
   List<String> _options = [];
   int _correctIndex = 0;
   int _lastWordId = -1;
+  /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
+  bool _submitting = false;
+  /// 平板分屏：控制右侧单词详情面板的模糊层
+  final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
   final FlutterTts _tts = FlutterTts();
 
   @override
@@ -49,20 +56,11 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
     if (_lastWordId == word.id && _options.isNotEmpty) return;
     _lastWordId = word.id;
 
-    // 生成选项：正确答案 + 3个干扰项
-    final allWords = session.words;
-    final otherWords = allWords.where((w) => w.id != word.id).toList();
-    otherWords.shuffle();
-
-    final options = <String>[word.chinese];
-    for (var i = 0; i < 3 && i < otherWords.length; i++) {
-      options.add(otherWords[i].chinese);
-    }
-
-    // 如果选项不足4个，添加占位
-    while (options.length < 4) {
-      options.add('选项${options.length + 1}');
-    }
+    // 生成选项：正确答案 + 3个干扰项（从会话选项池随机抽取）
+    final options = <String>[
+      word.chinese,
+      ...pickDistractors(correctWord: word, selector: (w) => w.chinese),
+    ];
 
     options.shuffle();
     _correctIndex = options.indexOf(word.chinese);
@@ -73,6 +71,13 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
     // 每次发音前应用当前设置的语速，保证设置即时生效
     await _tts.setSpeechRate(ref.read(settingsProvider).ttsSpeed);
     await _tts.speak(text);
+  }
+
+  /// 回答正确时自动关闭右侧详情面板的模糊层
+  void _maybeRevealDetail() {
+    if (_answered && _selectedAnswer == _correctIndex) {
+      _splitKey.currentState?.reveal();
+    }
   }
 
   @override
@@ -149,65 +154,69 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
         title: Text(
             '看德语选中文 (${session.currentIndex + 1}/${session.words.length})'),
       ),
-      body: Column(
-        children: [
-          LinearProgressIndicator(
-            value: session.progress,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 32),
-                  // 德语单词
-                  if (word.article != null)
-                    Chip(
-                      label: Text(
-                        word.article!,
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      backgroundColor: genderColor,
-                    ),
-                  const SizedBox(height: 16),
-                  Text(
-                    word.german,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: genderColor,
+      body: StudySplitLayout(
+        key: _splitKey,
+        wordId: word.id,
+        left: Column(
+          children: [
+            LinearProgressIndicator(
+              value: session.progress,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+                    // 德语单词
+                    if (word.article != null)
+                      Chip(
+                        label: Text(
+                          word.article!,
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
                         ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.volume_up, size: 32),
-                    onPressed: () => _speak(word.german),
-                  ),
-                  const SizedBox(height: 48),
-                  // 选项网格
-                  Expanded(
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
+                        backgroundColor: genderColor,
                       ),
-                      itemCount: _options.length,
-                      itemBuilder: (context, index) {
-                        return _buildOptionCard(index, colorScheme);
-                      },
+                    const SizedBox(height: 16),
+                    Text(
+                      word.german,
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: genderColor,
+                          ),
                     ),
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.volume_up, size: 32),
+                      onPressed: () => _speak(word.german),
+                    ),
+                    const SizedBox(height: 48),
+                    // 选项网格
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: _options.length,
+                        itemBuilder: (context, index) {
+                          return _buildOptionCard(index, colorScheme);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_answered) _buildFeedbackButtons(colorScheme),
-          if (!_answered && _selectedAnswer != null)
-            _buildConfirmButton(colorScheme),
-        ],
+            if (_answered) _buildFeedbackButtons(colorScheme),
+            if (!_answered && _selectedAnswer != null)
+              _buildConfirmButton(colorScheme),
+          ],
+        ),
       ),
     );
   }
@@ -240,6 +249,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
                     _answered = true;
                   }
                 });
+                // 回答正确时自动显示右侧单词详情
+                _maybeRevealDetail();
               },
         borderRadius: BorderRadius.circular(16),
         child: Center(
@@ -265,6 +276,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
             setState(() {
               _answered = true;
             });
+            // 回答正确时自动显示右侧单词详情
+            _maybeRevealDetail();
           },
           child: const Text('确认答案'),
         ),
@@ -288,16 +301,17 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 查看单词详情（复用单词本详情页布局），占满整行
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              icon: const Icon(Icons.info_outline, size: 18),
-              label: const Text('查看单词详情'),
-              onPressed: _openWordDetail,
+          // 查看单词详情（复用单词本详情页布局），占满整行；分屏时右侧常驻详情，隐藏该按钮
+          if (!StudySplitLayout.isSplitWidth(context))
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text('查看单词详情'),
+                onPressed: _openWordDetail,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -348,14 +362,24 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen> {
     );
   }
 
-  void _onFeedback(FeedbackLevel feedback) {
-    ref.read(studySessionProvider.notifier).submitFeedback(feedback);
+  Future<void> _onFeedback(FeedbackLevel feedback) async {
+    if (_submitting) return;
+    _submitting = true;
+    try {
+      // 先等会话状态更新完成（currentWord 已切到下一词）再重置状态：
+      // 若提前清空选项，中间帧会先用旧词重新生成选项，之后又变成新词选项（闪烁）
+      await ref.read(studySessionProvider.notifier).submitFeedback(feedback);
+    } finally {
+      _submitting = false;
+    }
+    if (!mounted) return;
 
-    // 重置状态，下一题会在 build 中自动生成选项
+    // 重置状态，下一题会在 build 中同步生成新选项
     setState(() {
       _selectedAnswer = null;
       _answered = false;
       _lastWordId = -1; // 强制重新生成选项
+      _options = []; // 清空旧题选项：避免下一帧先渲染上一题选项再被刷新（闪烁）
     });
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/conjugation_provider.dart';
+import '../../widgets/study_split_layout.dart';
 
 /// 变位练习界面
 ///
@@ -25,6 +26,8 @@ class _ConjugationDrillScreenState
   String _activeKey = '';
   /// 定冠词模式：用户选择的三色选项（die/das/der）
   String? _selectedArticle;
+  /// 平板分屏：控制右侧单词详情面板的模糊层
+  final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
 
   @override
   void dispose() {
@@ -81,71 +84,75 @@ class _ConjugationDrillScreenState
         title: Text(
             '变位练习 (${state.answeredCount + 1}/${state.questions.length})'),
       ),
-      body: Column(
-        children: [
-          // 进度条
-          LinearProgressIndicator(
-            value: state.progress,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 模式徽章
-                  _buildModeBadge(question.mode),
-                  const SizedBox(height: 16),
-                  // 单词卡片
-                  _buildWordCard(question),
-                  const SizedBox(height: 24),
-                  // 题目
-                  Text(
-                    question.prompt,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (isVerb) ...[
-                    const SizedBox(height: 8),
+      body: StudySplitLayout(
+        key: _splitKey,
+        wordId: question.wordId,
+        left: Column(
+          children: [
+            // 进度条
+            LinearProgressIndicator(
+              value: state.progress,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 模式徽章
+                    _buildModeBadge(question.mode),
+                    const SizedBox(height: 16),
+                    // 单词卡片
+                    _buildWordCard(question),
+                    const SizedBox(height: 24),
+                    // 题目
                     Text(
-                      '请完整填写 ${question.mode.title} 的 6 个人称变位形态',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                      question.prompt,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
                       textAlign: TextAlign.center,
                     ),
+                    if (isVerb) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '请完整填写 ${question.mode.title} 的 6 个人称变位形态',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color:
+                                  Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    // 输入区域
+                    for (final field in question.fields)
+                      _buildField(field, isVerb),
+                    // 被动语态提示
+                    if (isVerb && question.mode.id == 'verb_passiv') ...[
+                      const SizedBox(height: 12),
+                      _buildHint(colorScheme,
+                          '提示：被动语态 = werden 的现在时变位 + 动词第二分词（Partizip II）'),
+                    ],
+                    // 形容词变级提示
+                    if (question.mode.id == 'adj_steigerung') ...[
+                      const SizedBox(height: 12),
+                      _buildHint(
+                          colorScheme,
+                          '提示：比较级一般加 -er，最高级一般用 am ...-sten（注意变音与词尾变化）'),
+                    ],
+                    const SizedBox(height: 20),
+                    // 结果反馈
+                    if (_submitted) _buildResultBanner(colorScheme),
                   ],
-                  const SizedBox(height: 20),
-                  // 输入区域
-                  for (final field in question.fields)
-                    _buildField(field, isVerb),
-                  // 被动语态提示
-                  if (isVerb && question.mode.id == 'verb_passiv') ...[
-                    const SizedBox(height: 12),
-                    _buildHint(colorScheme,
-                        '提示：被动语态 = werden 的现在时变位 + 动词第二分词（Partizip II）'),
-                  ],
-                  // 形容词变级提示
-                  if (question.mode.id == 'adj_steigerung') ...[
-                    const SizedBox(height: 12),
-                    _buildHint(
-                        colorScheme,
-                        '提示：比较级一般加 -er，最高级一般用 am ...-sten（注意变音与词尾变化）'),
-                  ],
-                  const SizedBox(height: 20),
-                  // 结果反馈
-                  if (_submitted) _buildResultBanner(colorScheme),
-                ],
+                ),
               ),
             ),
-          ),
-          // 底部按钮
-          _buildBottomButton(colorScheme),
-        ],
+            // 底部按钮
+            _buildBottomButton(colorScheme),
+          ],
+        ),
       ),
     );
   }
@@ -542,6 +549,11 @@ class _ConjugationDrillScreenState
         _submitted = true;
         _results = results;
       });
+
+      // 全部答对时自动显示右侧单词详情
+      if (allCorrect) {
+        _splitKey.currentState?.reveal();
+      }
 
       ref.read(conjugationDrillProvider.notifier).submitAnswer(
             isCorrect: allCorrect,

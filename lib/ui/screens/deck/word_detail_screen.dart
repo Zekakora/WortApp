@@ -18,7 +18,14 @@ import '../../../services/dictionary/ai_dictionary_engine.dart';
 class WordDetailScreen extends ConsumerStatefulWidget {
   final int wordId;
 
-  const WordDetailScreen({super.key, required this.wordId});
+  /// 只读模式：隐藏编辑/删除等操作（学习分屏场景防误触）
+  final bool readOnly;
+
+  const WordDetailScreen({
+    super.key,
+    required this.wordId,
+    this.readOnly = false,
+  });
 
   @override
   ConsumerState<WordDetailScreen> createState() => _WordDetailScreenState();
@@ -93,6 +100,22 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     // 每次发音前应用当前设置的语速，保证设置即时生效
     await _tts.setSpeechRate(ref.read(settingsProvider).ttsSpeed);
     await _tts.speak(text);
+  }
+
+  /// 切换收藏状态
+  Future<void> _toggleFavorite() async {
+    final db = ref.read(databaseProvider);
+    final word = _word;
+    if (db == null || word == null) return;
+
+    await db.wordDao.updateFavorite(word.id, !word.isFavorite);
+    // 重新加载以同步收藏状态
+    final updated = await db.wordDao.getWordById(word.id);
+    if (updated != null && mounted) {
+      setState(() {
+        _word = updated;
+      });
+    }
   }
 
   Future<void> _loadAiResult() async {
@@ -330,14 +353,25 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
       appBar: AppBar(
         title: const Text('单词详情'),
         actions: [
+          // 收藏按钮（只读分屏场景也保留，方便随时收藏/取消收藏）
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => _showEditDialog(context),
+            icon: Icon(
+              word.isFavorite ? Icons.star : Icons.star_border,
+              color: word.isFavorite ? Colors.amber : null,
+            ),
+            tooltip: word.isFavorite ? '取消收藏' : '收藏',
+            onPressed: _toggleFavorite,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _showDeleteDialog(context),
-          ),
+          if (!widget.readOnly) ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _showEditDialog(context),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _showDeleteDialog(context),
+            ),
+          ],
         ],
       ),
       body: SingleChildScrollView(
@@ -1005,7 +1039,8 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             onPressed: () async {
               final db = ref.read(databaseProvider);
               if (db != null) {
-                await db.wordDao.deleteWord(_word!.id);
+                // 走完整清理链路（SM-2 状态、变位缓存、错误统计、AI 缓存）
+                await db.deleteWordWithCleanup(_word!.id);
               }
               if (context.mounted) {
                 Navigator.pop(context);

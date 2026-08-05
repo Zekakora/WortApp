@@ -557,8 +557,10 @@ class ImportService {
       try {
         await _db.transaction(() async {
           await _db.delete(_db.aiLookupCache).go();
+          await _db.delete(_db.aiRequestStatus).go();
           await _db.delete(_db.conjugationCache).go();
           await _db.delete(_db.sm2States).go();
+          await _db.delete(_db.studyStats).go();
           await _db.delete(_db.words).go();
           await _db.delete(_db.decks).go();
           await _db.delete(_db.settings).go();
@@ -629,6 +631,36 @@ class ImportService {
           );
         } catch (e) {
           errors.add('AI 缓存恢复失败: $e');
+        }
+      }
+    }
+
+    // 恢复 AI 请求状态记录（v3 备份才包含，旧备份跳过）
+    final aiStatus = data['aiStatus'];
+    if (aiStatus is List) {
+      for (final entry in aiStatus) {
+        if (entry is! Map<String, dynamic>) continue;
+        final word = entry['word']?.toString() ?? '';
+        final status = entry['status']?.toString() ?? '';
+        if (word.isEmpty ||
+            (status != 'success' && status != 'failed')) {
+          continue;
+        }
+        try {
+          final engine = entry['engine']?.toString() ?? 'ai';
+          await _db.aiStatusDao.deleteStatus(word, engine: engine);
+          await _db.into(_db.aiRequestStatus).insert(
+                AiRequestStatusCompanion.insert(
+                  word: word,
+                  engine: drift.Value(engine),
+                  status: status,
+                  errorMessage: drift.Value(entry['errorMessage']?.toString()),
+                  lastRequestAt:
+                      _parseDate(entry['lastRequestAt']) ?? DateTime.now(),
+                ),
+              );
+        } catch (e) {
+          errors.add('AI 状态恢复失败: $e');
         }
       }
     }
@@ -734,10 +766,34 @@ class ImportService {
           nounType: _optStr(w['nounType']),
           adjComparative: _optStr(w['adjComparative']),
           adjSuperlative: _optStr(w['adjSuperlative']),
+          isFavorite: drift.Value(w['isFavorite'] == true),
           createdAt: drift.Value(_parseDate(w['createdAt']) ?? now),
           updatedAt: drift.Value(_parseDate(w['updatedAt']) ?? now),
         ),
       );
+
+      // 恢复每日错误统计（v4 备份才包含，旧备份跳过）
+      final stats = w['stats'];
+      if (stats is List) {
+        for (final entry in stats) {
+          if (entry is! Map<String, dynamic>) continue;
+          final date = _parseDate(entry['date']);
+          if (date == null) continue;
+          try {
+            await _db.into(_db.studyStats).insert(
+                  StudyStatsCompanion.insert(
+                    wordId: wordId,
+                    date: date,
+                    appearances:
+                        drift.Value(_parseInt(entry['appearances'])),
+                    errors: drift.Value(_parseInt(entry['errors'])),
+                  ),
+                );
+          } catch (e) {
+            // 单条统计恢复失败不影响单词导入
+          }
+        }
+      }
 
       // 恢复 SM-2 复习状态
       final sm2 = w['sm2'];

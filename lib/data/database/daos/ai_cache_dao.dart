@@ -43,6 +43,18 @@ class AiCacheDao extends DatabaseAccessor<AppDatabase> with _$AiCacheDaoMixin {
     );
   }
 
+  /// 批量获取单词列表的 AI 缓存（word → 缓存记录）
+  Future<Map<String, AiLookupCacheData>> getCachesForWords(
+    List<String> words, {
+    String engine = 'ai',
+  }) async {
+    if (words.isEmpty) return {};
+    final rows = await (select(aiLookupCache)
+          ..where((t) => t.word.isIn(words) & t.engine.equals(engine)))
+        .get();
+    return {for (final row in rows) row.word: row};
+  }
+
   /// 删除缓存
   Future<void> deleteCache(String word, {String engine = 'ai'}) async {
     await (delete(aiLookupCache)

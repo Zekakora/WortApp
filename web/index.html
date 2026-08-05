@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="德语背单词与语法助手">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="德语背单词">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>德语背单词</title>
+  <link rel="manifest" href="manifest.json">
+
+  <script>
+    // 按浏览器语言显示应用名：中文环境显示“德语背单词”，英/德等显示“Wortbuch”
+    (function () {
+      var lang = (navigator.language || 'zh').toLowerCase();
+      var isZh = lang.startsWith('zh');
+      var appName = isZh ? '德语背单词' : 'Wortbuch';
+      var desc = isZh ? '德语背单词与语法助手' : 'German vocabulary assistant';
+      document.title = appName;
+      var metaTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (metaTitle) metaTitle.setAttribute('content', appName);
+      var metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', desc);
+      // 动态更新 PWA manifest 中的应用名
+      var manifestLink = document.querySelector('link[rel="manifest"]');
+      if (manifestLink) {
+        fetch(manifestLink.href).then(function (r) { return r.json(); }).then(function (m) {
+          m.name = appName;
+          m.short_name = appName;
+          m.description = desc;
+          var blob = new Blob([JSON.stringify(m)], { type: 'application/manifest+json' });
+          manifestLink.href = URL.createObjectURL(blob);
+        }).catch(function () {});
+      }
+    })();
+  </script>
+
+
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

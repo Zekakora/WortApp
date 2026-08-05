@@ -531,6 +531,21 @@ class $WordsTable extends Words with TableInfo<$WordsTable, Word> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _lastStudyDateMeta = const VerificationMeta(
     'lastStudyDate',
   );
@@ -665,6 +680,7 @@ class $WordsTable extends Words with TableInfo<$WordsTable, Word> {
     example,
     tags,
     proficiency,
+    isFavorite,
     lastStudyDate,
     verbPresent,
     verbPast,
@@ -753,6 +769,12 @@ class $WordsTable extends Words with TableInfo<$WordsTable, Word> {
           data['proficiency']!,
           _proficiencyMeta,
         ),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
       );
     }
     if (data.containsKey('last_study_date')) {
@@ -892,6 +914,10 @@ class $WordsTable extends Words with TableInfo<$WordsTable, Word> {
         DriftSqlType.int,
         data['${effectivePrefix}proficiency'],
       )!,
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
       lastStudyDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_study_date'],
@@ -956,6 +982,7 @@ class Word extends DataClass implements Insertable<Word> {
   final String? example;
   final String? tags;
   final int proficiency;
+  final bool isFavorite;
   final DateTime? lastStudyDate;
   final String? verbPresent;
   final String? verbPast;
@@ -978,6 +1005,7 @@ class Word extends DataClass implements Insertable<Word> {
     this.example,
     this.tags,
     required this.proficiency,
+    required this.isFavorite,
     this.lastStudyDate,
     this.verbPresent,
     this.verbPast,
@@ -1013,6 +1041,7 @@ class Word extends DataClass implements Insertable<Word> {
       map['tags'] = Variable<String>(tags);
     }
     map['proficiency'] = Variable<int>(proficiency);
+    map['is_favorite'] = Variable<bool>(isFavorite);
     if (!nullToAbsent || lastStudyDate != null) {
       map['last_study_date'] = Variable<DateTime>(lastStudyDate);
     }
@@ -1065,6 +1094,7 @@ class Word extends DataClass implements Insertable<Word> {
           : Value(example),
       tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
       proficiency: Value(proficiency),
+      isFavorite: Value(isFavorite),
       lastStudyDate: lastStudyDate == null && nullToAbsent
           ? const Value.absent()
           : Value(lastStudyDate),
@@ -1113,6 +1143,7 @@ class Word extends DataClass implements Insertable<Word> {
       example: serializer.fromJson<String?>(json['example']),
       tags: serializer.fromJson<String?>(json['tags']),
       proficiency: serializer.fromJson<int>(json['proficiency']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       lastStudyDate: serializer.fromJson<DateTime?>(json['lastStudyDate']),
       verbPresent: serializer.fromJson<String?>(json['verbPresent']),
       verbPast: serializer.fromJson<String?>(json['verbPast']),
@@ -1140,6 +1171,7 @@ class Word extends DataClass implements Insertable<Word> {
       'example': serializer.toJson<String?>(example),
       'tags': serializer.toJson<String?>(tags),
       'proficiency': serializer.toJson<int>(proficiency),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
       'lastStudyDate': serializer.toJson<DateTime?>(lastStudyDate),
       'verbPresent': serializer.toJson<String?>(verbPresent),
       'verbPast': serializer.toJson<String?>(verbPast),
@@ -1165,6 +1197,7 @@ class Word extends DataClass implements Insertable<Word> {
     Value<String?> example = const Value.absent(),
     Value<String?> tags = const Value.absent(),
     int? proficiency,
+    bool? isFavorite,
     Value<DateTime?> lastStudyDate = const Value.absent(),
     Value<String?> verbPresent = const Value.absent(),
     Value<String?> verbPast = const Value.absent(),
@@ -1187,6 +1220,7 @@ class Word extends DataClass implements Insertable<Word> {
     example: example.present ? example.value : this.example,
     tags: tags.present ? tags.value : this.tags,
     proficiency: proficiency ?? this.proficiency,
+    isFavorite: isFavorite ?? this.isFavorite,
     lastStudyDate: lastStudyDate.present
         ? lastStudyDate.value
         : this.lastStudyDate,
@@ -1219,6 +1253,9 @@ class Word extends DataClass implements Insertable<Word> {
       proficiency: data.proficiency.present
           ? data.proficiency.value
           : this.proficiency,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
       lastStudyDate: data.lastStudyDate.present
           ? data.lastStudyDate.value
           : this.lastStudyDate,
@@ -1260,6 +1297,7 @@ class Word extends DataClass implements Insertable<Word> {
           ..write('example: $example, ')
           ..write('tags: $tags, ')
           ..write('proficiency: $proficiency, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('lastStudyDate: $lastStudyDate, ')
           ..write('verbPresent: $verbPresent, ')
           ..write('verbPast: $verbPast, ')
@@ -1287,6 +1325,7 @@ class Word extends DataClass implements Insertable<Word> {
     example,
     tags,
     proficiency,
+    isFavorite,
     lastStudyDate,
     verbPresent,
     verbPast,
@@ -1313,6 +1352,7 @@ class Word extends DataClass implements Insertable<Word> {
           other.example == this.example &&
           other.tags == this.tags &&
           other.proficiency == this.proficiency &&
+          other.isFavorite == this.isFavorite &&
           other.lastStudyDate == this.lastStudyDate &&
           other.verbPresent == this.verbPresent &&
           other.verbPast == this.verbPast &&
@@ -1337,6 +1377,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
   final Value<String?> example;
   final Value<String?> tags;
   final Value<int> proficiency;
+  final Value<bool> isFavorite;
   final Value<DateTime?> lastStudyDate;
   final Value<String?> verbPresent;
   final Value<String?> verbPast;
@@ -1359,6 +1400,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
     this.example = const Value.absent(),
     this.tags = const Value.absent(),
     this.proficiency = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.lastStudyDate = const Value.absent(),
     this.verbPresent = const Value.absent(),
     this.verbPast = const Value.absent(),
@@ -1382,6 +1424,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
     this.example = const Value.absent(),
     this.tags = const Value.absent(),
     this.proficiency = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.lastStudyDate = const Value.absent(),
     this.verbPresent = const Value.absent(),
     this.verbPast = const Value.absent(),
@@ -1409,6 +1452,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
     Expression<String>? example,
     Expression<String>? tags,
     Expression<int>? proficiency,
+    Expression<bool>? isFavorite,
     Expression<DateTime>? lastStudyDate,
     Expression<String>? verbPresent,
     Expression<String>? verbPast,
@@ -1432,6 +1476,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
       if (example != null) 'example': example,
       if (tags != null) 'tags': tags,
       if (proficiency != null) 'proficiency': proficiency,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (lastStudyDate != null) 'last_study_date': lastStudyDate,
       if (verbPresent != null) 'verb_present': verbPresent,
       if (verbPast != null) 'verb_past': verbPast,
@@ -1457,6 +1502,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
     Value<String?>? example,
     Value<String?>? tags,
     Value<int>? proficiency,
+    Value<bool>? isFavorite,
     Value<DateTime?>? lastStudyDate,
     Value<String?>? verbPresent,
     Value<String?>? verbPast,
@@ -1480,6 +1526,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
       example: example ?? this.example,
       tags: tags ?? this.tags,
       proficiency: proficiency ?? this.proficiency,
+      isFavorite: isFavorite ?? this.isFavorite,
       lastStudyDate: lastStudyDate ?? this.lastStudyDate,
       verbPresent: verbPresent ?? this.verbPresent,
       verbPast: verbPast ?? this.verbPast,
@@ -1526,6 +1573,9 @@ class WordsCompanion extends UpdateCompanion<Word> {
     }
     if (proficiency.present) {
       map['proficiency'] = Variable<int>(proficiency.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
     }
     if (lastStudyDate.present) {
       map['last_study_date'] = Variable<DateTime>(lastStudyDate.value);
@@ -1576,6 +1626,7 @@ class WordsCompanion extends UpdateCompanion<Word> {
           ..write('example: $example, ')
           ..write('tags: $tags, ')
           ..write('proficiency: $proficiency, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('lastStudyDate: $lastStudyDate, ')
           ..write('verbPresent: $verbPresent, ')
           ..write('verbPast: $verbPast, ')
@@ -3066,6 +3117,419 @@ class AiLookupCacheCompanion extends UpdateCompanion<AiLookupCacheData> {
   }
 }
 
+class $AiRequestStatusTable extends AiRequestStatus
+    with TableInfo<$AiRequestStatusTable, AiRequestStatusData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AiRequestStatusTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _wordMeta = const VerificationMeta('word');
+  @override
+  late final GeneratedColumn<String> word = GeneratedColumn<String>(
+    'word',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 500,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _engineMeta = const VerificationMeta('engine');
+  @override
+  late final GeneratedColumn<String> engine = GeneratedColumn<String>(
+    'engine',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ai'),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastRequestAtMeta = const VerificationMeta(
+    'lastRequestAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastRequestAt =
+      GeneratedColumn<DateTime>(
+        'last_request_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    word,
+    engine,
+    status,
+    errorMessage,
+    lastRequestAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ai_request_status';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AiRequestStatusData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('word')) {
+      context.handle(
+        _wordMeta,
+        word.isAcceptableOrUnknown(data['word']!, _wordMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_wordMeta);
+    }
+    if (data.containsKey('engine')) {
+      context.handle(
+        _engineMeta,
+        engine.isAcceptableOrUnknown(data['engine']!, _engineMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_request_at')) {
+      context.handle(
+        _lastRequestAtMeta,
+        lastRequestAt.isAcceptableOrUnknown(
+          data['last_request_at']!,
+          _lastRequestAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastRequestAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {word, engine},
+  ];
+  @override
+  AiRequestStatusData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AiRequestStatusData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      word: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}word'],
+      )!,
+      engine: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}engine'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      lastRequestAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_request_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AiRequestStatusTable createAlias(String alias) {
+    return $AiRequestStatusTable(attachedDatabase, alias);
+  }
+}
+
+class AiRequestStatusData extends DataClass
+    implements Insertable<AiRequestStatusData> {
+  final int id;
+  final String word;
+  final String engine;
+  final String status;
+  final String? errorMessage;
+  final DateTime lastRequestAt;
+  const AiRequestStatusData({
+    required this.id,
+    required this.word,
+    required this.engine,
+    required this.status,
+    this.errorMessage,
+    required this.lastRequestAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['word'] = Variable<String>(word);
+    map['engine'] = Variable<String>(engine);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    map['last_request_at'] = Variable<DateTime>(lastRequestAt);
+    return map;
+  }
+
+  AiRequestStatusCompanion toCompanion(bool nullToAbsent) {
+    return AiRequestStatusCompanion(
+      id: Value(id),
+      word: Value(word),
+      engine: Value(engine),
+      status: Value(status),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      lastRequestAt: Value(lastRequestAt),
+    );
+  }
+
+  factory AiRequestStatusData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AiRequestStatusData(
+      id: serializer.fromJson<int>(json['id']),
+      word: serializer.fromJson<String>(json['word']),
+      engine: serializer.fromJson<String>(json['engine']),
+      status: serializer.fromJson<String>(json['status']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      lastRequestAt: serializer.fromJson<DateTime>(json['lastRequestAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'word': serializer.toJson<String>(word),
+      'engine': serializer.toJson<String>(engine),
+      'status': serializer.toJson<String>(status),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'lastRequestAt': serializer.toJson<DateTime>(lastRequestAt),
+    };
+  }
+
+  AiRequestStatusData copyWith({
+    int? id,
+    String? word,
+    String? engine,
+    String? status,
+    Value<String?> errorMessage = const Value.absent(),
+    DateTime? lastRequestAt,
+  }) => AiRequestStatusData(
+    id: id ?? this.id,
+    word: word ?? this.word,
+    engine: engine ?? this.engine,
+    status: status ?? this.status,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    lastRequestAt: lastRequestAt ?? this.lastRequestAt,
+  );
+  AiRequestStatusData copyWithCompanion(AiRequestStatusCompanion data) {
+    return AiRequestStatusData(
+      id: data.id.present ? data.id.value : this.id,
+      word: data.word.present ? data.word.value : this.word,
+      engine: data.engine.present ? data.engine.value : this.engine,
+      status: data.status.present ? data.status.value : this.status,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      lastRequestAt: data.lastRequestAt.present
+          ? data.lastRequestAt.value
+          : this.lastRequestAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiRequestStatusData(')
+          ..write('id: $id, ')
+          ..write('word: $word, ')
+          ..write('engine: $engine, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('lastRequestAt: $lastRequestAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, word, engine, status, errorMessage, lastRequestAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AiRequestStatusData &&
+          other.id == this.id &&
+          other.word == this.word &&
+          other.engine == this.engine &&
+          other.status == this.status &&
+          other.errorMessage == this.errorMessage &&
+          other.lastRequestAt == this.lastRequestAt);
+}
+
+class AiRequestStatusCompanion extends UpdateCompanion<AiRequestStatusData> {
+  final Value<int> id;
+  final Value<String> word;
+  final Value<String> engine;
+  final Value<String> status;
+  final Value<String?> errorMessage;
+  final Value<DateTime> lastRequestAt;
+  const AiRequestStatusCompanion({
+    this.id = const Value.absent(),
+    this.word = const Value.absent(),
+    this.engine = const Value.absent(),
+    this.status = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.lastRequestAt = const Value.absent(),
+  });
+  AiRequestStatusCompanion.insert({
+    this.id = const Value.absent(),
+    required String word,
+    this.engine = const Value.absent(),
+    required String status,
+    this.errorMessage = const Value.absent(),
+    required DateTime lastRequestAt,
+  }) : word = Value(word),
+       status = Value(status),
+       lastRequestAt = Value(lastRequestAt);
+  static Insertable<AiRequestStatusData> custom({
+    Expression<int>? id,
+    Expression<String>? word,
+    Expression<String>? engine,
+    Expression<String>? status,
+    Expression<String>? errorMessage,
+    Expression<DateTime>? lastRequestAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (word != null) 'word': word,
+      if (engine != null) 'engine': engine,
+      if (status != null) 'status': status,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (lastRequestAt != null) 'last_request_at': lastRequestAt,
+    });
+  }
+
+  AiRequestStatusCompanion copyWith({
+    Value<int>? id,
+    Value<String>? word,
+    Value<String>? engine,
+    Value<String>? status,
+    Value<String?>? errorMessage,
+    Value<DateTime>? lastRequestAt,
+  }) {
+    return AiRequestStatusCompanion(
+      id: id ?? this.id,
+      word: word ?? this.word,
+      engine: engine ?? this.engine,
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
+      lastRequestAt: lastRequestAt ?? this.lastRequestAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (word.present) {
+      map['word'] = Variable<String>(word.value);
+    }
+    if (engine.present) {
+      map['engine'] = Variable<String>(engine.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (lastRequestAt.present) {
+      map['last_request_at'] = Variable<DateTime>(lastRequestAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AiRequestStatusCompanion(')
+          ..write('id: $id, ')
+          ..write('word: $word, ')
+          ..write('engine: $engine, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('lastRequestAt: $lastRequestAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -3327,6 +3791,357 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 }
 
+class $StudyStatsTable extends StudyStats
+    with TableInfo<$StudyStatsTable, StudyStat> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StudyStatsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _wordIdMeta = const VerificationMeta('wordId');
+  @override
+  late final GeneratedColumn<int> wordId = GeneratedColumn<int>(
+    'word_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appearancesMeta = const VerificationMeta(
+    'appearances',
+  );
+  @override
+  late final GeneratedColumn<int> appearances = GeneratedColumn<int>(
+    'appearances',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _errorsMeta = const VerificationMeta('errors');
+  @override
+  late final GeneratedColumn<int> errors = GeneratedColumn<int>(
+    'errors',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, wordId, date, appearances, errors];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'study_stats';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StudyStat> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('word_id')) {
+      context.handle(
+        _wordIdMeta,
+        wordId.isAcceptableOrUnknown(data['word_id']!, _wordIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_wordIdMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('appearances')) {
+      context.handle(
+        _appearancesMeta,
+        appearances.isAcceptableOrUnknown(
+          data['appearances']!,
+          _appearancesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('errors')) {
+      context.handle(
+        _errorsMeta,
+        errors.isAcceptableOrUnknown(data['errors']!, _errorsMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {wordId, date},
+  ];
+  @override
+  StudyStat map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StudyStat(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      wordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}word_id'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      appearances: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}appearances'],
+      )!,
+      errors: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}errors'],
+      )!,
+    );
+  }
+
+  @override
+  $StudyStatsTable createAlias(String alias) {
+    return $StudyStatsTable(attachedDatabase, alias);
+  }
+}
+
+class StudyStat extends DataClass implements Insertable<StudyStat> {
+  final int id;
+  final int wordId;
+
+  /// 学习日期（当天 00:00:00）
+  final DateTime date;
+
+  /// 当天出现次数
+  final int appearances;
+
+  /// 当天错误次数
+  final int errors;
+  const StudyStat({
+    required this.id,
+    required this.wordId,
+    required this.date,
+    required this.appearances,
+    required this.errors,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['word_id'] = Variable<int>(wordId);
+    map['date'] = Variable<DateTime>(date);
+    map['appearances'] = Variable<int>(appearances);
+    map['errors'] = Variable<int>(errors);
+    return map;
+  }
+
+  StudyStatsCompanion toCompanion(bool nullToAbsent) {
+    return StudyStatsCompanion(
+      id: Value(id),
+      wordId: Value(wordId),
+      date: Value(date),
+      appearances: Value(appearances),
+      errors: Value(errors),
+    );
+  }
+
+  factory StudyStat.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StudyStat(
+      id: serializer.fromJson<int>(json['id']),
+      wordId: serializer.fromJson<int>(json['wordId']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      appearances: serializer.fromJson<int>(json['appearances']),
+      errors: serializer.fromJson<int>(json['errors']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'wordId': serializer.toJson<int>(wordId),
+      'date': serializer.toJson<DateTime>(date),
+      'appearances': serializer.toJson<int>(appearances),
+      'errors': serializer.toJson<int>(errors),
+    };
+  }
+
+  StudyStat copyWith({
+    int? id,
+    int? wordId,
+    DateTime? date,
+    int? appearances,
+    int? errors,
+  }) => StudyStat(
+    id: id ?? this.id,
+    wordId: wordId ?? this.wordId,
+    date: date ?? this.date,
+    appearances: appearances ?? this.appearances,
+    errors: errors ?? this.errors,
+  );
+  StudyStat copyWithCompanion(StudyStatsCompanion data) {
+    return StudyStat(
+      id: data.id.present ? data.id.value : this.id,
+      wordId: data.wordId.present ? data.wordId.value : this.wordId,
+      date: data.date.present ? data.date.value : this.date,
+      appearances: data.appearances.present
+          ? data.appearances.value
+          : this.appearances,
+      errors: data.errors.present ? data.errors.value : this.errors,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StudyStat(')
+          ..write('id: $id, ')
+          ..write('wordId: $wordId, ')
+          ..write('date: $date, ')
+          ..write('appearances: $appearances, ')
+          ..write('errors: $errors')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, wordId, date, appearances, errors);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StudyStat &&
+          other.id == this.id &&
+          other.wordId == this.wordId &&
+          other.date == this.date &&
+          other.appearances == this.appearances &&
+          other.errors == this.errors);
+}
+
+class StudyStatsCompanion extends UpdateCompanion<StudyStat> {
+  final Value<int> id;
+  final Value<int> wordId;
+  final Value<DateTime> date;
+  final Value<int> appearances;
+  final Value<int> errors;
+  const StudyStatsCompanion({
+    this.id = const Value.absent(),
+    this.wordId = const Value.absent(),
+    this.date = const Value.absent(),
+    this.appearances = const Value.absent(),
+    this.errors = const Value.absent(),
+  });
+  StudyStatsCompanion.insert({
+    this.id = const Value.absent(),
+    required int wordId,
+    required DateTime date,
+    this.appearances = const Value.absent(),
+    this.errors = const Value.absent(),
+  }) : wordId = Value(wordId),
+       date = Value(date);
+  static Insertable<StudyStat> custom({
+    Expression<int>? id,
+    Expression<int>? wordId,
+    Expression<DateTime>? date,
+    Expression<int>? appearances,
+    Expression<int>? errors,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (wordId != null) 'word_id': wordId,
+      if (date != null) 'date': date,
+      if (appearances != null) 'appearances': appearances,
+      if (errors != null) 'errors': errors,
+    });
+  }
+
+  StudyStatsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? wordId,
+    Value<DateTime>? date,
+    Value<int>? appearances,
+    Value<int>? errors,
+  }) {
+    return StudyStatsCompanion(
+      id: id ?? this.id,
+      wordId: wordId ?? this.wordId,
+      date: date ?? this.date,
+      appearances: appearances ?? this.appearances,
+      errors: errors ?? this.errors,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (wordId.present) {
+      map['word_id'] = Variable<int>(wordId.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (appearances.present) {
+      map['appearances'] = Variable<int>(appearances.value);
+    }
+    if (errors.present) {
+      map['errors'] = Variable<int>(errors.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StudyStatsCompanion(')
+          ..write('id: $id, ')
+          ..write('wordId: $wordId, ')
+          ..write('date: $date, ')
+          ..write('appearances: $appearances, ')
+          ..write('errors: $errors')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3337,7 +4152,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $AiLookupCacheTable aiLookupCache = $AiLookupCacheTable(this);
+  late final $AiRequestStatusTable aiRequestStatus = $AiRequestStatusTable(
+    this,
+  );
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $StudyStatsTable studyStats = $StudyStatsTable(this);
   late final DeckDao deckDao = DeckDao(this as AppDatabase);
   late final WordDao wordDao = WordDao(this as AppDatabase);
   late final Sm2Dao sm2Dao = Sm2Dao(this as AppDatabase);
@@ -3345,6 +4164,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final AiCacheDao aiCacheDao = AiCacheDao(this as AppDatabase);
+  late final AiStatusDao aiStatusDao = AiStatusDao(this as AppDatabase);
+  late final StudyStatDao studyStatDao = StudyStatDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3355,7 +4176,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sm2States,
     conjugationCache,
     aiLookupCache,
+    aiRequestStatus,
     settings,
+    studyStats,
   ];
 }
 
@@ -3579,6 +4402,7 @@ typedef $$WordsTableCreateCompanionBuilder =
       Value<String?> example,
       Value<String?> tags,
       Value<int> proficiency,
+      Value<bool> isFavorite,
       Value<DateTime?> lastStudyDate,
       Value<String?> verbPresent,
       Value<String?> verbPast,
@@ -3603,6 +4427,7 @@ typedef $$WordsTableUpdateCompanionBuilder =
       Value<String?> example,
       Value<String?> tags,
       Value<int> proficiency,
+      Value<bool> isFavorite,
       Value<DateTime?> lastStudyDate,
       Value<String?> verbPresent,
       Value<String?> verbPast,
@@ -3671,6 +4496,11 @@ class $$WordsTableFilterComposer extends Composer<_$AppDatabase, $WordsTable> {
 
   ColumnFilters<int> get proficiency => $composableBuilder(
     column: $table.proficiency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3789,6 +4619,11 @@ class $$WordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastStudyDate => $composableBuilder(
     column: $table.lastStudyDate,
     builder: (column) => ColumnOrderings(column),
@@ -3886,6 +4721,11 @@ class $$WordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get lastStudyDate => $composableBuilder(
     column: $table.lastStudyDate,
     builder: (column) => column,
@@ -3972,6 +4812,7 @@ class $$WordsTableTableManager
                 Value<String?> example = const Value.absent(),
                 Value<String?> tags = const Value.absent(),
                 Value<int> proficiency = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<DateTime?> lastStudyDate = const Value.absent(),
                 Value<String?> verbPresent = const Value.absent(),
                 Value<String?> verbPast = const Value.absent(),
@@ -3994,6 +4835,7 @@ class $$WordsTableTableManager
                 example: example,
                 tags: tags,
                 proficiency: proficiency,
+                isFavorite: isFavorite,
                 lastStudyDate: lastStudyDate,
                 verbPresent: verbPresent,
                 verbPast: verbPast,
@@ -4018,6 +4860,7 @@ class $$WordsTableTableManager
                 Value<String?> example = const Value.absent(),
                 Value<String?> tags = const Value.absent(),
                 Value<int> proficiency = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<DateTime?> lastStudyDate = const Value.absent(),
                 Value<String?> verbPresent = const Value.absent(),
                 Value<String?> verbPast = const Value.absent(),
@@ -4040,6 +4883,7 @@ class $$WordsTableTableManager
                 example: example,
                 tags: tags,
                 proficiency: proficiency,
+                isFavorite: isFavorite,
                 lastStudyDate: lastStudyDate,
                 verbPresent: verbPresent,
                 verbPast: verbPast,
@@ -4834,6 +5678,233 @@ typedef $$AiLookupCacheTableProcessedTableManager =
       AiLookupCacheData,
       PrefetchHooks Function()
     >;
+typedef $$AiRequestStatusTableCreateCompanionBuilder =
+    AiRequestStatusCompanion Function({
+      Value<int> id,
+      required String word,
+      Value<String> engine,
+      required String status,
+      Value<String?> errorMessage,
+      required DateTime lastRequestAt,
+    });
+typedef $$AiRequestStatusTableUpdateCompanionBuilder =
+    AiRequestStatusCompanion Function({
+      Value<int> id,
+      Value<String> word,
+      Value<String> engine,
+      Value<String> status,
+      Value<String?> errorMessage,
+      Value<DateTime> lastRequestAt,
+    });
+
+class $$AiRequestStatusTableFilterComposer
+    extends Composer<_$AppDatabase, $AiRequestStatusTable> {
+  $$AiRequestStatusTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get word => $composableBuilder(
+    column: $table.word,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get engine => $composableBuilder(
+    column: $table.engine,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastRequestAt => $composableBuilder(
+    column: $table.lastRequestAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AiRequestStatusTableOrderingComposer
+    extends Composer<_$AppDatabase, $AiRequestStatusTable> {
+  $$AiRequestStatusTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get word => $composableBuilder(
+    column: $table.word,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get engine => $composableBuilder(
+    column: $table.engine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastRequestAt => $composableBuilder(
+    column: $table.lastRequestAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AiRequestStatusTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AiRequestStatusTable> {
+  $$AiRequestStatusTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get word =>
+      $composableBuilder(column: $table.word, builder: (column) => column);
+
+  GeneratedColumn<String> get engine =>
+      $composableBuilder(column: $table.engine, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastRequestAt => $composableBuilder(
+    column: $table.lastRequestAt,
+    builder: (column) => column,
+  );
+}
+
+class $$AiRequestStatusTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AiRequestStatusTable,
+          AiRequestStatusData,
+          $$AiRequestStatusTableFilterComposer,
+          $$AiRequestStatusTableOrderingComposer,
+          $$AiRequestStatusTableAnnotationComposer,
+          $$AiRequestStatusTableCreateCompanionBuilder,
+          $$AiRequestStatusTableUpdateCompanionBuilder,
+          (
+            AiRequestStatusData,
+            BaseReferences<
+              _$AppDatabase,
+              $AiRequestStatusTable,
+              AiRequestStatusData
+            >,
+          ),
+          AiRequestStatusData,
+          PrefetchHooks Function()
+        > {
+  $$AiRequestStatusTableTableManager(
+    _$AppDatabase db,
+    $AiRequestStatusTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AiRequestStatusTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AiRequestStatusTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AiRequestStatusTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> word = const Value.absent(),
+                Value<String> engine = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime> lastRequestAt = const Value.absent(),
+              }) => AiRequestStatusCompanion(
+                id: id,
+                word: word,
+                engine: engine,
+                status: status,
+                errorMessage: errorMessage,
+                lastRequestAt: lastRequestAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String word,
+                Value<String> engine = const Value.absent(),
+                required String status,
+                Value<String?> errorMessage = const Value.absent(),
+                required DateTime lastRequestAt,
+              }) => AiRequestStatusCompanion.insert(
+                id: id,
+                word: word,
+                engine: engine,
+                status: status,
+                errorMessage: errorMessage,
+                lastRequestAt: lastRequestAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AiRequestStatusTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AiRequestStatusTable,
+      AiRequestStatusData,
+      $$AiRequestStatusTableFilterComposer,
+      $$AiRequestStatusTableOrderingComposer,
+      $$AiRequestStatusTableAnnotationComposer,
+      $$AiRequestStatusTableCreateCompanionBuilder,
+      $$AiRequestStatusTableUpdateCompanionBuilder,
+      (
+        AiRequestStatusData,
+        BaseReferences<
+          _$AppDatabase,
+          $AiRequestStatusTable,
+          AiRequestStatusData
+        >,
+      ),
+      AiRequestStatusData,
+      PrefetchHooks Function()
+    >;
 typedef $$SettingsTableCreateCompanionBuilder =
     SettingsCompanion Function({
       required String key,
@@ -4990,6 +6061,199 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$StudyStatsTableCreateCompanionBuilder =
+    StudyStatsCompanion Function({
+      Value<int> id,
+      required int wordId,
+      required DateTime date,
+      Value<int> appearances,
+      Value<int> errors,
+    });
+typedef $$StudyStatsTableUpdateCompanionBuilder =
+    StudyStatsCompanion Function({
+      Value<int> id,
+      Value<int> wordId,
+      Value<DateTime> date,
+      Value<int> appearances,
+      Value<int> errors,
+    });
+
+class $$StudyStatsTableFilterComposer
+    extends Composer<_$AppDatabase, $StudyStatsTable> {
+  $$StudyStatsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wordId => $composableBuilder(
+    column: $table.wordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get appearances => $composableBuilder(
+    column: $table.appearances,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get errors => $composableBuilder(
+    column: $table.errors,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StudyStatsTableOrderingComposer
+    extends Composer<_$AppDatabase, $StudyStatsTable> {
+  $$StudyStatsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wordId => $composableBuilder(
+    column: $table.wordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get appearances => $composableBuilder(
+    column: $table.appearances,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get errors => $composableBuilder(
+    column: $table.errors,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StudyStatsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StudyStatsTable> {
+  $$StudyStatsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get wordId =>
+      $composableBuilder(column: $table.wordId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<int> get appearances => $composableBuilder(
+    column: $table.appearances,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get errors =>
+      $composableBuilder(column: $table.errors, builder: (column) => column);
+}
+
+class $$StudyStatsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StudyStatsTable,
+          StudyStat,
+          $$StudyStatsTableFilterComposer,
+          $$StudyStatsTableOrderingComposer,
+          $$StudyStatsTableAnnotationComposer,
+          $$StudyStatsTableCreateCompanionBuilder,
+          $$StudyStatsTableUpdateCompanionBuilder,
+          (
+            StudyStat,
+            BaseReferences<_$AppDatabase, $StudyStatsTable, StudyStat>,
+          ),
+          StudyStat,
+          PrefetchHooks Function()
+        > {
+  $$StudyStatsTableTableManager(_$AppDatabase db, $StudyStatsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StudyStatsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StudyStatsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StudyStatsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> wordId = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<int> appearances = const Value.absent(),
+                Value<int> errors = const Value.absent(),
+              }) => StudyStatsCompanion(
+                id: id,
+                wordId: wordId,
+                date: date,
+                appearances: appearances,
+                errors: errors,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int wordId,
+                required DateTime date,
+                Value<int> appearances = const Value.absent(),
+                Value<int> errors = const Value.absent(),
+              }) => StudyStatsCompanion.insert(
+                id: id,
+                wordId: wordId,
+                date: date,
+                appearances: appearances,
+                errors: errors,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StudyStatsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StudyStatsTable,
+      StudyStat,
+      $$StudyStatsTableFilterComposer,
+      $$StudyStatsTableOrderingComposer,
+      $$StudyStatsTableAnnotationComposer,
+      $$StudyStatsTableCreateCompanionBuilder,
+      $$StudyStatsTableUpdateCompanionBuilder,
+      (StudyStat, BaseReferences<_$AppDatabase, $StudyStatsTable, StudyStat>),
+      StudyStat,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5004,6 +6268,10 @@ class $AppDatabaseManager {
       $$ConjugationCacheTableTableManager(_db, _db.conjugationCache);
   $$AiLookupCacheTableTableManager get aiLookupCache =>
       $$AiLookupCacheTableTableManager(_db, _db.aiLookupCache);
+  $$AiRequestStatusTableTableManager get aiRequestStatus =>
+      $$AiRequestStatusTableTableManager(_db, _db.aiRequestStatus);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$StudyStatsTableTableManager get studyStats =>
+      $$StudyStatsTableTableManager(_db, _db.studyStats);
 }

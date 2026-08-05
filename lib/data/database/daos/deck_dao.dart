@@ -58,6 +58,11 @@ class DeckDao extends DatabaseAccessor<AppDatabase> with _$DeckDaoMixin {
         'DELETE FROM sm2_states WHERE word_id IN (SELECT id FROM words WHERE deck_id = ?)',
         [deckId],
       );
+      // 2.5 删除该词书中所有单词的每日错误统计
+      await customStatement(
+        'DELETE FROM study_stats WHERE word_id IN (SELECT id FROM words WHERE deck_id = ?)',
+        [deckId],
+      );
       // 3. 删除该词书中所有单词
       await (delete(words)..where((t) => t.deckId.equals(deckId))).go();
       // 4. 删除词书本身

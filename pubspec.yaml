@@ -1,0 +1,67 @@
+name: wortapp
+description: "德语背单词与语法助手 - Anki SM-2 Algorithm + AI Conjugation"
+publish_to: 'none'
+version: 1.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 数据库 - drift ORM
+  drift: ^2.22.1
+  sqlite3_flutter_libs: ^0.5.28
+  sqlite3: ^2.7.3
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  js: ^0.7.1
+  sqflite_common_ffi_web: ^0.4.5
+
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+
+  # UI 组件
+  google_fonts: ^6.2.1
+
+  # 文件处理
+  file_picker: ^11.0.3
+  csv: ^6.0.0
+  excel: ^4.0.6
+
+  # 网络
+  http: ^1.4.0
+  dio: ^5.7.0
+
+  # TTS
+  flutter_tts: ^4.2.2
+
+  # 工具
+  intl: ^0.20.2
+  share_plus: ^10.1.4
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  drift_dev: ^2.22.1
+  build_runner: ^2.4.15
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# 应用图标生成（源文件：icon.png）
+# 修改 icon.png 后运行: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "icon.png"
+  web:
+    generate: true
+    image_path: "icon.png"
+    background_color: "#0175C2"
+    theme_color: "#0175C2"
+
+flutter:
+  uses-material-design: true

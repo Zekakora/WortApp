@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/database_provider.dart';
-import '../../../services/import_export/export_service.dart';
 import 'widgets/progress_card.dart';
 import 'widgets/feature_cards.dart';
 
@@ -30,23 +24,6 @@ class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.swap_horiz),
             onPressed: () => _showDeckSwitcher(context, ref),
             tooltip: '切换词书',
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) => _onMenuAction(context, ref, value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'export_csv',
-                child: Text('导出为 CSV'),
-              ),
-              const PopupMenuItem(
-                value: 'export_excel',
-                child: Text('导出为 Excel'),
-              ),
-              const PopupMenuItem(
-                value: 'export_backup',
-                child: Text('导出数据库备份 (.json)'),
-              ),
-            ],
           ),
         ],
       ),
@@ -80,88 +57,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _onMenuAction(BuildContext context, WidgetRef ref, String action) async {
-    final activeDeck = ref.read(activeDeckProvider).valueOrNull;
-    if (activeDeck == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择一个词书')),
-      );
-      return;
-    }
-
-    final db = ref.read(databaseProvider);
-    if (db == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('数据库未就绪')),
-      );
-      return;
-    }
-    final exportService = ExportService(db);
-
-    final ExportResult result;
-    switch (action) {
-      case 'export_csv':
-        result = await exportService.exportToCsv(deckId: activeDeck.id);
-        break;
-      case 'export_excel':
-        result = await exportService.exportToExcel(deckId: activeDeck.id);
-        break;
-      case 'export_backup':
-        result = await exportService.exportBackup(deckIds: [activeDeck.id]);
-        break;
-      default:
-        return;
-    }
-
-    if (!result.success || result.data == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.error ?? '导出失败')),
-        );
-      }
-      return;
-    }
-
-    if (context.mounted) {
-      await _saveExportFile(context, result.data!);
-    }
-  }
-
-  /// 保存/分享导出文件（跨平台：原生保存到文档目录，Web 触发浏览器下载）
-  Future<void> _saveExportFile(BuildContext context, ExportData data) async {
-    try {
-      if (kIsWeb) {
-        // Web 平台：通过系统分享触发浏览器下载
-        await Share.shareXFiles(
-          [
-            XFile.fromData(
-              data.bytes,
-              mimeType: data.mimeType,
-              name: data.fileName,
-            ),
-          ],
-          fileNameOverrides: [data.fileName],
-          text: 'WortApp 导出：${data.fileName}',
-        );
-      } else {
-        // 原生平台：保存到文档目录
-        final dir = await getApplicationDocumentsDirectory();
-        final filePath = p.join(dir.path, data.fileName);
-        await File(filePath).writeAsBytes(data.bytes, flush: true);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已导出到: $filePath')),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存导出文件失败: $e')),
-        );
-      }
-    }
-  }
 }
 
 /// 词书切换底部弹窗

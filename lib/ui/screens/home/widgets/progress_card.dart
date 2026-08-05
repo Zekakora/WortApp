@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../providers/database_provider.dart';
 import '../../../../providers/deck_provider.dart';
 import '../../../../providers/study_provider.dart';
 
@@ -25,74 +24,43 @@ class ProgressCard extends ConsumerWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // 今日学习（新词 / 复习）
+            // stretch 撑满卡片宽度，避免内容列被外层 Column 居中
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '今日学习',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    studyPlan.when(
-                      data: (plan) => Text(
-                        plan != null
-                            ? '${plan.newWords.length} / ${plan.reviewWords.length}'
-                            : '0 / 0',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                            ),
-                      ),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => Text(
-                        '0 / 0',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                            ),
-                      ),
-                    ),
-                    Text(
-                      '新词 / 复习',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+                Text(
+                  '今日学习',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                // 进度环
-                SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: 0,
-                        strokeWidth: 8,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        color: colorScheme.primary,
-                      ),
-                      Text(
-                        '0%',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
-                      ),
-                    ],
+                const SizedBox(height: 4),
+                studyPlan.when(
+                  data: (plan) => Text(
+                    plan != null
+                        ? '${plan.todayNewStudiedCount} / ${plan.todayReviewStudiedCount}'
+                        : '0 / 0',
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                  ),
+                  loading: () => const CircularProgressIndicator(),
+                  error: (e, s) => Text(
+                    '0 / 0',
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
+                  ),
+                ),
+                Text(
+                  '今日已学（新词 / 复习）',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -122,7 +90,7 @@ class ProgressCard extends ConsumerWidget {
                     value: '...',
                     color: Colors.green,
                   ),
-                  error: (_, __) => _StatItem(
+                  error: (e, s) => _StatItem(
                     icon: Icons.school_outlined,
                     label: '总词汇',
                     value: '0 词',
@@ -142,7 +110,7 @@ class ProgressCard extends ConsumerWidget {
                     value: '...',
                     color: Colors.blue,
                   ),
-                  error: (_, __) => _StatItem(
+                  error: (e, s) => _StatItem(
                     icon: Icons.schedule,
                     label: '待复习',
                     value: '0 词',
@@ -172,15 +140,15 @@ class ProgressCard extends ConsumerWidget {
             Text(
               '请选择或创建一个词书',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               '在词书管理中创建词书并导入单词',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -210,15 +178,15 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );

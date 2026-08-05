@@ -2,7 +2,9 @@
 
 ## 📋 项目概览
 
-**WortApp** 是一款德语背单词与语法助手 App，基于 **Anki SM-2 间隔重复算法**，结合 **AI 变位练习** 与 **联网查词** 功能。界面采用 **Material Design 3** 设计规范。
+**WortApp** 是一款德语背单词与语法助手 App，基于 **Anki SM-2 间隔重复算法**，结合 **AI 变位练习** 与 **联网查词** 功能。界面采用 **Material Design 3** 设计规范，支持夜间模式。
+
+**当前版本**: v1.1.0+1 (2026-08-05)
 
 ### 技术栈
 - **框架**: Flutter 3.44.8 + Dart 3.12.2
@@ -12,11 +14,12 @@
 - **目标平台**: Android + Web (调试用)
 
 ### 核心功能
-1. **SM-2 间隔重复学习** - 5种学习模式
+1. **SM-2 间隔重复学习** - 6种学习模式（含快闪卡）
 2. **AI 变位练习** - 动词/名词/形容词变位变格
 3. **联网查词** - AI深度解析 + Wiktionary
 4. **词书管理** - Excel/CSV 导入导出
-5. **Material Design 3 界面** - 德语冠词颜色系统
+5. **Material Design 3 界面** - 德语冠词颜色系统 + 夜间模式
+6. **学习统计与数据管理** - 错误统计、AI 请求状态管理、备份恢复
 
 ---
 
@@ -175,6 +178,21 @@ WortApp/
 - [x] 修复 android-34 SDK 平台不完整（Android Studio 重装 Android 14 SDK）
 - [x] **APK 构建成功**：`build/app/outputs/flutter-apk/app-release.apk` (61.2MB)
 
+### Phase 8: v1.1.0 功能增强与发布 (已完成)
+- [x] 快闪卡模式（全屏滑动评分，iOS 风格动效）
+- [x] 学习统计：study_stats 表 + 错误统计排行榜（今日/历史二级页面）
+- [x] 收藏功能（words.isFavorite）+ 抓词模式（收藏优先/只抓收藏）
+- [x] AI 数据管理：ai_request_status 表 + 数据管理页（筛选/一键重试）
+- [x] 夜间模式（设置页跟随系统/日间/夜间）
+- [x] AI 预设扩充（Gemini / 通义千问 / 阿里云百炼）
+- [x] 备份 JSON v4：导出/导入兼容收藏与错误统计
+- [x] 单词删除与缓存释放、重置学习进度
+- [x] 平板分屏双栏布局、单词详情页下滑关闭
+- [x] 完整备份：gradle wrapper 关键文件纳入版本控制
+- [x] APK 仅打包 64 位架构（arm64-v8a / x86_64），减小体积
+- [x] 项目迁出 OneDrive（D:\Project Data\WortApp），移除 VFS 禁用配置
+- [x] **版本 v1.1.0+1 发布，74 个测试全部通过**
+
 ---
 
 ## 🗄️ 数据库设计
@@ -209,6 +227,7 @@ noun_genitive   TEXT                 -- 名词第二格
 noun_plural     TEXT                 -- 名词复数
 adj_comparative TEXT                 -- 形容词比较级
 adj_superlative TEXT                 -- 形容词最高级
+is_favorite     BOOLEAN DEFAULT FALSE -- 收藏标记
 created_at      DATETIME
 updated_at      DATETIME
 ```
@@ -237,6 +256,29 @@ source           TEXT DEFAULT 'ai'    -- ai/manual
 created_at       DATETIME
 updated_at       DATETIME
 ```
+
+### 表 5: `study_stats` (每日学习统计)
+```sql
+id            INTEGER PRIMARY KEY
+word_id       INTEGER → words.id
+date          DATETIME NOT NULL       -- 学习日期（当天 00:00:00）
+appearances   INTEGER DEFAULT 0       -- 当天出现次数
+errors        INTEGER DEFAULT 0       -- 当天错误次数（忘记/模糊）
+UNIQUE(word_id, date)                 -- 每词每天一条记录
+```
+
+### 表 6: `ai_request_status` (AI 请求状态)
+```sql
+id            INTEGER PRIMARY KEY
+word_id       INTEGER → words.id
+engine        TEXT                    -- 请求引擎
+status        TEXT                    -- success / failed
+error_message TEXT                    -- 失败原因
+created_at    DATETIME
+updated_at    DATETIME
+```
+
+> schemaVersion: 3（自动迁移创建新表；words 表新增 is_favorite 收藏标记）
 
 ---
 
@@ -280,6 +322,7 @@ C:\flutter\bin\flutter build apk --release
 | AGP | 8.13.1（9.0.1 降级，兼容旧插件） | `android/settings.gradle.kts` |
 | Kotlin | 2.2.20（2.3.20 降级） | `android/settings.gradle.kts` |
 | 镜像源 | 阿里云 Maven + 腾讯云 Gradle | `settings.gradle.kts` / `gradle-wrapper.properties` |
+| ABI | 仅 64 位（arm64-v8a / x86_64） | `android/app/build.gradle.kts` | abiFilters + packaging 排除 32 位 .so |
 | VFS 监控 | 已恢复默认启用 | `android/gradle.properties` |
 
 > 项目原位于 OneDrive 同步目录，曾通过 `org.gradle.vfs.watch=false` 禁用文件监控避免缓存失效风暴；
@@ -298,15 +341,15 @@ C:\flutter\bin\flutter build apk --release
 
 ### 中优先级
 - [ ] 词书重命名对话框完善
-- [ ] 学习统计数据持久化
+- [x] 学习统计数据持久化（study_stats 表）
 - [ ] 连续打卡天数统计
-- [ ] 暗色主题测试
+- [x] 暗色主题测试（夜间模式已实现）
 
 ### 低优先级
 - [ ] 手写识别功能
 - [ ] 德语助手网页解析引擎
 - [ ] 多语言界面支持
-- [ ] 单元测试覆盖
+- [x] 单元测试覆盖（74 个测试）
 - [ ] 性能优化
 
 ---
@@ -358,12 +401,12 @@ C:\flutter\bin\flutter build apk --release
 
 ## 📊 项目统计
 
-- **代码文件数**: ~50 个 Dart 文件
-- **代码行数**: ~5000+ 行
-- **依赖包数**: ~20 个
-- **数据库表**: 4 张
-- **UI 页面**: 10+ 个
-- **学习模式**: 5 种
+- **代码文件数**: ~60 个 Dart 文件
+- **代码行数**: ~8000+ 行
+- **依赖包数**: ~25 个
+- **数据库表**: 6 张
+- **UI 页面**: 12+ 个
+- **学习模式**: 6 种
 
 ---
 

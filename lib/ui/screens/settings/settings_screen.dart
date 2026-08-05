@@ -230,16 +230,18 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('关于德语背单词'),
-            subtitle: const Text('版本 1.0.1\n© ZEKAKORA版权所有'),
+            subtitle: const Text('版本 1.1.0\n© ZEKAKORA版权所有'),
             onTap: () {
               showAboutDialog(
                 context: context,
                 applicationName: '德语背单词',
-                applicationVersion: '1.0.1',
+                applicationVersion: '1.1.0',
                 applicationLegalese: '德语背单词与语法助手',
                 children: [
                   const SizedBox(height: 16),
-                  const Text('基于 SM-2 间隔重复算法，结合 AI 变位练习与联网查词。'),
+                  const Text('基于 SM-2 间隔重复算法，结合 AI 变位练习与联网查词。'
+                      '\nhttps://github.com/Zekakora/WortApp'
+                      '\n\n© ZEKAKORA All Right Reserved'),
                 ],
               );
             },
@@ -571,10 +573,10 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  /// 保存/分享备份文件（跨平台：原生保存到文档目录，Web 触发浏览器下载）
+  /// 保存/分享备份文件（跨平台：Web/Android 触发系统分享，其余原生平台保存到文档目录）
   Future<void> _saveBackupFile(BuildContext context, ExportData data) async {
     try {
-      if (kIsWeb) {
+      if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
         await Share.shareXFiles(
           [
             XFile.fromData(

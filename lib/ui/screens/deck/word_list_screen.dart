@@ -9,12 +9,15 @@ import '../../../providers/batch_update_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/conjugation_provider.dart';
+import '../../../providers/study_provider.dart';
 import '../../../data/database/app_database.dart';
 import '../../../services/ai/batch_ai_service.dart';
 import '../../../services/dictionary/dictionary_engine.dart';
 import '../../../ui/widgets/word_type_chip.dart';
 import '../../../ui/widgets/batch_task_widgets.dart';
+import '../../../ui/widgets/batch_update_dialog.dart';
 import 'word_detail_screen.dart';
+import 'ai_data_management_screen.dart';
 
 /// 词书内单词列表
 class WordListScreen extends ConsumerStatefulWidget {
@@ -176,6 +179,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                 onLongPress: () => _enterMultiSelectModeAndSelect(word.id),
                 onAiUpdate: () => _aiUpdateWord(word),
                 onCopyToDeck: () => _copyWordToDeck(word),
+                onDelete: () => _deleteWord(word),
               );
             },
           );
@@ -185,10 +189,33 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
       ),
       // 多选模式下隐藏，避免遮挡操作
       floatingActionButton: !_isMultiSelectMode
-          ? FloatingActionButton.extended(
-              onPressed: _showAddWordDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('新建单词'),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // 重置学习进度（所有单词 SM-2 状态归零）
+                FloatingActionButton.small(
+                  heroTag: 'resetProgressFab',
+                  onPressed: _confirmResetLearningProgress,
+                  tooltip: '重置学习进度',
+                  child: const Icon(Icons.restart_alt),
+                ),
+                const SizedBox(height: 12),
+                // 数据管理（AI 释义状态查看与一键重试）
+                FloatingActionButton.small(
+                  heroTag: 'aiDataManageFab',
+                  onPressed: _openDataManagement,
+                  tooltip: '数据管理',
+                  child: const Icon(Icons.storage),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'addWordFab',
+                  onPressed: _showAddWordDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('新建单词'),
+                ),
+              ],
             )
           : null,
     );
@@ -295,6 +322,63 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         builder: (_) => WordDetailScreen(wordId: wordId),
       ),
     );
+  }
+
+  /// 打开数据管理页面（AI 释义状态查看与一键重试）
+  void _openDataManagement() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiDataManagementScreen(deckId: widget.deckId),
+      ),
+    );
+  }
+
+  /// 重置学习进度：黄色警告弹窗二次确认后，将所有单词学习状态全部归零
+  Future<void> _confirmResetLearningProgress() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.amber.shade50,
+        icon: const Icon(
+          Icons.warning_amber_rounded,
+          size: 40,
+          color: Colors.amber,
+        ),
+        title: const Text('重置学习进度'),
+        content: const Text(
+          '确定要将所有单词的学习进度全部归零吗？\n\n'
+          'SM-2 复习状态、熟练度与上次学习日期将被清除，'
+          '所有单词将变回新词状态。此操作不可恢复！',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade700,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认重置'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await db.resetAllLearningProgress();
+    // 刷新学习计划与主页进度卡（SM-2 数据已变化）
+    ref.invalidate(studyPlanProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已重置所有单词的学习进度')),
+      );
+    }
   }
 
   void _enterMultiSelectMode() {
@@ -427,13 +511,57 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (dialogContext) => _BatchUpdateDialog(
+      builder: (dialogContext) => BatchUpdateDialog(
         batchService: batchService,
         wordIds: wordIds,
         words: selectedWords,
         notifier: notifier,
+        taskName: 'AI 更新 ${wordIds.length} 个单词',
       ),
     );
+  }
+
+  /// 单词行三点菜单：删除单词
+  ///
+  /// 删除后若任何词书都不再存在该单词，将同时释放其 AI 释义缓存与请求状态。
+  Future<void> _deleteWord(Word word) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    // 确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除单词'),
+        content: Text(
+          '确定要删除 "${word.german}" 吗？\n\n'
+          '删除后不可恢复。若其他词书也不存在该单词，将同时释放其 AI 释义缓存。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await db.deleteWordWithCleanup(word.id);
+    // 刷新词书管理页的单词数量缓存
+    ref.invalidate(wordCountProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除 "${word.german}"')),
+      );
+    }
   }
 
   /// 单词行三点菜单：复制到其他词书（复制全部字段、变位缓存与学习状态，共享 AI 查词缓存）
@@ -582,6 +710,7 @@ class _WordTile extends ConsumerWidget {
   final bool isSelected;
   final VoidCallback onAiUpdate;
   final VoidCallback onCopyToDeck;
+  final VoidCallback? onDelete;
 
   const _WordTile({
     required this.word,
@@ -592,6 +721,7 @@ class _WordTile extends ConsumerWidget {
     this.isSelected = false,
     required this.onAiUpdate,
     required this.onCopyToDeck,
+    this.onDelete,
   });
 
   /// 解析变格缓存并生成摘要文本（缓存优先，回退 words 表字段）
@@ -742,10 +872,13 @@ class _WordTile extends ConsumerWidget {
                       case 'copy_to_deck':
                         onCopyToDeck();
                         break;
+                      case 'delete_word':
+                        onDelete?.call();
+                        break;
                     }
                   },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
                       value: 'ai_update',
                       child: Row(
                         children: [
@@ -755,7 +888,7 @@ class _WordTile extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'copy_to_deck',
                       child: Row(
                         children: [
@@ -765,6 +898,19 @@ class _WordTile extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    if (onDelete != null)
+                      const PopupMenuItem(
+                        value: 'delete_word',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('删除单词',
+                                style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -816,134 +962,6 @@ class _FilterOption extends StatelessWidget {
         ],
       ),
       onTap: () => onChanged(value),
-    );
-  }
-}
-
-/// 批量更新进度对话框
-class _BatchUpdateDialog extends StatefulWidget {
-  final BatchAIService batchService;
-  final List<int> wordIds;
-  final List<String> words;
-  final BatchUpdateNotifier notifier;
-
-  const _BatchUpdateDialog({
-    required this.batchService,
-    required this.wordIds,
-    required this.words,
-    required this.notifier,
-  });
-
-  @override
-  State<_BatchUpdateDialog> createState() => _BatchUpdateDialogState();
-}
-
-class _BatchUpdateDialogState extends State<_BatchUpdateDialog> {
-  BatchUpdateProgress? _progress;
-  bool _isStarted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // 延迟到widget树构建完成后启动，避免在构建期间修改provider状态
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _startUpdate();
-      }
-    });
-  }
-
-  Future<void> _startUpdate() async {
-    setState(() {
-      _isStarted = true;
-    });
-
-    // 创建任务记录（携带单词列表，供详情页检测队列中的单词）
-    final taskId = widget.notifier.addTask(
-      'AI 更新 ${widget.wordIds.length} 个单词',
-      widget.wordIds.length,
-      words: widget.words,
-    );
-    widget.notifier.startTask(taskId);
-
-    try {
-      final progress = await widget.batchService.updateWordsMeaningByIds(
-        wordIds: widget.wordIds,
-        onProgress: (progress) {
-          // 无论对话框是否关闭（含后台运行）都同步全局任务状态，
-          // 保证任务列表/进度按钮实时更新；setState 仅限界面存活时
-          widget.notifier.updateProgress(taskId, progress);
-          if (mounted) {
-            setState(() {
-              _progress = progress;
-            });
-          }
-        },
-      );
-
-      // 同样不依赖 mounted：对话框关闭后任务仍在后台运行
-      widget.notifier.completeTask(taskId, progress);
-      if (mounted) {
-        setState(() {
-          _progress = progress;
-        });
-      }
-    } catch (e) {
-      widget.notifier.failTask(taskId, e.toString());
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = _progress;
-
-    return AlertDialog(
-      title: Text(progress?.isComplete == true ? '更新完成' : 'AI 更新词意'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (progress == null || !_isStarted) ...[
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            const Text('准备中...'),
-          ] else if (!progress.isComplete) ...[
-            LinearProgressIndicator(value: progress.progress),
-            const SizedBox(height: 16),
-            Text('${progress.completed}/${progress.total}'),
-            if (progress.currentWord != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '正在处理: ${progress.currentWord}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              '关闭窗口可后台运行',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
-          ] else ...[
-            const Icon(Icons.check_circle, size: 48, color: Colors.green),
-            const SizedBox(height: 16),
-            Text('成功更新: ${progress.completed} 个单词'),
-            if (progress.failed > 0)
-              Text('失败: ${progress.failed} 个单词',
-                  style: const TextStyle(color: Colors.red)),
-          ],
-        ],
-      ),
-      actions: [
-        if (progress?.isComplete == true || !_isStarted)
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('完成'),
-          )
-        else
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('后台运行'),
-          ),
-      ],
     );
   }
 }

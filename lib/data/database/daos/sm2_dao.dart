@@ -31,7 +31,9 @@ class Sm2Dao extends DatabaseAccessor<AppDatabase> with _$Sm2DaoMixin {
     final today = DateTime(now.year, now.month, now.day);
     final count = await customSelect(
       'SELECT COUNT(*) as cnt FROM sm2_states WHERE next_review <= ?',
-      variables: [Variable.withInt(today.millisecondsSinceEpoch)],
+      // 注意：drift 2.31+ 默认以 unix 秒存储 DateTime，
+      // 必须用 withDateTime 让 drift 按数据库存储模式自动编码（不能用毫秒）
+      variables: [Variable.withDateTime(today)],
       readsFrom: {sm2States},
     ).getSingle();
     return count.data['cnt'] as int;
@@ -67,6 +69,50 @@ class Sm2Dao extends DatabaseAccessor<AppDatabase> with _$Sm2DaoMixin {
       readsFrom: {words, sm2States},
     ).get();
     return result.map((r) => r.data['id'] as int).toList();
+  }
+
+  /// 获取今日首次学习（作为新词）的单词数量
+  ///
+  /// 首次学习时 sm2_states.created_at 即创建时间，用于扣除"每日新词上限"
+  /// 中今日已学数量，确保多次进入学习模式不会超限抽取新词
+  Future<int> getTodayNewStudiedCount(int deckId) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final result = await customSelect(
+      'SELECT COUNT(*) as cnt FROM sm2_states s '
+      'JOIN words w ON s.word_id = w.id '
+      'WHERE w.deck_id = ? AND s.created_at >= ?',
+      // 注意：drift 2.31+ 默认以 unix 秒存储 DateTime，
+      // 必须用 withDateTime 让 drift 按数据库存储模式自动编码（不能用毫秒）
+      variables: [
+        Variable.withInt(deckId),
+        Variable.withDateTime(today),
+      ],
+      readsFrom: {sm2States, words},
+    ).getSingle();
+    return result.data['cnt'] as int;
+  }
+
+  /// 获取今日复习（非首次）的单词数量
+  ///
+  /// 用于扣除"每日复习上限"中今日已学数量，确保多次进入学习模式不会超限
+  Future<int> getTodayReviewStudiedCount(int deckId) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final result = await customSelect(
+      'SELECT COUNT(*) as cnt FROM sm2_states s '
+      'JOIN words w ON s.word_id = w.id '
+      'WHERE w.deck_id = ? AND s.created_at < ? AND s.last_review >= ?',
+      // 注意：drift 2.31+ 默认以 unix 秒存储 DateTime，
+      // 必须用 withDateTime 让 drift 按数据库存储模式自动编码（不能用毫秒）
+      variables: [
+        Variable.withInt(deckId),
+        Variable.withDateTime(today),
+        Variable.withDateTime(today),
+      ],
+      readsFrom: {sm2States, words},
+    ).getSingle();
+    return result.data['cnt'] as int;
   }
 
   /// 删除单词的 SM-2 状态

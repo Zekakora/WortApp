@@ -17,6 +17,7 @@ import '../../../services/import_export/import_service.dart';
 import '../../../services/import_export/export_service.dart';
 import '../../../services/ai/batch_ai_service.dart';
 import '../../../ui/widgets/import_dialog.dart';
+import '../../../ui/widgets/batch_update_dialog.dart';
 import 'word_list_screen.dart';
 
 /// 词书列表管理界面
@@ -34,7 +35,7 @@ class DeckListScreen extends ConsumerWidget {
         actions: [
           if (dbState.database != null)
             IconButton(
-              icon: const Icon(Icons.file_upload),
+              icon: const Icon(Icons.file_download),
               onPressed: () => _importDeck(context, ref),
               tooltip: '导入词书',
             ),
@@ -497,10 +498,12 @@ class DeckListScreen extends ConsumerWidget {
       showDialog(
         context: context,
         barrierDismissible: true, // 允许点击外部关闭
-        builder: (dialogContext) => _BatchUpdateDialog(
+        builder: (dialogContext) => BatchUpdateDialog(
           batchService: batchService,
           deckId: deckId,
+          overwrite: true,
           notifier: notifier,
+          taskName: 'AI 更新词书词意',
         ),
       );
     }
@@ -721,10 +724,10 @@ class _DeckCard extends ConsumerWidget {
     }
   }
 
-  /// 保存/分享导出文件（跨平台：原生保存到文档目录，Web 触发浏览器下载）
+  /// 保存/分享导出文件（跨平台：Web/Android 触发系统分享，其余原生平台保存到文档目录）
   Future<void> _saveExportFile(BuildContext context, ExportData data) async {
     try {
-      if (kIsWeb) {
+      if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
         // Web 平台：通过系统分享触发浏览器下载
         await Share.shareXFiles(
           [
@@ -1128,134 +1131,6 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BatchUpdateDialog extends StatefulWidget {
-  final BatchAIService batchService;
-  final int deckId;
-  final BatchUpdateNotifier notifier;
-
-  const _BatchUpdateDialog({
-    required this.batchService,
-    required this.deckId,
-    required this.notifier,
-  });
-
-  @override
-  State<_BatchUpdateDialog> createState() => _BatchUpdateDialogState();
-}
-
-class _BatchUpdateDialogState extends State<_BatchUpdateDialog> {
-  BatchUpdateProgress? _progress;
-  bool _isStarted = false;
-  String? _taskId;
-
-  @override
-  void initState() {
-    super.initState();
-    // 延迟到widget树构建完成后启动，避免在构建期间修改provider状态
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _startUpdate();
-      }
-    });
-  }
-
-  Future<void> _startUpdate() async {
-    setState(() {
-      _isStarted = true;
-    });
-
-    // 创建任务记录（使用1作为初始总数，避免isComplete立即为true）
-    final taskId = widget.notifier.addTask(
-      'AI 更新词书词意',
-      1, // 初始总数，会在进度更新时更新为实际值
-    );
-    _taskId = taskId;
-    widget.notifier.startTask(taskId);
-
-    try {
-      final progress = await widget.batchService.updateWordsMeaning(
-        deckId: widget.deckId,
-        overwrite: true, // 覆盖现有释义
-        onProgress: (progress) {
-          if (mounted) {
-            setState(() {
-              _progress = progress;
-            });
-            // 更新provider状态
-            widget.notifier.updateProgress(taskId, progress);
-          }
-        },
-      );
-
-      if (mounted) {
-        setState(() {
-          _progress = progress;
-        });
-        // 完成更新
-        widget.notifier.completeTask(taskId, progress);
-      }
-    } catch (e) {
-      if (mounted) {
-        widget.notifier.failTask(taskId, e.toString());
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = _progress;
-
-    return AlertDialog(
-      title: Text(progress?.isComplete == true ? '更新完成' : 'AI 更新词意'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (progress == null || !_isStarted) ...[
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            const Text('准备中...'),
-          ] else if (!progress.isComplete) ...[
-            LinearProgressIndicator(value: progress.progress),
-            const SizedBox(height: 16),
-            Text('${progress.completed}/${progress.total}'),
-            if (progress.currentWord != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '正在处理: ${progress.currentWord}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              '关闭窗口可后台运行',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
-          ] else ...[
-            const Icon(Icons.check_circle, size: 48, color: Colors.green),
-            const SizedBox(height: 16),
-            Text('成功更新: ${progress.completed} 个单词'),
-            if (progress.failed > 0)
-              Text('失败: ${progress.failed} 个单词',
-                  style: const TextStyle(color: Colors.red)),
-          ],
-        ],
-      ),
-      actions: [
-        if (progress?.isComplete == true || !_isStarted)
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('完成'),
-          )
-        else
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('后台运行'),
-          ),
-      ],
     );
   }
 }

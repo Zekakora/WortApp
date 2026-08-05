@@ -9,12 +9,19 @@ class AIDictionaryEngine implements DictionaryEngine {
   final Future<void> Function(String word, String resultJson)? _cacheCallback;
   final Future<String?> Function(String word)? _getCacheCallback;
 
+  /// 记录 AI 请求结果（success=false 时携带失败原因），用于「数据管理」展示与重试
+  final Future<void> Function(String word, bool success, String? error)?
+      _statusCallback;
+
   AIDictionaryEngine(
     this._aiService, {
     Future<void> Function(String word, String resultJson)? cacheCallback,
     Future<String?> Function(String word)? getCacheCallback,
+    Future<void> Function(String word, bool success, String? error)?
+        statusCallback,
   })  : _cacheCallback = cacheCallback,
-        _getCacheCallback = getCacheCallback;
+        _getCacheCallback = getCacheCallback,
+        _statusCallback = statusCallback;
 
   @override
   String get name => 'AI 解析';
@@ -106,14 +113,32 @@ class AIDictionaryEngine implements DictionaryEngine {
 
       // 缓存结果（仅当包含释义时缓存，避免把不完整数据写入缓存）
       final result = _parseResult(word, jsonStr);
-      if (_cacheCallback != null && result.definitions.isNotEmpty) {
-        await _cacheCallback(word, jsonStr);
+      if (result.definitions.isNotEmpty) {
+        if (_cacheCallback != null) {
+          await _cacheCallback(word, jsonStr);
+        }
+        await _recordStatus(word, true, null);
+      } else {
+        // AI 响应了但没有有效释义，按失败记录
+        debugPrint('AI 未返回有效释义: $word');
+        await _recordStatus(word, false, 'AI 未返回有效释义');
       }
 
       return result;
     } catch (e) {
       debugPrint('AI 查词失败: $e');
+      await _recordStatus(word, false, e.toString());
       return null;
+    }
+  }
+
+  /// 记录 AI 请求状态（失败不影响查词流程本身）
+  Future<void> _recordStatus(
+      String word, bool success, String? error) async {
+    try {
+      await _statusCallback?.call(word, success, error);
+    } catch (e) {
+      debugPrint('记录AI请求状态失败: $e');
     }
   }
 

@@ -13,6 +13,14 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
     return (select(words)..where((t) => t.deckId.equals(deckId))).get();
   }
 
+  /// 从所有词库中随机抽取 [limit] 个单词（用于四选一模式的干扰项选项池）
+  Future<List<Word>> getRandomWords(int limit) {
+    return (select(words)
+          ..orderBy([(t) => OrderingTerm.random()])
+          ..limit(limit))
+        .get();
+  }
+
   /// 监听词书中单词变化
   Stream<List<Word>> watchWordsByDeck(int deckId) {
     return (select(words)..where((t) => t.deckId.equals(deckId))).watch();
@@ -83,6 +91,16 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
     );
   }
 
+  /// 更新单词收藏状态
+  Future<void> updateFavorite(int wordId, bool isFavorite) {
+    return (update(words)..where((t) => t.id.equals(wordId))).write(
+      WordsCompanion(
+        isFavorite: Value(isFavorite),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// 更新上次学习日期
   Future<void> updateLastStudyDate(int wordId) {
     return (update(words)..where((t) => t.id.equals(wordId))).write(
@@ -91,6 +109,17 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// 获取今日学习过的单词（用于每日新词/复习上限均用尽后继续复习）
+  Future<List<Word>> getTodayStudiedWords(int deckId) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return (select(words)
+          ..where((t) =>
+              t.deckId.equals(deckId) &
+              t.lastStudyDate.isBiggerOrEqualValue(today)))
+        .get();
   }
 
   /// 根据德国原词查找单词（用于词书内查重）
