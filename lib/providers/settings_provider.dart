@@ -53,11 +53,24 @@ class AiConfig {
     ),
     'DeepSeek': AiConfig(
       baseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
     ),
     'OpenAI': AiConfig(
       baseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
+    ),
+    'Gemini': AiConfig(
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      model: 'gemini-3.5-flash',
+    ),
+    '通义千问': AiConfig(
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen3.8-max',
+    ),
+    '阿里云': AiConfig(
+      baseUrl:
+          'https://ws-wme43dek2fqil2mc.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+      model: 'qwen-max',
     ),
   };
 }

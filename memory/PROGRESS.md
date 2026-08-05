@@ -214,10 +214,10 @@ C:\flutter\bin\flutter build apk --release -v > build\flutter_build.log 2>&1
 | compileSdk | flutter 默认 (36) | `android/app/build.gradle.kts` | 跟随 Flutter 默认值 |
 | Maven 镜像 | 阿里云 | `android/settings.gradle.kts` | 国内加速 |
 | Gradle 分发 | 腾讯云 | `gradle-wrapper.properties` | 国内加速 |
-| VFS 监控 | 已禁用 | `android/gradle.properties` | OneDrive 目录必需（`org.gradle.vfs.watch=false`） |
+| VFS 监控 | 已恢复默认启用 | `android/gradle.properties` | 项目已迁出 OneDrive（现位于 `D:\Project Data\WortApp`），2026-08-05 移除 `org.gradle.vfs.watch=false` |
 
 **构建失败修复经验（2026-08-05）**：
-1. OneDrive 同步目录 → Gradle VFS 缓存失效风暴（构建"卡住"）→ `gradle.properties` 禁用 VFS 监控
+1. OneDrive 同步目录 → Gradle VFS 缓存失效风暴（构建"卡住"）→ `gradle.properties` 禁用 VFS 监控（**项目已迁出 OneDrive，该配置已于 2026-08-05 移除**）
 2. file_picker 8.3.7 等旧插件与 AGP 9 不兼容（`MissingValueException`）→ 升级 file_picker 至 11.0.3 并迁移 API
 3. 多个旧插件均不兼容 AGP 9 → **AGP 降级 9.0.1 → 8.13.1、Kotlin 2.3.20 → 2.2.20**
 4. `Failed to find target 'android-34'` → Android Studio 重装 Android 14 SDK（需确认 `android.jar` 与 `source.properties` 存在）

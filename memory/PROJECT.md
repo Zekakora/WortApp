@@ -280,10 +280,11 @@ C:\flutter\bin\flutter build apk --release
 | AGP | 8.13.1（9.0.1 降级，兼容旧插件） | `android/settings.gradle.kts` |
 | Kotlin | 2.2.20（2.3.20 降级） | `android/settings.gradle.kts` |
 | 镜像源 | 阿里云 Maven + 腾讯云 Gradle | `settings.gradle.kts` / `gradle-wrapper.properties` |
-| VFS 监控 | 已禁用（OneDrive 必需） | `android/gradle.properties` |
+| VFS 监控 | 已恢复默认启用 | `android/gradle.properties` |
 
-> 注意：项目位于 OneDrive 同步目录，构建时 Gradle 文件监控会导致缓存失效风暴，
-> 已通过 `org.gradle.vfs.watch=false` 禁用；升级 Gradle/AGP/Kotlin 前务必验证插件兼容性。
+> 项目原位于 OneDrive 同步目录，曾通过 `org.gradle.vfs.watch=false` 禁用文件监控避免缓存失效风暴；
+> **2026-08-05 项目已迁移至 `D:\Project Data\WortApp`（非 OneDrive 目录），该配置已移除，VFS 监控恢复默认。**
+> 升级 Gradle/AGP/Kotlin 前务必验证插件兼容性。
 
 ---
 

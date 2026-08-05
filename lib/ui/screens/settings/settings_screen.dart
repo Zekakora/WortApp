@@ -255,6 +255,9 @@ class SettingsScreen extends ConsumerWidget {
     if (baseUrl.contains('deepseek')) return 'DeepSeek';
     if (baseUrl.contains('openai')) return 'OpenAI';
     if (baseUrl.contains('anthropic')) return 'Claude';
+    if (baseUrl.contains('generativelanguage')) return 'Gemini';
+    if (baseUrl.contains('dashscope')) return '通义千问';
+    if (baseUrl.contains('maas.aliyuncs.com')) return '阿里云';
     return '自定义';
   }
 
