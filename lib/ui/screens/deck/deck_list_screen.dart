@@ -52,10 +52,26 @@ class DeckListScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: dbState.database != null
-          ? FloatingActionButton.extended(
-              onPressed: () => _createDeck(context),
-              icon: const Icon(Icons.add),
-              label: const Text('新建词书'),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // 桌面端无法下拉刷新，提供手动刷新按钮
+                FloatingActionButton.small(
+                  heroTag: 'refreshDecksFab',
+                  onPressed: () =>
+                      _refreshDecks(context, ref, dbState.database!),
+                  tooltip: '刷新词书',
+                  child: const Icon(Icons.refresh),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'createDeckFab',
+                  onPressed: () => _createDeck(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text('新建词书'),
+                ),
+              ],
             )
           : null,
     );
@@ -125,44 +141,93 @@ class DeckListScreen extends ConsumerWidget {
         final decks = snapshot.data!;
 
         if (decks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.library_books_outlined,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '还没有词书',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+          return RefreshIndicator(
+            onRefresh: () => _refreshDeckData(ref, db),
+            child: LayoutBuilder(
+              builder: (context, constraints) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: constraints.maxHeight,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.library_books_outlined,
+                            size: 64,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '还没有词书',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '点击 + 创建词书，或导入 Excel/CSV 文件',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
                       ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '点击 + 创建词书，或导入 Excel/CSV 文件',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: decks.length,
-          itemBuilder: (context, index) {
-            final deck = decks[index];
-            return _DeckCard(deck: deck);
-          },
+        return RefreshIndicator(
+          onRefresh: () => _refreshDeckData(ref, db),
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: decks.length,
+            itemBuilder: (context, index) {
+              final deck = decks[index];
+              return _DeckCard(deck: deck);
+            },
+          ),
         );
       },
     );
+  }
+
+  /// 下拉刷新：重新拉取词书数据并刷新单词数量缓存
+  Future<void> _refreshDeckData(WidgetRef ref, AppDatabase db) async {
+    await db.deckDao.getAllDecks();
+    ref.invalidate(wordCountProvider);
+  }
+
+  /// 手动刷新词书（桌面端无法下拉刷新，提供按钮入口）
+  Future<void> _refreshDecks(
+      BuildContext context, WidgetRef ref, AppDatabase db) async {
+    await _refreshDeckData(ref, db);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('词书已刷新'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _createDeck(BuildContext context) {

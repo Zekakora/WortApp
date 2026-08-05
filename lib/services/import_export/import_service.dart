@@ -483,11 +483,14 @@ class ImportService {
   /// 从数据库备份文件导入（WortApp 备份 JSON，支持文件路径或字节数据）
   ///
   /// 备份包含完整的词书结构：词书信息、单词全部字段、SM-2 复习状态、变位缓存。
-  /// 同名词书会自动追加序号；与目标词书重复的单词会跳过。
+  /// 同名词书会自动追加序号；同一单词允许在不同词书中同时存在（共享 AI 查词缓存）。
+  /// [wipeExisting] 为 true 时先清空所有数据（词书、单词、学习记录、AI 缓存、设置），
+  /// 再完整覆盖为备份内容，用于“完全覆盖恢复”。
   Future<BackupImportResult> importBackup({
     String? filePath,
     Uint8List? fileBytes,
     required String fileName,
+    bool wipeExisting = false,
   }) async {
     String content;
 
@@ -548,6 +551,28 @@ class ImportService {
       );
     }
 
+    // 完全覆盖模式：备份文件已验证有效，先清空所有数据再导入
+    // （子表先删避免外键约束；清空后库为空，后续导入自然完整还原）
+    if (wipeExisting) {
+      try {
+        await _db.transaction(() async {
+          await _db.delete(_db.aiLookupCache).go();
+          await _db.delete(_db.conjugationCache).go();
+          await _db.delete(_db.sm2States).go();
+          await _db.delete(_db.words).go();
+          await _db.delete(_db.decks).go();
+          await _db.delete(_db.settings).go();
+        });
+      } catch (e) {
+        return BackupImportResult(
+          deckCount: 0,
+          wordCount: 0,
+          skipCount: 0,
+          errors: ['清空现有数据失败: $e'],
+        );
+      }
+    }
+
     final errors = <String>[];
     var deckCount = 0;
     var wordCount = 0;
@@ -567,6 +592,8 @@ class ImportService {
         final deckId = await _createDeckWithUniqueName(
           deckName,
           deckJson['description']?.toString(),
+          createdAt: _parseDate(deckJson['createdAt']),
+          updatedAt: _parseDate(deckJson['updatedAt']),
         );
         deckCount++;
         importedActives.add((deckId, deckJson['isActive'] == true));
@@ -583,6 +610,42 @@ class ImportService {
         }
       } catch (e) {
         errors.add('词书导入失败: $e');
+      }
+    }
+
+    // 恢复 AI 查词缓存（v1 旧备份无此字段时跳过）
+    final aiCache = data['aiCache'];
+    if (aiCache is List) {
+      for (final entry in aiCache) {
+        if (entry is! Map<String, dynamic>) continue;
+        final word = entry['word']?.toString() ?? '';
+        final resultJson = entry['resultJson']?.toString() ?? '';
+        if (word.isEmpty || resultJson.isEmpty) continue;
+        try {
+          await _db.aiCacheDao.saveToCache(
+            word: word,
+            resultJson: resultJson,
+            engine: entry['engine']?.toString() ?? 'ai',
+          );
+        } catch (e) {
+          errors.add('AI 缓存恢复失败: $e');
+        }
+      }
+    }
+
+    // 恢复应用设置（v1 旧备份无此字段时跳过）
+    final settings = data['settings'];
+    if (settings is List) {
+      for (final entry in settings) {
+        if (entry is! Map<String, dynamic>) continue;
+        final key = entry['key']?.toString() ?? '';
+        final value = entry['value']?.toString();
+        if (key.isEmpty || value == null) continue;
+        try {
+          await _db.setSetting(key, value);
+        } catch (e) {
+          errors.add('设置恢复失败: $e');
+        }
       }
     }
 
@@ -606,7 +669,12 @@ class ImportService {
   }
 
   /// 创建词书，名称冲突时自动追加序号（如 “德语A1(1)”）
-  Future<int> _createDeckWithUniqueName(String name, String? description) async {
+  Future<int> _createDeckWithUniqueName(
+    String name,
+    String? description, {
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) async {
     final all = await _db.deckDao.getAllDecks();
     final existingNames = all.map((d) => d.name).toSet();
 
@@ -624,21 +692,25 @@ class ImportService {
         description: description == null || description.isEmpty
             ? const drift.Value.absent()
             : drift.Value(description),
-        createdAt: drift.Value(now),
-        updatedAt: drift.Value(now),
+        createdAt: drift.Value(createdAt ?? now),
+        updatedAt: drift.Value(updatedAt ?? now),
       ),
     );
   }
 
   /// 导入备份中的单个单词（含 SM-2 状态与变位缓存），返回 (成功数, 跳过数, 错误信息)
+  ///
+  /// 不做全局查重：同一单词允许在不同词书中同时存在（共享 AI 查词缓存）。
   Future<(int, int, String?)> _importBackupWord(
-      int deckId, Map<String, dynamic> w) async {
+    int deckId,
+    Map<String, dynamic> w,
+  ) async {
     try {
       final german = _cleanString(w['german']?.toString() ?? '');
       if (german.isEmpty) return (0, 1, null);
 
-      // 与全库重复的单词跳过（备份是数据库级恢复，全局查重保证重复导入不产生重复数据）
-      final existing = await _db.wordDao.findWordAnywhere(german);
+      // 词书内查重：同一词书内不允许重复（跨词书允许重复，共享 AI 查词缓存）
+      final existing = await _db.wordDao.findWordByGerman(deckId, german);
       if (existing != null) return (0, 1, null);
 
       final now = DateTime.now();
@@ -692,15 +764,29 @@ class ImportService {
         }
       }
 
-      // 恢复变位缓存
+      // 恢复变位缓存（含创建/更新时间戳，保证与备份完全一致）
       final conj = w['conjugation'];
       if (conj is Map<String, dynamic>) {
         final json = conj['json']?.toString() ?? conj['conjugationJson']?.toString();
         if (json != null && json.isNotEmpty) {
-          await _db.conjugationDao.upsert(
-            wordId,
-            json,
-            source: conj['source']?.toString() ?? 'ai',
+          final now2 = DateTime.now();
+          await _db.into(_db.conjugationCache).insert(
+            ConjugationCacheCompanion.insert(
+              wordId: wordId,
+              conjugationJson: json,
+              source: drift.Value(conj['source']?.toString() ?? 'ai'),
+              createdAt: _parseDate(conj['createdAt']) ?? now2,
+              updatedAt: _parseDate(conj['updatedAt']) ?? now2,
+            ),
+            onConflict: drift.DoUpdate(
+              (old) => ConjugationCacheCompanion(
+                conjugationJson: drift.Value(json),
+                source: drift.Value(conj['source']?.toString() ?? 'ai'),
+                updatedAt: drift.Value(_parseDate(conj['updatedAt']) ?? now2),
+              ),
+              // 必须显式指定冲突目标为 wordId 唯一键
+              target: [_db.conjugationCache.wordId],
+            ),
           );
         }
       }
@@ -747,6 +833,16 @@ class ImportService {
 
         // 解析德语单词
         final parsed = GermanParser.parse(german);
+
+        // 词书内查重：同一词书内不允许重复，重复单词跳过
+        // （跨词书允许重复，共享 AI 查词缓存）
+        final existing =
+            await _db.wordDao.findWordByGerman(deckId, parsed.baseWord);
+        if (existing != null) {
+          errors.add('行 $rowNum: 单词“${parsed.baseWord}”已存在，已跳过');
+          skipCount++;
+          continue;
+        }
 
         // 提取可选字段
         final example = row.length > 2 ? _cleanString(row[2]?.toString() ?? '') : null;

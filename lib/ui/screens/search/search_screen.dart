@@ -8,10 +8,14 @@ import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/search_provider.dart';
+import '../../../providers/batch_update_provider.dart';
 import '../../../data/database/app_database.dart';
+import '../../../services/ai/batch_ai_service.dart';
+import '../../../services/dictionary/ai_dictionary_engine.dart';
 import '../../../services/dictionary/dictionary_engine.dart';
 import '../../../ui/widgets/word_type_chip.dart';
 import '../../../ui/widgets/inflection_widgets.dart';
+import '../../../ui/widgets/batch_task_widgets.dart';
 
 /// 联网查词界面
 class SearchScreen extends ConsumerStatefulWidget {
@@ -24,6 +28,10 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FlutterTts _tts = FlutterTts();
+
+  /// 「查词后自动加入词书」后台任务串行队列：
+  /// 连续查词时逐个执行，避免并发请求过多触发 API 限流
+  static Future<void> _autoAddQueue = Future.value();
 
   @override
   void initState() {
@@ -58,6 +66,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('联网查词'),
+        actions: const [
+          // 后台 AI 任务进度按钮（查词后自动加入词书的任务也在此查看）
+          BatchTaskProgressButton(),
+        ],
       ),
       body: Column(
         children: [
@@ -116,6 +128,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                // 查词后自动加入词书设置入口
+                _autoAddBar(colorScheme),
               ],
             ),
           ),
@@ -128,7 +143,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     : searchResult.result != null
                         ? _buildSearchResult(
                             context, searchResult.result!, colorScheme)
-                        : _buildEmpty(colorScheme),
+                        : searchResult.notice != null
+                            ? _buildNotice(searchResult.notice!, colorScheme)
+                            : _buildEmpty(colorScheme),
           ),
         ],
       ),
@@ -621,7 +638,210 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final word = _searchController.text.trim();
     if (word.isEmpty) return;
 
-    ref.read(searchProvider.notifier).lookup(word);
+    final settings = ref.read(settingsProvider);
+    // 开启「查词后自动加入词书」时走后台任务：立即返回，可继续查下一个单词
+    if (settings.autoAddToDeckEnabled && settings.autoAddToDeckId != null) {
+      _startAutoAddLookup(word);
+    } else {
+      ref.read(searchProvider.notifier).lookup(word);
+    }
+  }
+
+  /// 查词后自动加入词书设置入口行
+  Widget _autoAddBar(ColorScheme colorScheme) {
+    final settings = ref.watch(settingsProvider);
+    final decks = ref.watch(allDecksProvider).value ?? const <Deck>[];
+    final enabled = settings.autoAddToDeckEnabled;
+    Deck? targetDeck;
+    for (final d in decks) {
+      if (d.id == settings.autoAddToDeckId) {
+        targetDeck = d;
+        break;
+      }
+    }
+
+    final statusText = !enabled
+        ? '查词后自动加入词书'
+        : targetDeck != null
+            ? '自动加入：${targetDeck.name}'
+            : '自动加入：请选择词书';
+
+    return Material(
+      color: enabled
+          ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: _showAutoAddSettings,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              Icon(
+                enabled
+                    ? Icons.playlist_add_check_circle
+                    : Icons.playlist_add_circle_outlined,
+                size: 18,
+                color: enabled
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: enabled
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 后台任务提示（查词后自动加入词书模式）
+  Widget _buildNotice(String notice, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.auto_awesome, size: 56, color: colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              notice,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '可点击右上角任务按钮查看进度，任务完成后自动加入词书',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 打开自动加入词书设置弹窗
+  void _showAutoAddSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _AutoAddSettingsSheet(),
+    );
+  }
+
+  /// 后台查词入库：加入任务队列立即返回，任务完成自动将单词加入目标词书
+  void _startAutoAddLookup(String word) {
+    final settings = ref.read(settingsProvider);
+    final deckId = settings.autoAddToDeckId;
+    if (deckId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先设置自动加入的词书')),
+      );
+      return;
+    }
+
+    // 校验目标词书仍存在
+    final decks = ref.read(allDecksProvider).value ?? const <Deck>[];
+    if (!decks.any((d) => d.id == deckId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('目标词书不存在，请重新选择')),
+      );
+      return;
+    }
+
+    // 预先读取任务依赖（页面销毁后 ref 不可用，因此任务开始前全部取出）
+    final db = ref.read(databaseProvider);
+    final aiEngine = ref.read(aiDictionaryEngineProvider);
+    if (db == null || aiEngine == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI 引擎未就绪，请检查设置')),
+      );
+      return;
+    }
+    final selectedEngine = ref.read(selectedEngineProvider);
+    final engine = selectedEngine == DictionaryEngineType.ai
+        ? aiEngine
+        : ref.read(wiktionaryEngineProvider);
+
+    final notifier = ref.read(batchUpdateProvider.notifier);
+    final taskId = notifier.addTask('查词入库: $word', 1, words: [word]);
+
+    // 串行执行：前一个查词任务完成后才开始下一个，避免并发请求过多
+    _autoAddQueue = _autoAddQueue.then((_) async {
+      try {
+        await _runAutoAddTask(taskId, word, deckId, notifier, db, aiEngine, engine);
+      } catch (e) {
+        // 防御性兜底，保证队列中的后续任务不被中断
+        notifier.failTask(taskId, '任务异常: $e');
+      }
+    });
+
+    // 清空输入框，方便直接输入下一个单词继续查词
+    _searchController.clear();
+    setState(() {});
+
+    // 显示后台任务提示（不阻塞界面，结果返回后自动入库）
+    ref.read(searchProvider.notifier).showNotice(
+      '「$word」已加入后台 AI 查询队列，完成后自动加入词书',
+    );
+  }
+
+  /// 执行后台查词入库任务（在串行队列中运行，不阻塞查词界面）
+  ///
+  /// 所有依赖均在页面存活时预先传入，页面销毁后任务仍可正常运行
+  Future<void> _runAutoAddTask(
+    String taskId,
+    String word,
+    int deckId,
+    BatchUpdateNotifier notifier,
+    AppDatabase db,
+    AIDictionaryEngine aiEngine,
+    DictionaryEngine engine,
+  ) async {
+    notifier.startTask(taskId);
+
+    final service = BatchAIService(db, aiEngine, concurrency: 1);
+    try {
+      final outcome = await service.lookupAndAddToDeck(
+        word: word,
+        deckId: deckId,
+        engine: engine,
+        onProgress: (p) => notifier.updateProgress(taskId, p),
+      );
+      final success = outcome == 'added' || outcome == 'exists';
+      notifier.completeTask(
+        taskId,
+        BatchUpdateProgress(
+          total: 1,
+          completed: success ? 1 : 0,
+          failed: success ? 0 : 1,
+          isRunning: false,
+        ),
+      );
+    } catch (e) {
+      notifier.failTask(taskId, e.toString());
+    }
   }
 
   void _showAddToDeckDialog(
@@ -834,6 +1054,197 @@ class _EngineChip extends StatelessWidget {
       selected: isSelected,
       onSelected: (_) => onSelected(),
     );
+  }
+}
+
+/// 查词后自动加入词书设置弹窗（开关 + 目标词书选择）
+class _AutoAddSettingsSheet extends ConsumerWidget {
+  const _AutoAddSettingsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final decksAsync = ref.watch(allDecksProvider);
+    final settings = ref.watch(settingsProvider);
+    final enabled = settings.autoAddToDeckEnabled;
+    final targetDeckId = settings.autoAddToDeckId;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.8,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '查词后自动加入词书',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '开启后查词不再等待，自动挂到后台任务，完成后加入所选词书，可继续查下一个单词',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: enabled,
+                    onChanged: (v) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .updateAutoAddToDeck(v, deckId: targetDeckId);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Row(
+                children: [
+                  Text(
+                    '选择词书',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => _createDeckForAutoAdd(context, ref),
+                    icon: const Icon(Icons.add),
+                    label: const Text('新建词书'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: decksAsync.when(
+                data: (decks) {
+                  if (decks.isEmpty) {
+                    return Center(
+                      child: Text(
+                        '还没有词书，请先创建一个',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: scrollController,
+                    itemCount: decks.length,
+                    itemBuilder: (context, index) {
+                      final deck = decks[index];
+                      final isSelected = enabled && deck.id == targetDeckId;
+                      return ListTile(
+                        leading: Icon(
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(deck.name),
+                        subtitle: deck.description != null
+                            ? Text(deck.description!)
+                            : null,
+                        trailing: isSelected
+                            ? Text(
+                                '当前目标',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.primary,
+                                ),
+                              )
+                            : null,
+                        onTap: () {
+                          ref
+                              .read(settingsProvider.notifier)
+                              .updateAutoAddToDeck(true, deckId: deck.id);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  );
+                },
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('错误: $e')),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 新建词书并设为自动加入目标
+  Future<void> _createDeckForAutoAdd(
+      BuildContext context, WidgetRef ref) async {
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新建词书'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: '词书名称',
+            hintText: '例如：生词本',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, nameController.text.trim()),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty || !context.mounted) return;
+
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final now = DateTime.now();
+    final deckId = await db.deckDao.createDeck(
+      DecksCompanion(
+        name: drift.Value(name),
+        createdAt: drift.Value(now),
+        updatedAt: drift.Value(now),
+      ),
+    );
+
+    // 创建后直接设为自动加入目标并关闭弹窗
+    await ref
+        .read(settingsProvider.notifier)
+        .updateAutoAddToDeck(true, deckId: deckId);
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
   }
 }
 

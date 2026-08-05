@@ -324,7 +324,8 @@ class _ConjugationDrillScreenState
               children: articles.map((article) {
                 final color = GenderColors.forArticle(article);
                 final isSelected = _selectedArticle == article;
-                // 提交后的三种反馈：选对 / 选错 / 提示正确选项
+                // 提交前：高亮当前选中项；提交后：选对 / 选错 / 提示正确选项
+                final isPicked = !showFeedback && isSelected;
                 final isCorrectPick =
                     showFeedback && isSelected && result!.isCorrect;
                 final isWrongPick =
@@ -349,15 +350,22 @@ class _ConjugationDrillScreenState
                                 ? Colors.red.withValues(alpha: 0.1)
                                 : isCorrectOption
                                     ? color.withValues(alpha: 0.2)
-                                    : color.withValues(alpha: 0.08),
+                                    : isPicked
+                                        ? color.withValues(alpha: 0.3)
+                                        : color.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isCorrectPick || isCorrectOption
+                          color: isCorrectPick ||
+                                  isCorrectOption ||
+                                  isPicked
                               ? color
                               : isWrongPick
                                   ? Colors.red
                                   : color.withValues(alpha: 0.45),
-                          width: isCorrectPick || isCorrectOption ? 2 : 1.2,
+                          width:
+                              isCorrectPick || isCorrectOption || isPicked
+                                  ? 2
+                                  : 1.2,
                         ),
                       ),
                       child: Row(
@@ -368,7 +376,10 @@ class _ConjugationDrillScreenState
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: isCorrectPick ? Colors.white : color,
+                              color:
+                                  isCorrectPick || isPicked
+                                      ? Colors.white
+                                      : color,
                             ),
                           ),
                           if (isCorrectPick) ...[
@@ -382,6 +393,10 @@ class _ConjugationDrillScreenState
                           ] else if (isCorrectOption) ...[
                             const SizedBox(width: 4),
                             Icon(Icons.check_circle, color: color, size: 18),
+                          ] else if (isPicked) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.check_circle,
+                                color: Colors.white, size: 18),
                           ],
                         ],
                       ),

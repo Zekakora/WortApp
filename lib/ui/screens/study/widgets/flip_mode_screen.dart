@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
+import '../../../../ui/screens/deck/word_detail_screen.dart';
 
 /// 经典翻牌模式
 class FlipModeScreen extends ConsumerStatefulWidget {
@@ -399,41 +400,66 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _FeedbackButton(
-              label: '忘记',
-              color: ScoreColors.forgot,
-              onPressed: () => _onFeedback(FeedbackLevel.forgot),
+          // 查看单词详情（复用单词本详情页布局），占满整行
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              icon: const Icon(Icons.info_outline, size: 18),
+              label: const Text('查看单词详情'),
+              onPressed: _openWordDetail,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FeedbackButton(
-              label: '模糊',
-              color: ScoreColors.hard,
-              onPressed: () => _onFeedback(FeedbackLevel.hard),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FeedbackButton(
-              label: '熟悉',
-              color: ScoreColors.good,
-              onPressed: () => _onFeedback(FeedbackLevel.good),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _FeedbackButton(
-              label: '简单',
-              color: ScoreColors.easy,
-              onPressed: () => _onFeedback(FeedbackLevel.easy),
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _FeedbackButton(
+                  label: '忘记',
+                  color: ScoreColors.forgot,
+                  onPressed: () => _onFeedback(FeedbackLevel.forgot),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FeedbackButton(
+                  label: '模糊',
+                  color: ScoreColors.hard,
+                  onPressed: () => _onFeedback(FeedbackLevel.hard),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FeedbackButton(
+                  label: '熟悉',
+                  color: ScoreColors.good,
+                  onPressed: () => _onFeedback(FeedbackLevel.good),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FeedbackButton(
+                  label: '简单',
+                  color: ScoreColors.easy,
+                  onPressed: () => _onFeedback(FeedbackLevel.easy),
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  /// 打开当前单词的详情页（与单词本详情页一致）
+  void _openWordDetail() {
+    final word = ref.read(studySessionProvider).currentWord;
+    if (word == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
     );
   }
 

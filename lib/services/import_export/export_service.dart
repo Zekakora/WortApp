@@ -207,6 +207,24 @@ class ExportService {
       final decksJson = <Map<String, dynamic>>[];
       var wordCount = 0;
 
+      // AI 查词缓存（全表导出，保证恢复后详情页直接命中缓存，不再重复调用 AI）
+      final aiCacheRows = await _db.select(_db.aiLookupCache).get();
+      final aiCacheJson = aiCacheRows.map((c) => {
+            'word': c.word,
+            'resultJson': c.resultJson,
+            'engine': c.engine,
+            'createdAt': c.createdAt.toIso8601String(),
+            'updatedAt': c.updatedAt.toIso8601String(),
+          }).toList();
+
+      // 应用设置（全表导出，恢复后 AI 配置、TTS 语速等设置不丢失）
+      final settingsRows = await _db.select(_db.settings).get();
+      final settingsJson = settingsRows.map((s) => {
+            'key': s.key,
+            'value': s.value,
+            'updatedAt': s.updatedAt.toIso8601String(),
+          }).toList();
+
       for (final deck in decks) {
         final words = await _db.wordDao.getWordsByDeck(deck.id);
         final cacheMap = await _db.conjugationDao.getCachedByDeck(deck.id);
@@ -254,6 +272,8 @@ class ExportService {
                 : {
                     'json': cache.conjugationJson,
                     'source': cache.source,
+                    'createdAt': cache.createdAt.toIso8601String(),
+                    'updatedAt': cache.updatedAt.toIso8601String(),
                   },
           });
         }
@@ -272,11 +292,15 @@ class ExportService {
       final backup = <String, dynamic>{
         'app': 'WortApp',
         'type': 'wortapp-backup',
-        'version': 1,
+        'version': 2,
         'exportedAt': DateTime.now().toIso8601String(),
         'deckCount': decksJson.length,
         'wordCount': wordCount,
+        'aiCacheCount': aiCacheJson.length,
+        'settingsCount': settingsJson.length,
         'decks': decksJson,
+        'aiCache': aiCacheJson,
+        'settings': settingsJson,
       };
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(backup);

@@ -64,6 +64,166 @@ class BatchAIService {
     return _processWords(words, onProgress: onProgress, overwrite: true);
   }
 
+  /// 查词并自动加入词书（查词界面「查词后自动加入词书」功能）
+  ///
+  /// 返回结果：
+  /// - `added`：查询成功并已加入词书
+  /// - `exists`：词书中已存在该单词，跳过
+  /// - `no_result`：未查询到有效结果
+  ///
+  /// [engine] 指定查询引擎（默认使用 AI 引擎）；AI 查询命中缓存时不重复请求。
+  Future<String> lookupAndAddToDeck({
+    required String word,
+    required int deckId,
+    DictionaryEngine? engine,
+    Function(BatchUpdateProgress)? onProgress,
+  }) async {
+    final currentEngine = engine ?? _aiEngine;
+
+    onProgress?.call(BatchUpdateProgress(
+      total: 1,
+      completed: 0,
+      failed: 0,
+      currentWord: word,
+      isRunning: true,
+    ));
+
+    // 词书中已存在则跳过，避免重复入库
+    final existing = await _db.wordDao.findWordByGerman(deckId, word);
+    if (existing != null) {
+      debugPrint('自动加入词书跳过（已存在）: $word');
+      onProgress?.call(BatchUpdateProgress(
+        total: 1,
+        completed: 1,
+        failed: 0,
+        currentWord: word,
+        isRunning: false,
+      ));
+      return 'exists';
+    }
+
+    try {
+      final result = await currentEngine.lookup(word);
+      final validDefinitions =
+          result?.definitions.where((d) => d.trim().isNotEmpty).toList() ??
+              const [];
+      if (result == null || validDefinitions.isEmpty) {
+        debugPrint('自动加入词书未查询到有效结果: $word');
+        onProgress?.call(BatchUpdateProgress(
+          total: 1,
+          completed: 0,
+          failed: 1,
+          currentWord: word,
+          isRunning: false,
+        ));
+        return 'no_result';
+      }
+
+      await _createWordFromResult(result, deckId);
+      onProgress?.call(BatchUpdateProgress(
+        total: 1,
+        completed: 1,
+        failed: 0,
+        currentWord: word,
+        isRunning: false,
+      ));
+      return 'added';
+    } catch (e) {
+      debugPrint('自动加入词书失败: $word - $e');
+      rethrow;
+    }
+  }
+
+  /// 将查询结果创建为词书中的新单词
+  ///
+  /// 与查词界面「加入词书」行为一致：写入变格数据到 words 表与
+  /// conjugation_cache，并缓存 AI 完整结果到 ai_lookup_cache。
+  Future<void> _createWordFromResult(
+      DictionaryResult result, int deckId) async {
+    final now = DateTime.now();
+    final infFields = Inflection.wordsFields(result);
+
+    await _db.wordDao.createWord(
+      WordsCompanion(
+        deckId: drift.Value(deckId),
+        german: drift.Value(result.word),
+        article: drift.Value(result.article),
+        baseForm: drift.Value(result.word),
+        wordType: drift.Value(result.partOfSpeech),
+        chinese: drift.Value(
+            result.definitions.isNotEmpty ? result.definitions.first : ''),
+        example: drift.Value(
+            result.examples.isNotEmpty ? result.examples.first : null),
+        nounType: drift.Value(result.nounType),
+        nounPlural: drift.Value(result.plural),
+        verbPresent: infFields['verbPresent'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['verbPresent']),
+        verbPast: infFields['verbPast'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['verbPast']),
+        verbPerfect: infFields['verbPerfect'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['verbPerfect']),
+        nounGenitive: infFields['nounGenitive'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['nounGenitive']),
+        adjComparative: infFields['adjComparative'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['adjComparative']),
+        adjSuperlative: infFields['adjSuperlative'] == null
+            ? const drift.Value.absent()
+            : drift.Value(infFields['adjSuperlative']),
+        createdAt: drift.Value(now),
+        updatedAt: drift.Value(now),
+      ),
+    );
+
+    // 变格数据写入 conjugation_cache，与变格练习打通
+    final newWord = await _db.wordDao.findWordByGerman(deckId, result.word);
+    final inflectionJson = result.normalizedInflection;
+    if (newWord != null &&
+        inflectionJson != null &&
+        !Inflection.isEmpty(inflectionJson)) {
+      await _db.conjugationDao.upsert(newWord.id, jsonEncode(inflectionJson));
+    }
+
+    // 确保AI结果被缓存（与查词界面一致）
+    if (result.engine == 'AI 解析') {
+      try {
+        final existingCache = await _db.aiCacheDao.getCachedResult(result.word);
+        if (existingCache == null) {
+          final cacheJson = jsonEncode({
+            'word': result.word,
+            'article': result.article ?? '',
+            'plural': result.plural ?? '',
+            'definitions': result.definitions,
+            'examples': result.examples,
+            'part_of_speech': result.partOfSpeech ?? '',
+            'analysis': result.aiAnalysis ?? '',
+            'verb_type': result.verbType,
+            'conjugation': result.conjugation ?? {},
+            'separable_prefix': result.separablePrefix,
+            'base_verb': result.baseVerb,
+            'collocations': result.collocations?.map((c) => {
+              'pattern': c.pattern,
+              'case': c.caseType,
+              'meaning': c.meaning,
+            }).toList() ?? [],
+            'noun_type': result.nounType,
+            'inflection': result.normalizedInflection,
+          });
+          await _db.aiCacheDao.saveToCache(
+            word: result.word,
+            resultJson: cacheJson,
+          );
+        }
+      } catch (e) {
+        debugPrint('缓存保存失败: $e');
+      }
+    }
+  }
+
   /// 处理单词列表的通用方法
   ///
   /// 支持并发查询：按 [concurrency] 同时启动多个 worker，
@@ -129,7 +289,7 @@ class BatchAIService {
     }
 
     // 并发 worker 池：每个 worker 领取下一个未处理的单词，直到全部完成
-    final workerCount = concurrency.clamp(1, 5);
+    final workerCount = concurrency.clamp(1, 500);
     final workers = List.generate(workerCount, (_) async {
       while (true) {
         final index = nextIndex++;

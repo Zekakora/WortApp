@@ -62,22 +62,27 @@ class SearchResult {
   final bool isLoading;
   final DictionaryResult? result;
   final String? error;
+  /// 提示信息（如「已加入后台查询队列」），非错误状态
+  final String? notice;
 
   const SearchResult({
     this.isLoading = false,
     this.result,
     this.error,
+    this.notice,
   });
 
   SearchResult copyWith({
     bool? isLoading,
     DictionaryResult? result,
     String? error,
+    String? notice,
   }) {
     return SearchResult(
       isLoading: isLoading ?? this.isLoading,
       result: result ?? this.result,
       error: error,
+      notice: notice,
     );
   }
 }
@@ -133,6 +138,11 @@ class SearchNotifier extends StateNotifier<SearchResult> {
   /// 清除结果
   void clear() {
     state = const SearchResult();
+  }
+
+  /// 显示提示信息（查词后自动加入词书模式下，单词已加入后台队列）
+  void showNotice(String notice) {
+    state = SearchResult(notice: notice);
   }
 }
 

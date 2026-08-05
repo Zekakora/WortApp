@@ -79,7 +79,7 @@ class ConjugationService {
     }
 
     // 并发 worker 池：每个 worker 领取下一个未处理的单词，直到全部完成
-    final workerCount = concurrency.clamp(1, 5);
+    final workerCount = concurrency.clamp(1, 500);
     final workers = List.generate(workerCount, (_) async {
       while (true) {
         if (isCancelled?.call() ?? false) break;

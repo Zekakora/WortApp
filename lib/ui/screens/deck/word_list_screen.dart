@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/database_provider.dart';
@@ -159,6 +160,8 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
           }
 
           return ListView.builder(
+            // 非多选模式下预留底部空间，避免被新建按钮遮挡
+            padding: EdgeInsets.only(bottom: _isMultiSelectMode ? 0 : 88),
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final word = filtered[index];
@@ -171,6 +174,8 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                     ? _toggleWordSelection(word.id)
                     : _navigateToDetail(word.id),
                 onLongPress: () => _enterMultiSelectModeAndSelect(word.id),
+                onAiUpdate: () => _aiUpdateWord(word),
+                onCopyToDeck: () => _copyWordToDeck(word),
               );
             },
           );
@@ -178,7 +183,109 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('错误: $e')),
       ),
+      // 多选模式下隐藏，避免遮挡操作
+      floatingActionButton: !_isMultiSelectMode
+          ? FloatingActionButton.extended(
+              onPressed: _showAddWordDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('新建单词'),
+            )
+          : null,
     );
+  }
+
+  /// 新建单词：仅输入德语单词即可创建，中文释义可留空
+  void _showAddWordDialog() {
+    final germanController = TextEditingController();
+    final chineseController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('新建单词'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: germanController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '德语单词 *',
+                hintText: '例如：der Apfel',
+              ),
+              onSubmitted: (_) =>
+                  _createWord(dialogContext, germanController, chineseController),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: chineseController,
+              decoration: const InputDecoration(
+                labelText: '中文释义（可留空，稍后 AI 自动获取）',
+                hintText: '例如：苹果',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                _createWord(dialogContext, germanController, chineseController),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 创建单词：词书内查重，成功后关闭对话框并提示
+  Future<void> _createWord(
+    BuildContext dialogContext,
+    TextEditingController germanController,
+    TextEditingController chineseController,
+  ) async {
+    final german = germanController.text.trim();
+    if (german.isEmpty) return;
+
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    // 词书内查重
+    final existing = await db.wordDao.findWordByGerman(widget.deckId, german);
+    if (existing != null) {
+      if (dialogContext.mounted) {
+        ScaffoldMessenger.of(dialogContext).showSnackBar(
+          const SnackBar(content: Text('该单词已在词书中')),
+        );
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    await db.wordDao.createWord(
+      WordsCompanion(
+        deckId: drift.Value(widget.deckId),
+        german: drift.Value(german),
+        chinese: drift.Value(chineseController.text.trim()),
+        createdAt: drift.Value(now),
+        updatedAt: drift.Value(now),
+      ),
+    );
+
+    // 刷新词书管理页的单词数量缓存
+    ref.invalidate(wordCountProvider);
+
+    if (dialogContext.mounted) {
+      Navigator.pop(dialogContext);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已添加 "$german"')),
+      );
+    }
   }
 
   void _navigateToDetail(int wordId) {
@@ -239,9 +346,34 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     });
   }
 
-  void _batchUpdateSelectedWords() async {
+  void _batchUpdateSelectedWords() {
     if (_selectedWordIds.isEmpty) return;
 
+    final selectedIds = _selectedWordIds.toList();
+    // 退出多选模式
+    _exitMultiSelectMode();
+
+    // 显示确认对话框并启动批量更新
+    _startAiUpdateWithConfirm(
+      wordIds: selectedIds,
+      message:
+          '确定要使用 AI 更新选中的 ${selectedIds.length} 个单词的词意吗？\n这将覆盖原有的中文释义。',
+    );
+  }
+
+  /// 单词行三点菜单：AI 更新单个单词词意
+  Future<void> _aiUpdateWord(Word word) {
+    return _startAiUpdateWithConfirm(
+      wordIds: [word.id],
+      message: '确定要使用 AI 更新 "${word.german}" 的词意吗？\n这将覆盖原有的中文释义。',
+    );
+  }
+
+  /// 弹出 AI 更新确认对话框并启动批量更新任务（单/多词共用入口，可后台运行）
+  Future<void> _startAiUpdateWithConfirm({
+    required List<int> wordIds,
+    required String message,
+  }) async {
     final db = ref.read(databaseProvider);
     final aiEngine = ref.read(aiDictionaryEngineProvider);
 
@@ -254,23 +386,12 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
       return;
     }
 
-    final batchService = BatchAIService(
-      db,
-      aiEngine,
-      concurrency: ref.read(settingsProvider).aiConcurrency,
-    );
-    final notifier = ref.read(batchUpdateProvider.notifier);
-    final selectedIds = _selectedWordIds.toList();
-
-    // 退出多选模式
-    _exitMultiSelectMode();
-
     // 显示确认对话框
     final shouldUpdate = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('AI 更新词意'),
-        content: Text('确定要使用 AI 更新选中的 ${selectedIds.length} 个单词的词意吗？\n这将覆盖原有的中文释义。'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -286,25 +407,103 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
 
     if (shouldUpdate != true || !mounted) return;
 
-    // 获取选中单词的德语文本（用于标记队列中的单词，避免详情页重复触发AI查询）
+    // 获取单词的德语文本（用于标记队列中的单词，避免详情页重复触发AI查询）
     final selectedWords = <String>[];
-    for (final id in selectedIds) {
+    for (final id in wordIds) {
       final word = await db.wordDao.getWordById(id);
       if (word != null) selectedWords.add(word.german);
     }
 
     if (!mounted) return;
 
-    // 开始批量更新
+    final batchService = BatchAIService(
+      db,
+      aiEngine,
+      concurrency: ref.read(settingsProvider).aiConcurrency,
+    );
+    final notifier = ref.read(batchUpdateProvider.notifier);
+
+    // 开始批量更新（关闭窗口可后台运行）
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => _BatchUpdateDialog(
         batchService: batchService,
-        wordIds: selectedIds,
+        wordIds: wordIds,
         words: selectedWords,
         notifier: notifier,
       ),
+    );
+  }
+
+  /// 单词行三点菜单：复制到其他词书（复制全部字段、变位缓存与学习状态，共享 AI 查词缓存）
+  Future<void> _copyWordToDeck(Word word) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final decks = ref.read(allDecksProvider).value ?? const <Deck>[];
+    final targets = decks.where((d) => d.id != widget.deckId).toList();
+    if (targets.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('没有其他词书可复制，请先新建词书')),
+        );
+      }
+      return;
+    }
+
+    // 选择目标词书
+    final targetDeckId = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('复制到词书'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: targets.length,
+            itemBuilder: (context, index) {
+              final deck = targets[index];
+              return ListTile(
+                leading: const Icon(Icons.library_books),
+                title: Text(deck.name),
+                trailing: deck.isActive
+                    ? const Icon(Icons.check_circle,
+                        size: 18, color: Colors.green)
+                    : null,
+                onTap: () => Navigator.pop(context, deck.id),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (targetDeckId == null || !mounted) return;
+
+    final newId = await db.copyWordToDeck(word.id, targetDeckId);
+    if (!mounted) return;
+
+    if (newId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('该单词已在目标词书中')),
+      );
+      return;
+    }
+
+    // 刷新词书管理页的单词数量缓存
+    ref.invalidate(wordCountProvider);
+
+    final targetName = targets
+        .firstWhere((d) => d.id == targetDeckId, orElse: () => targets.first)
+        .name;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已复制到「$targetName」')),
     );
   }
 
@@ -381,6 +580,8 @@ class _WordTile extends ConsumerWidget {
   final VoidCallback? onLongPress;
   final bool isMultiSelectMode;
   final bool isSelected;
+  final VoidCallback onAiUpdate;
+  final VoidCallback onCopyToDeck;
 
   const _WordTile({
     required this.word,
@@ -389,6 +590,8 @@ class _WordTile extends ConsumerWidget {
     this.onLongPress,
     this.isMultiSelectMode = false,
     this.isSelected = false,
+    required this.onAiUpdate,
+    required this.onCopyToDeck,
   });
 
   /// 解析变格缓存并生成摘要文本（缓存优先，回退 words 表字段）
@@ -525,6 +728,45 @@ class _WordTile extends ConsumerWidget {
                   ),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 20),
+                // 三点菜单：AI 更新词义 / 复制到词书
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  tooltip: '更多操作',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'ai_update':
+                        onAiUpdate();
+                        break;
+                      case 'copy_to_deck':
+                        onCopyToDeck();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'ai_update',
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_awesome, size: 18),
+                          SizedBox(width: 8),
+                          Text('AI更新词义'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'copy_to_deck',
+                      child: Row(
+                        children: [
+                          Icon(Icons.content_copy, size: 18),
+                          SizedBox(width: 8),
+                          Text('复制到词书'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
       onTap: onTap,

@@ -93,19 +93,12 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
     );
   }
 
-  /// 根据德国原词查找单词（用于查重）
+  /// 根据德国原词查找单词（用于词书内查重）
   Future<Word?> findWordByGerman(int deckId, String german) {
     return (select(words)
           ..where((t) =>
               t.deckId.equals(deckId) &
               t.german.lower().equals(german.toLowerCase())))
-        .getSingleOrNull();
-  }
-
-  /// 全局查重（备份导入用）：任意词书中已存在相同单词则视为重复
-  Future<Word?> findWordAnywhere(String german) {
-    return (select(words)
-          ..where((t) => t.german.lower().equals(german.toLowerCase())))
         .getSingleOrNull();
   }
 
