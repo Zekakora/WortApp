@@ -7,6 +7,7 @@ import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
 import '../../../../ui/widgets/study_split_layout.dart';
+import '../../../../ui/widgets/swipe_down_detail_route.dart';
 import 'distractor_pool_mixin.dart';
 
 /// 听德语选单词模式
@@ -161,17 +162,21 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '听德语选单词 (${session.currentIndex + 1}/${session.words.length})'),
+            '听德语选单词 (${session.progressTitle})'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            minHeight: 4,
+            backgroundColor: Colors.transparent,
+          ),
+        ),
       ),
       body: StudySplitLayout(
         key: _splitKey,
         wordId: word.id,
         left: Column(
           children: [
-            LinearProgressIndicator(
-              value: session.progress,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -359,7 +364,7 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
     if (word == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
+      SwipeDownDetailRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
     );
   }
 

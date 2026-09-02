@@ -94,6 +94,8 @@ class StudySplitLayoutState extends State<StudySplitLayout> {
         // 模糊层：点击关闭
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
           child: _blurred
               ? GestureDetector(
                   key: const ValueKey('detail_blur'),

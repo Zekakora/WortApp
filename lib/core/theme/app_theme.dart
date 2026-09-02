@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../constants/app_colors.dart';
 
 /// Material Design 3 主题配置
 class AppTheme {
@@ -26,6 +25,19 @@ class AppTheme {
         scrolledUnderElevation: 1,
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
+      ),
+      // 统一使用 FadeForwards 淡入淡出转场，替代默认 Zoom/缩放转场
+      // （Windows/Linux 默认 ZoomPageTransitionsBuilder、Android 默认
+      // PredictiveBack 均会让下层页面缩小，返回/滑动手势时观感突兀）
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
+        },
       ),
       cardTheme: CardThemeData(
         elevation: 1,
@@ -126,6 +138,19 @@ class AppTheme {
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
       ),
+      // 统一使用 FadeForwards 淡入淡出转场，替代默认 Zoom/缩放转场
+      // （Windows/Linux 默认 ZoomPageTransitionsBuilder、Android 默认
+      // PredictiveBack 均会让下层页面缩小，返回/滑动手势时观感突兀）
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
+        },
+      ),
       cardTheme: CardThemeData(
         elevation: 1,
         shape: RoundedRectangleBorder(
@@ -171,16 +196,4 @@ class AppTheme {
       ),
     );
   }
-}
-
-/// 德语冠词颜色扩展
-extension GenderColorExtension on ThemeData {
-  Color genderColor(String? article, {bool plural = false}) =>
-      GenderColors.forArticle(article, plural: plural);
-
-  Color genderColorLight(String? article, {bool plural = false}) =>
-      GenderColors.forArticleLight(article, plural: plural);
-
-  Color genderColorSurface(String? article, {bool plural = false}) =>
-      GenderColors.forArticleSurface(article, plural: plural);
 }

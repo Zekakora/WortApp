@@ -7,39 +7,36 @@ import 'ai_service.dart';
 ///
 /// 使用 AI 生成德语单词的变位数据
 class ConjugationService {
-  final AIService _aiService;
-  final AppDatabase _db;
+  final AIService aiService;
+  final AppDatabase db;
 
   ConjugationService({
-    required AIService aiService,
-    required AppDatabase db,
-  })  : _aiService = aiService,
-        _db = db;
-
+    required this.aiService,
+    required this.db,
+  });
   /// 获取单词的变位数据（优先从缓存读取）
   Future<Map<String, dynamic>?> getConjugation(int wordId) async {
     // 先查缓存
-    final cached = await _db.conjugationDao.getByWordId(wordId);
+    final cached = await db.conjugationDao.getByWordId(wordId);
     if (cached != null) {
       return jsonDecode(cached.conjugationJson) as Map<String, dynamic>;
     }
 
     // 缓存未命中，调用 AI 生成
-    final word = await _db.wordDao.getWordById(wordId);
+    final word = await db.wordDao.getWordById(wordId);
     if (word == null) return null;
 
     return await _generateAndCache(word);
   }
 
-  /// 批量生成变位数据
-  Future<void> generateBatch(List<int> wordIds, {int concurrency = 1}) async {
-    await regenerateBatch(wordIds, concurrency: concurrency);
-  }
-
-  /// 强制重新生成单个单词的变位数据（先删除旧缓存，覆盖更新）
+  /// 强制重新生成单个单词的变位数据
+  ///
+  /// 先生成再覆盖缓存（upsert），AI 失败时保留旧缓存（含手动数据），
+  /// 避免「先删除再生成」在断网/失败时永久丢失原有变位数据。
   Future<void> regenerateWord(int wordId) async {
-    await _db.conjugationDao.deleteByWordId(wordId);
-    await getConjugation(wordId);
+    final word = await db.wordDao.getWordById(wordId);
+    if (word == null) return;
+    await _generateAndCache(word);
   }
 
   /// 批量强制重新生成变位数据（支持并发）
@@ -62,7 +59,7 @@ class ConjugationService {
     var nextIndex = 0;
 
     Future<void> processOne(int wordId) async {
-      final word = await _db.wordDao.getWordById(wordId);
+      final word = await db.wordDao.getWordById(wordId);
       final label = word?.german ?? '#$wordId';
       try {
         await regenerateWord(wordId);
@@ -92,11 +89,6 @@ class ConjugationService {
     return (success: completed, failed: failed);
   }
 
-  /// 删除指定单词的变位缓存
-  Future<int> deleteConjugationData(List<int> wordIds) {
-    return _db.conjugationDao.deleteByWordIds(wordIds);
-  }
-
   /// 为词书中的所有单词生成变位数据
   ///
   /// 仅生成尚无缓存的单词；[onProgress] 在每处理完一个单词后回调
@@ -106,8 +98,8 @@ class ConjugationService {
     int concurrency = 1,
     void Function(int completed, int failed, String currentWord)? onProgress,
   }) async {
-    final words = await _db.wordDao.getWordsByDeck(deckId);
-    final cachedIds = await _db.conjugationDao.getCachedWordIds();
+    final words = await db.wordDao.getWordsByDeck(deckId);
+    final cachedIds = await db.conjugationDao.getCachedWordIds();
 
     // 过滤掉已有缓存的
     final uncached = words
@@ -169,7 +161,7 @@ class ConjugationService {
         ? '${word.article} ${word.german}'
         : word.german;
 
-    final response = await _aiService.chat(
+    final response = await aiService.chat(
       systemPrompt: systemPrompt,
       userMessage: '请为以下德语单词生成变位数据: $wordInfo',
       temperature: 0.3,
@@ -181,7 +173,7 @@ class ConjugationService {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
     // 缓存到数据库
-    await _db.conjugationDao.upsert(
+    await db.conjugationDao.upsert(
       word.id,
       jsonEncode(data),
       source: 'ai',

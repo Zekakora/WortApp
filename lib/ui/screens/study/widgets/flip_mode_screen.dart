@@ -70,7 +70,7 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
       CurvedAnimation(parent: _exitController, curve: Curves.easeInOutCubic),
     );
     _enterController = AnimationController(
-      duration: const Duration(milliseconds: 100),
+      duration: const Duration(milliseconds: 50),
       vsync: this,
     )..value = 1.0; // 平时直接显示，仅切词时从 0 播放淡入
     _enterFade = Tween<double>(begin: 0, end: 1).animate(
@@ -227,16 +227,24 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('翻牌模式 (${session.currentIndex + 1}/${session.words.length})'),
+        title: Text('翻牌模式 (${session.progressTitle})'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            minHeight: 4,
+            backgroundColor: Colors.transparent,
+          ),
+        ),
         actions: [
-          // 熟练度标记
+          // 收藏开关
           IconButton(
             icon: Icon(
-              word.proficiency > 0 ? Icons.star : Icons.star_outline,
-              color: word.proficiency > 0 ? Colors.amber : null,
+              word.isFavorite ? Icons.star : Icons.star_outline,
+              color: word.isFavorite ? Colors.amber : null,
             ),
-            onPressed: () => _showProficiencyDialog(word.id, word.proficiency),
-            tooltip: '设置熟练度',
+            onPressed: () => _toggleFavorite(word.id),
+            tooltip: word.isFavorite ? '取消收藏' : '收藏',
           ),
         ],
       ),
@@ -245,11 +253,6 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
         wordId: word.id,
         left: Column(
           children: [
-            // 进度条
-            LinearProgressIndicator(
-              value: session.progress,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
             Expanded(
               child: GestureDetector(
                 onTap: _flipCard,
@@ -413,6 +416,7 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
                 onTap: () => _onArticleSelected(article),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
@@ -628,30 +632,8 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
     });
   }
 
-  void _showProficiencyDialog(int wordId, int currentProficiency) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('设置熟练度'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(5, (index) {
-            final level = index + 1;
-            return ListTile(
-              leading: Icon(
-                level <= currentProficiency ? Icons.star : Icons.star_outline,
-                color: level <= currentProficiency ? Colors.amber : null,
-              ),
-              title: Text('等级 $level'),
-              onTap: () {
-                // TODO: 更新熟练度
-                Navigator.pop(context);
-              },
-            );
-          }),
-        ),
-      ),
-    );
+  void _toggleFavorite(int wordId) {
+    ref.read(studySessionProvider.notifier).toggleFavorite(wordId);
   }
 
   Widget _buildCompletedScreen(

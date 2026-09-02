@@ -133,7 +133,7 @@ void main() {
       expect(result.success, isTrue);
 
       final json = jsonDecode(utf8.decode(result.data!.bytes));
-      expect(json['version'], 4);
+      expect(json['version'], 5);
 
       final aiCache = json['aiCache'] as List;
       expect(aiCache, hasLength(1));

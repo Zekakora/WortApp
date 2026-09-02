@@ -12,10 +12,6 @@ class GermanParser {
   static final RegExp _pluralSuffixRegex =
       RegExp(r',\s*[-−]?\s*[A-Za-zÄÖÜäöüß]*$', caseSensitive: false);
 
-  // 动词三态模式 (ge-...-t / ge-...-en 等)
-  static final RegExp _verbPartizipRegex =
-      RegExp(r'^(ge-\S+-(?:t|en))\s', caseSensitive: false);
-
   // 常见动词后缀
   static final List<String> _verbSuffixes = [
     'ieren', 'eln', 'ern', 'en', 'n'
@@ -97,6 +93,13 @@ class GermanParser {
     }
     return input.trim();
   }
+
+  /// 规范化去重 key（用于防止单词重复）
+  ///
+  /// - 剥离冠词与复数后缀，仅保留词干（如 `der Hund` → `Hund`）
+  /// - **保留原始大小写**：德语首字母大小写具有语义（名词大写、动词/形容词
+  ///   小写，如 `Lernen` 与 `lernen` 是两个不同的词），不能统一转小写
+  static String canonicalKey(String input) => parse(input).baseWord.trim();
 
   /// 判断是否为名词（首字母大写）
   static bool isNoun(String word) {
@@ -183,11 +186,14 @@ class ParsedWord {
 
 /// 词性枚举
 enum WordType {
-  noun,       // 名词
-  verb,       // 动词
-  adjective,  // 形容词
-  adverb,     // 副词
-  other,      // 其他
+  noun, // 名词
+  verb, // 动词
+  adjective, // 形容词
+  adverb, // 副词
+  preposition, // 介词
+  pronoun, // 代词
+  conjunction, // 连词
+  other, // 其他（不可分类）
 }
 
 /// 大小写检查结果

@@ -40,12 +40,32 @@ class DeckDao extends DatabaseAccessor<AppDatabase> with _$DeckDaoMixin {
   }
 
   /// 更新词书
-  Future<bool> updateDeck(DecksCompanion entry) {
-    return update(decks).replace(entry);
+  ///
+  /// 用 `write`（仅更新传入的列）而非 `replace`，避免缺席列（如
+  /// is_active 默认 false）被写回默认值而静默取消激活状态。
+  Future<bool> updateDeck(DecksCompanion entry) async {
+    if (!entry.id.present) {
+      throw ArgumentError('updateDeck 必须携带 id，实际调用缺少 id 字段');
+    }
+    final count = await (update(decks)..where((t) => t.id.equals(entry.id.value)))
+        .write(entry);
+    return count > 0;
   }
 
-  /// 删除词书及其所有关联数据（级联删除）
+  /// 删除词书及其所有关联数据（级联删除），并记录词书级删除墓碑
+  ///
+  /// 墓碑（german 为空串）用于跨端删除传播。
   Future<void> deleteDeck(int deckId) async {
+    final deck = await getDeckById(deckId);
+    if (deck != null) {
+      // 词书级墓碑：对端将据此删除整本词书（若删除后无活动）
+      await db.logDeletion(deck.name, '');
+    }
+    await deleteDeckInternal(deckId);
+  }
+
+  /// 实际删除词书及其所有关联数据（不写墓碑，供同步合并删除时内部调用）
+  Future<void> deleteDeckInternal(int deckId) async {
     await transaction(() async {
       // 1. 删除该词书中所有单词的变位缓存
       // 注意：customStatement 的参数是原始值列表，不能传 Variable 对象（Web 端会报 Unknown db value）
@@ -78,14 +98,5 @@ class DeckDao extends DatabaseAccessor<AppDatabase> with _$DeckDaoMixin {
     // 设置新的激活词书
     await (update(decks)..where((t) => t.id.equals(deckId)))
         .write(const DecksCompanion(isActive: Value(true)));
-  }
-
-  /// 获取词书数量
-  Future<int> getDeckCount() async {
-    final count = await customSelect(
-      'SELECT COUNT(*) as cnt FROM decks',
-      readsFrom: {decks},
-    ).getSingle();
-    return count.data['cnt'] as int;
   }
 }

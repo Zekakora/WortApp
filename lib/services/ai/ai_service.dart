@@ -91,9 +91,8 @@ class ConfigurableAIService implements AIService {
 /// MiMo AI 服务（向后兼容）
 class MiMoAIService extends ConfigurableAIService {
   MiMoAIService({
-    required String apiKey,
+    required super.apiKey,
   }) : super(
-          apiKey: apiKey,
           baseUrl: 'https://api.xiaomimimo.com/v1',
           model: 'mimo-v2.5-pro',
         );

@@ -13,11 +13,8 @@ dependencies:
   # 数据库 - drift ORM
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.28
-  sqlite3: ^2.7.3
   path_provider: ^2.1.5
   path: ^1.9.1
-  js: ^0.7.1
-  sqflite_common_ffi_web: ^0.4.5
 
   # 状态管理
   flutter_riverpod: ^2.6.1
@@ -41,7 +38,8 @@ dependencies:
   intl: ^0.20.2
   share_plus: ^10.1.4
 
-  cupertino_icons: ^1.0.8
+  # OneDrive 云同步
+  flutter_onedrive: ^1.8.2
 
 dev_dependencies:
   flutter_test:
@@ -50,6 +48,15 @@ dev_dependencies:
   build_runner: ^2.4.15
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+
+# 本地依赖覆盖（flutter_onedrive/oauth_webauth/flutter_inappwebview_windows 用于调试登录错误，修复后移除）
+dependency_overrides:
+  flutter_onedrive:
+    path: third_party/flutter_onedrive
+  oauth_webauth:
+    path: third_party/oauth_webauth
+  flutter_inappwebview_windows:
+    path: third_party/flutter_inappwebview_windows
 
 # 应用图标生成（源文件：icon.png）
 # 修改 icon.png 后运行: dart run flutter_launcher_icons

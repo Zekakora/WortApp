@@ -19,6 +19,10 @@ class DictionaryResult {
   // 名词相关字段
   final String? nounType; // countable, uncountable, both, null
 
+  /// 是否仅携带释义的纯词典来源（Wiktionary / 德语助手）：
+  /// 展示时只显示释义，入库时只添加单词本身（不写入释义/词性/变格等），避免数据干扰
+  final bool wordOnly;
+
   /// 完整变格/变位数据（与 conjugation_cache 存储格式一致）：
   /// - 动词: {"type":"verb","praesens":{6人称},"praeteritum":{6人称},"perfekt":{auxiliary,partizip,6人称},"passiv":{6人称}}
   /// - 名词: {"type":"noun","genitiv":"...","plural":"..."}
@@ -41,6 +45,7 @@ class DictionaryResult {
     this.collocations,
     this.nounType,
     this.inflection,
+    this.wordOnly = false,
   });
 
   /// 规范化后的变格数据（补充 type 字段；无变格数据时返回 null）

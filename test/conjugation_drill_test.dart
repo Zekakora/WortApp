@@ -339,6 +339,64 @@ void main() {
           deckId: 1, mode: PracticeMode.verbPraesens, limit: 3);
       expect(notifier.state.questions, hasLength(3));
     });
+
+    test('只练今日单词：仅从今日学习过的单词中抽取', () async {
+      final ids = <int>[];
+      for (var i = 0; i < 5; i++) {
+        final word = await addWord(german: 'gehen$i', wordType: 'verb');
+        await db.conjugationDao.upsert(word.id, '''
+        {
+          "type": "verb",
+          "praesens": {
+            "ich": "gehe", "du": "gehst", "er_sie_es": "geht",
+            "wir": "gehen", "ihr": "geht", "sie_Sie": "gehen"
+          }
+        }
+        ''');
+        ids.add(word.id);
+      }
+      // 仅前 2 个单词今日学习过（lastStudyDate = 今天）
+      for (var i = 0; i < 2; i++) {
+        await db.wordDao.updateLastStudyDate(ids[i]);
+      }
+
+      final notifier = ConjugationDrillNotifier(db);
+      await notifier.loadDrill(
+        deckId: 1,
+        mode: PracticeMode.verbPraesens,
+        limit: 10,
+        pickMode: ConjugationPickMode.todayOnly,
+      );
+      expect(notifier.state.questions, hasLength(2));
+      expect(
+        notifier.state.questions.map((q) => q.wordId).toSet(),
+        {ids[0], ids[1]},
+      );
+    });
+
+    test('只练今日单词：今日未学习时不出题', () async {
+      for (var i = 0; i < 3; i++) {
+        final word = await addWord(german: 'gehen$i', wordType: 'verb');
+        await db.conjugationDao.upsert(word.id, '''
+        {
+          "type": "verb",
+          "praesens": {
+            "ich": "gehe", "du": "gehst", "er_sie_es": "geht",
+            "wir": "gehen", "ihr": "geht", "sie_Sie": "gehen"
+          }
+        }
+        ''');
+      }
+
+      final notifier = ConjugationDrillNotifier(db);
+      await notifier.loadDrill(
+        deckId: 1,
+        mode: PracticeMode.verbPraesens,
+        limit: 10,
+        pickMode: ConjugationPickMode.todayOnly,
+      );
+      expect(notifier.state.questions, isEmpty);
+    });
   });
 
   group('答题状态流转', () {

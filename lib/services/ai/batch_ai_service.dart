@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import '../../core/utils/german_parser.dart';
 import '../dictionary/ai_dictionary_engine.dart';
 import '../dictionary/dictionary_engine.dart';
 import '../../data/database/app_database.dart';
@@ -88,8 +89,11 @@ class BatchAIService {
       isRunning: true,
     ));
 
-    // 词书中已存在则跳过，避免重复入库
-    final existing = await _db.wordDao.findWordByGerman(deckId, word);
+    // 全局规范化查重：该词已在任何词书中则跳过，避免重复入库
+    // （`der Hund` 与 `Hund` 归为同一词，德语大小写保留语义）
+    final existing = await _db.wordDao.findWordByCanonicalKey(
+      GermanParser.canonicalKey(word),
+    );
     if (existing != null) {
       debugPrint('自动加入词书跳过（已存在）: $word');
       onProgress?.call(BatchUpdateProgress(
@@ -119,6 +123,26 @@ class BatchAIService {
         return 'no_result';
       }
 
+      // AI 返回的 result.word 可能与查询词不一致（如 Hunde→Hund），
+      // 入库前按规范化词形二次查重，避免重复入库
+      if (GermanParser.canonicalKey(result.word) !=
+          GermanParser.canonicalKey(word)) {
+        final resultExisting = await _db.wordDao.findWordByCanonicalKey(
+          GermanParser.canonicalKey(result.word),
+        );
+        if (resultExisting != null) {
+          debugPrint('自动加入词书跳过（规范化后已存在）: ${result.word}');
+          onProgress?.call(BatchUpdateProgress(
+            total: 1,
+            completed: 1,
+            failed: 0,
+            currentWord: word,
+            isRunning: false,
+          ));
+          return 'exists';
+        }
+      }
+
       await _createWordFromResult(result, deckId);
       onProgress?.call(BatchUpdateProgress(
         total: 1,
@@ -141,6 +165,21 @@ class BatchAIService {
   Future<void> _createWordFromResult(
       DictionaryResult result, int deckId) async {
     final now = DateTime.now();
+
+    // 纯词典来源（Wiktionary / 德语助手）：只添加单词本身，避免数据干扰
+    if (result.wordOnly) {
+      await _db.wordDao.createWord(
+        WordsCompanion(
+          deckId: drift.Value(deckId),
+          german: drift.Value(result.word),
+          chinese: const drift.Value(''),
+          createdAt: drift.Value(now),
+          updatedAt: drift.Value(now),
+        ),
+      );
+      return;
+    }
+
     final infFields = Inflection.wordsFields(result);
 
     await _db.wordDao.createWord(

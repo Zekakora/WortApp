@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/deck_provider.dart';
@@ -123,6 +124,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         onSelected: () {
                           ref.read(selectedEngineProvider.notifier).state =
                               DictionaryEngineType.wiktionary;
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _EngineChip(
+                        label: '德语助手',
+                        icon: Icons.translate,
+                        isSelected:
+                            selectedEngine == DictionaryEngineType.godic,
+                        onSelected: () {
+                          ref.read(selectedEngineProvider.notifier).state =
+                              DictionaryEngineType.godic;
                         },
                       ),
                     ],
@@ -780,9 +792,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
     final selectedEngine = ref.read(selectedEngineProvider);
-    final engine = selectedEngine == DictionaryEngineType.ai
-        ? aiEngine
-        : ref.read(wiktionaryEngineProvider);
+    final engine = switch (selectedEngine) {
+      DictionaryEngineType.ai => aiEngine,
+      DictionaryEngineType.wiktionary => ref.read(wiktionaryEngineProvider),
+      DictionaryEngineType.godic => ref.read(godicEngineProvider),
+    };
 
     final notifier = ref.read(batchUpdateProvider.notifier);
     final taskId = notifier.addTask('查词入库: $word', 1, words: [word]);
@@ -803,7 +817,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     // 显示后台任务提示（不阻塞界面，结果返回后自动入库）
     ref.read(searchProvider.notifier).showNotice(
-      '「$word」已加入后台 AI 查询队列，完成后自动加入词书',
+      '「$word」已加入后台查询队列，完成后自动加入词书',
     );
   }
 
@@ -871,20 +885,48 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
-    // 检查是否已存在
-    final existing = await db.wordDao.findWordByGerman(deckId, result.word);
+    // 全局规范化查重：同一词不允许在任何词书中重复（`der Hund` 与 `Hund` 归为同一词）
+    final key = GermanParser.canonicalKey(result.word);
+    final existing = await db.wordDao.findWordByCanonicalKey(key);
     if (existing != null) {
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该单词已在词书中')),
-        );
-      }
+      final existingDeck = await db.deckDao.getDeckById(existing.deckId);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            existingDeck == null
+                ? '该单词已存在，未重复添加'
+                : '该单词已存在于词书「${existingDeck.name}」，未重复添加',
+          ),
+        ),
+      );
       return;
     }
 
     // 添加单词（含变格数据：动词三态/名词第二格/形容词变级）
     final now = DateTime.now();
+
+    // 纯词典来源（Wiktionary / 德语助手）：只添加单词本身，释义/词性/变格等一律不写入，避免数据干扰
+    if (result.wordOnly) {
+      await db.wordDao.createWord(
+        WordsCompanion(
+          deckId: drift.Value(deckId),
+          german: drift.Value(result.word),
+          chinese: const drift.Value(''),
+          createdAt: drift.Value(now),
+          updatedAt: drift.Value(now),
+        ),
+      );
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到词书')),
+        );
+      }
+      return;
+    }
+
     final infFields = Inflection.wordsFields(result);
     await db.wordDao.createWord(
       WordsCompanion(
@@ -1023,7 +1065,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => nameController.dispose());
   }
 }
 
@@ -1223,6 +1265,7 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
         ],
       ),
     );
+    nameController.dispose();
 
     if (name == null || name.isEmpty || !context.mounted) return;
 

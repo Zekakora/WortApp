@@ -7,6 +7,7 @@ import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
 import '../../../../ui/widgets/study_split_layout.dart';
+import '../../../../ui/widgets/swipe_down_detail_route.dart';
 import 'distractor_pool_mixin.dart';
 
 /// 看德语选中文模式
@@ -152,17 +153,21 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '看德语选中文 (${session.currentIndex + 1}/${session.words.length})'),
+            '看德语选中文 (${session.progressTitle})'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            minHeight: 4,
+            backgroundColor: Colors.transparent,
+          ),
+        ),
       ),
       body: StudySplitLayout(
         key: _splitKey,
         wordId: word.id,
         left: Column(
           children: [
-            LinearProgressIndicator(
-              value: session.progress,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -358,7 +363,7 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
     if (word == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
+      SwipeDownDetailRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
     );
   }
 

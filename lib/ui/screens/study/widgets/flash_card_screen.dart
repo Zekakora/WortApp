@@ -15,10 +15,10 @@ import '../../../../ui/widgets/swipe_down_detail_route.dart';
 
 /// 快闪卡模式
 ///
-/// - 全屏卡片：先显示德语单词，3 秒后自动揭示释义与词性
+/// - 全屏卡片：先显示德语单词，2.5 秒后（黄灯）自动揭示释义与词性
 ///   （名词在单词上方显示 die/der/das 彩色冠词标签）
-/// - 卡片顶部发光小条：绿(1.5s) → 黄(1.5s) → 红(保持到切卡)
-/// - 红灯前右划 = 熟练，红灯后右划 = 模糊，左划 = 忘记
+/// - 卡片顶部发光小条：绿(2.5s) → 黄(2.5s) → 红(保持到切卡)
+/// - 右划：红灯亮起前 = 熟练，红灯亮起后 = 模糊；左划 = 忘记
 /// - 电脑端可点击屏幕左侧/右侧代替滑动
 /// - 卡片滑动跟手，松手后按速度/距离飞离屏幕或回弹
 class FlashCardScreen extends ConsumerStatefulWidget {
@@ -33,9 +33,11 @@ enum _CardPhase { green, yellow, red }
 
 class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     with TickerProviderStateMixin {
-  /// 当前灯条阶段（red = 释义已揭示）
+  /// 当前灯条阶段（yellow 起揭示释义，red = 模糊判定）
   _CardPhase _phase = _CardPhase.green;
-  /// 阶段计时器（绿 1.5s → 黄 1.5s → 红保持）
+  /// 是否进入模糊判定阶段：红灯亮起即为 true，此时右划才算模糊
+  bool _hardEligible = false;
+  /// 阶段计时器（绿 2.5s → 黄 2.5s → 红，红灯亮起即进入模糊判定）
   Timer? _phaseTimer;
   /// 卡片跟手拖动偏移
   double _dragOffset = 0;
@@ -102,6 +104,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     _phaseTimer?.cancel();
     setState(() {
       _phase = _CardPhase.green;
+      // 回到熟练判定阶段（黄灯揭示释义，红灯亮起才进入模糊判定）
+      _hardEligible = false;
       // 递增切词序号：重建揭示内容，避免 AnimatedOpacity 从可见淡出到隐藏
       _cardGeneration++;
       // 旧卡滑出动画结束后停留在屏幕外，切词时一次性归零位移，
@@ -114,14 +118,18 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     _scheduleNextPhase();
   }
 
-  /// 依次调度 绿(1.5s) → 黄(1.5s) → 红(保持)
+  /// 依次调度 绿(2.5s) → 黄(2.5s，亮起时揭示释义) → 红(保持，进入模糊判定)
   void _scheduleNextPhase() {
-    _phaseTimer = Timer(const Duration(milliseconds: 1500), () {
+    _phaseTimer = Timer(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
       setState(() => _phase = _CardPhase.yellow);
-      _phaseTimer = Timer(const Duration(milliseconds: 1500), () {
+      _phaseTimer = Timer(const Duration(milliseconds: 2500), () {
         if (!mounted) return;
-        setState(() => _phase = _CardPhase.red);
+        setState(() {
+          _phase = _CardPhase.red;
+          // 红灯亮起：释义已揭示 2.5 秒，进入模糊判定
+          _hardEligible = true;
+        });
       });
     });
   }
@@ -182,19 +190,17 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
 
   /// 提交滑出：direction = 1 右划，-1 左划
   ///
-  /// 在滑出开始时以当前灯条阶段锁定反馈等级：
+  /// 在滑出开始时锁定反馈等级：
   /// - 左划 = 忘记
-  /// - 红灯（已看释义）右划 = 模糊
-  /// - 红灯前（未看释义）右划 = 熟练
+  /// - 红灯亮起后（已充分看释义）右划 = 模糊
+  /// - 其余（含黄灯揭示后的回忆期）右划 = 熟练
   void _commitSwipe(int direction) {
     if (_swiping || _submitting) return;
     _swiping = true;
     _phaseTimer?.cancel();
     _pendingFeedback = direction < 0
         ? FeedbackLevel.forgot
-        : (_phase == _CardPhase.red
-            ? FeedbackLevel.hard
-            : FeedbackLevel.easy);
+        : (_hardEligible ? FeedbackLevel.hard : FeedbackLevel.easy);
 
     if (_slideController.isAnimating) {
       _slideController.stop();
@@ -303,17 +309,20 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
       // 无熟练度标记：仅进度标题
       appBar: AppBar(
         title:
-            Text('快闪卡模式 (${session.currentIndex + 1}/${session.words.length})'),
+            Text('快闪卡模式 (${session.progressTitle})'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            minHeight: 4,
+            backgroundColor: Colors.transparent,
+          ),
+        ),
       ),
       body: Stack(
         children: [
           Column(
             children: [
-              // 进度条
-              LinearProgressIndicator(
-                value: session.progress,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-              ),
               // 全屏卡片（居中，跟手拖动）
               Expanded(
                 child: Center(
@@ -337,7 +346,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _phase == _CardPhase.red
+                      _hardEligible
                           ? '右划 = 模糊 · 左划 = 忘记 · 上滑 = 详情'
                           : '右划 = 熟练 · 左划 = 忘记 · 上滑 = 详情',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -419,7 +428,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
 
   /// 卡片内容：顶部发光小条 → 冠词标签（名词）→ 单词 → 释义与词性
   Widget _buildCardContent(ColorScheme colorScheme, Word word) {
-    final revealed = _phase == _CardPhase.red;
+    // 黄灯亮起即揭示释义（黄灯期间右划仍为熟练，红灯起进入模糊判定）
+    final revealed = _phase != _CardPhase.green;
     final isNoun = _isNoun(word);
     final article = isNoun ? word.article!.trim().toLowerCase() : null;
 
@@ -435,7 +445,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             _buildLightStrip(),
             const SizedBox(height: 28),
             // 名词：die/der/das 彩色冠词标签（始终占位保持卡片高度固定，
-            // 红灯揭示后淡入）
+            // 黄灯揭示后淡入）
             if (article != null)
               AnimatedOpacity(
                 key: ValueKey('article-$_cardGeneration'),
@@ -481,7 +491,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
               icon: const Icon(Icons.volume_up, size: 28),
               onPressed: () => _speak(word.baseForm ?? word.german),
             ),
-            // 释义与词性：始终以完整内容占位（透明不可点），红灯揭示后淡入，
+            // 释义与词性：始终以完整内容占位（透明不可点），黄灯揭示后淡入，
             // 保证卡片高度从显示释义前就固定为揭示后的大小
             AnimatedOpacity(
               key: ValueKey('reveal-$_cardGeneration'),
@@ -523,7 +533,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     );
   }
 
-  /// 红灯揭示后的内容：词性徽章 + 所有释义
+  /// 黄灯揭示后的内容：词性徽章 + 所有释义
   Widget _buildRevealedContent(ColorScheme colorScheme, Word word) {
     final definitions = _splitDefinitions(word.chinese);
     return Padding(

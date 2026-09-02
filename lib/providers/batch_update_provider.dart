@@ -222,7 +222,7 @@ class BatchUpdateNotifier extends StateNotifier<BatchUpdateState> {
     final updatedTasks = state.tasks.map((t) {
       if (t.id == taskId) {
         return t.copyWith(
-          status: finalProgress.failed > 0 ? TaskStatus.completed : TaskStatus.completed,
+          status: TaskStatus.completed,
           total: finalProgress.total,
           completed: finalProgress.completed,
           failed: finalProgress.failed,
@@ -233,15 +233,17 @@ class BatchUpdateNotifier extends StateNotifier<BatchUpdateState> {
       return t;
     }).toList();
 
-    // 查找下一个排队的任务
-    final nextTask = updatedTasks.firstWhere(
-      (t) => t.isQueued || t.isRunning,
-      orElse: () => updatedTasks.last,
-    );
+    // 查找下一个排队的任务；任务列表可能已被清空（用户点“清除全部”）
+    final nextTask = updatedTasks.isEmpty
+        ? null
+        : updatedTasks.firstWhere(
+            (t) => t.isQueued || t.isRunning,
+            orElse: () => updatedTasks.last,
+          );
 
     state = state.copyWith(
       tasks: updatedTasks,
-      currentTask: nextTask.isComplete ? null : nextTask,
+      currentTask: nextTask == null || nextTask.isComplete ? null : nextTask,
       pendingWords: {...state.pendingWords}..removeAll(removedWords),
     );
   }

@@ -88,9 +88,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   String get _pickModeHint {
     switch (_pickMode) {
       case WordPickMode.favoriteBoost:
-        return '今天该学的单词中，收藏词汇出现概率更高，同轮可被多次复习';
+        return '今天该学的单词中，收藏词汇优先出现、被抓中概率更高';
       case WordPickMode.favoriteOnly:
         return '只练习今天该学单词中已收藏的词汇';
+      case WordPickMode.wrongTodayOnly:
+        return '只练习今天答错过（忘记/模糊）的词；答错会重新复习，连续 3 轮答对才移出';
       case WordPickMode.normal:
         return '按每日新词/复习上限正常抓取';
     }
@@ -295,7 +297,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       ],
                       const SizedBox(height: 8),
                       Text(
-                        '新词与复习受每日上限约束，上限用尽后自动复习今日已学单词',
+                        '新词与复习受每日上限约束；上限用尽后进入循环复习：'
+                        '每次学习发放一批（每轮单词数），分批覆盖今天全部'
+                        '单词，覆盖完毕后自动开启下一大轮，轮数无上限',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -325,8 +329,15 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                             value: WordPickMode.favoriteOnly,
                             label: Text('只抓收藏'),
                           ),
+                          ButtonSegment(
+                            value: WordPickMode.wrongTodayOnly,
+                            label: Text('今日错词'),
+                          ),
                         ],
                         selected: {_pickMode},
+                        style: SegmentedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
                         onSelectionChanged: (selection) {
                           _setPickMode(selection.first);
                         },

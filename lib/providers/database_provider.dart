@@ -36,9 +36,10 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
   }
 
   Future<void> _initDatabase() async {
+    AppDatabase? database;
     try {
       debugPrint('Starting database initialization...');
-      final database = AppDatabase();
+      database = AppDatabase();
 
       // 等待数据库就绪，添加超时
       await database.customSelect('SELECT 1').getSingle().timeout(
@@ -58,6 +59,10 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
     } catch (e, stackTrace) {
       debugPrint('Database initialization failed: $e');
       debugPrint('Stack trace: $stackTrace');
+      // 失败时释放本次创建的数据库实例，避免每次重试泄漏连接
+      try {
+        await database?.close();
+      } catch (_) {}
       if (mounted) {
         state = DatabaseState(
           isLoading: false,
@@ -65,6 +70,13 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
         );
       }
     }
+  }
+
+  /// 重新初始化数据库（供初始化失败页的「重试」按钮调用）
+  Future<void> retry() async {
+    if (state.isLoading) return;
+    state = const DatabaseState(isLoading: true);
+    await _initDatabase();
   }
 
   @override

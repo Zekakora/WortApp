@@ -12,6 +12,7 @@ import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../services/import_export/export_service.dart';
 import '../../../services/import_export/import_service.dart';
+import 'onedrive_sync_section.dart';
 
 /// 设置页面
 class SettingsScreen extends ConsumerWidget {
@@ -225,6 +226,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(),
 
+          // OneDrive 云同步
+          const OneDriveSyncSection(),
+
           // 关于
           _SectionHeader(title: '关于'),
           ListTile(
@@ -347,7 +351,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      apiKeyController.dispose();
+      baseUrlController.dispose();
+      modelController.dispose();
+    });
   }
 
   void _editApiKey(BuildContext context, WidgetRef ref) {
@@ -383,7 +391,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => controller.dispose());
   }
 
   void _editDailyLimit(BuildContext context, WidgetRef ref,
@@ -414,6 +422,12 @@ class SettingsScreen extends ConsumerWidget {
           FilledButton(
             onPressed: () {
               final value = int.tryParse(controller.text) ?? 0;
+              if (value <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('请输入大于 0 的正整数')),
+                );
+                return;
+              }
               if (isNew) {
                 ref
                     .read(settingsProvider.notifier)
@@ -429,7 +443,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => controller.dispose());
   }
 
   /// 备份全部数据（所有词书、单词、学习记录、AI 缓存与设置）
@@ -442,12 +456,14 @@ class SettingsScreen extends ConsumerWidget {
 
     try {
       final result = await ExportService(db).exportBackup();
+      if (!context.mounted) return;
       if (!result.success || result.data == null) {
         _showSnack(context, result.error ?? '备份失败');
         return;
       }
       await _saveBackupFile(context, result.data!);
     } catch (e) {
+      if (!context.mounted) return;
       _showSnack(context, '备份失败: $e');
     }
   }
@@ -593,9 +609,11 @@ class SettingsScreen extends ConsumerWidget {
         final dir = await getApplicationDocumentsDirectory();
         final filePath = p.join(dir.path, data.fileName);
         await File(filePath).writeAsBytes(data.bytes, flush: true);
+        if (!context.mounted) return;
         _showSnack(context, '备份已保存到: $filePath');
       }
     } catch (e) {
+      if (!context.mounted) return;
       _showSnack(context, '保存备份文件失败: $e');
     }
   }

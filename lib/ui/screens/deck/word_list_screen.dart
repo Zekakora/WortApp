@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/batch_update_provider.dart';
@@ -13,11 +14,14 @@ import '../../../providers/study_provider.dart';
 import '../../../data/database/app_database.dart';
 import '../../../services/ai/batch_ai_service.dart';
 import '../../../services/dictionary/dictionary_engine.dart';
+import '../../../services/dictionary/ai_dictionary_engine.dart';
 import '../../../ui/widgets/word_type_chip.dart';
+import '../../../ui/widgets/expanding_fab.dart';
 import '../../../ui/widgets/batch_task_widgets.dart';
 import '../../../ui/widgets/batch_update_dialog.dart';
 import 'word_detail_screen.dart';
 import 'ai_data_management_screen.dart';
+import 'word_dedup_screen.dart';
 
 /// 词书内单词列表
 class WordListScreen extends ConsumerStatefulWidget {
@@ -163,8 +167,8 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
           }
 
           return ListView.builder(
-            // 非多选模式下预留底部空间，避免被新建按钮遮挡
-            padding: EdgeInsets.only(bottom: _isMultiSelectMode ? 0 : 88),
+            // 非多选模式下预留底部空间，避免被「新建单词 + 展开工具按钮」遮挡
+            padding: EdgeInsets.only(bottom: _isMultiSelectMode ? 0 : 150),
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final word = filtered[index];
@@ -179,6 +183,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                 onLongPress: () => _enterMultiSelectModeAndSelect(word.id),
                 onAiUpdate: () => _aiUpdateWord(word),
                 onCopyToDeck: () => _copyWordToDeck(word),
+                onNormalizeGerman: () => _normalizeGermanWithAi(word),
                 onDelete: () => _deleteWord(word),
               );
             },
@@ -193,22 +198,33 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // 重置学习进度（所有单词 SM-2 状态归零）
-                FloatingActionButton.small(
-                  heroTag: 'resetProgressFab',
-                  onPressed: _confirmResetLearningProgress,
-                  tooltip: '重置学习进度',
-                  child: const Icon(Icons.restart_alt),
+                // 低频工具（重置进度 / 数据管理 / 批量AI规范化 / 去重扫描）收进展开菜单
+                ExpandingFab(
+                  actions: [
+                    ExpandingFabAction(
+                      icon: Icons.restart_alt,
+                      label: '重置学习进度',
+                      onPressed: _confirmResetLearningProgress,
+                    ),
+                    ExpandingFabAction(
+                      icon: Icons.storage,
+                      label: '数据管理',
+                      onPressed: _openDataManagement,
+                    ),
+                    ExpandingFabAction(
+                      icon: Icons.auto_fix_high,
+                      label: '批量 AI 规范化德语',
+                      onPressed: _batchNormalizeGerman,
+                    ),
+                    ExpandingFabAction(
+                      icon: Icons.filter_alt_off,
+                      label: '去重扫描',
+                      onPressed: _openDedupScan,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                // 数据管理（AI 释义状态查看与一键重试）
-                FloatingActionButton.small(
-                  heroTag: 'aiDataManageFab',
-                  onPressed: _openDataManagement,
-                  tooltip: '数据管理',
-                  child: const Icon(Icons.storage),
-                ),
-                const SizedBox(height: 12),
+                // 主操作：新建单词
                 FloatingActionButton.extended(
                   heroTag: 'addWordFab',
                   onPressed: _showAddWordDialog,
@@ -222,11 +238,11 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
   }
 
   /// 新建单词：仅输入德语单词即可创建，中文释义可留空
-  void _showAddWordDialog() {
+  Future<void> _showAddWordDialog() async {
     final germanController = TextEditingController();
     final chineseController = TextEditingController();
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('新建单词'),
@@ -266,6 +282,8 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         ],
       ),
     );
+    germanController.dispose();
+    chineseController.dispose();
   }
 
   /// 创建单词：词书内查重，成功后关闭对话框并提示
@@ -280,12 +298,21 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final db = ref.read(databaseProvider);
     if (db == null) return;
 
-    // 词书内查重
-    final existing = await db.wordDao.findWordByGerman(widget.deckId, german);
+    // 全局规范化查重：同一词不允许在任何词书中重复
+    // （`der Hund` 与 `Hund` 归为同一词，德语大小写保留语义）
+    final key = GermanParser.canonicalKey(german);
+    final existing = await db.wordDao.findWordByCanonicalKey(key);
     if (existing != null) {
+      final existingDeck = await db.deckDao.getDeckById(existing.deckId);
       if (dialogContext.mounted) {
         ScaffoldMessenger.of(dialogContext).showSnackBar(
-          const SnackBar(content: Text('该单词已在词书中')),
+          SnackBar(
+            content: Text(
+              existingDeck == null
+                  ? '该单词已存在，未重复添加'
+                  : '该单词已存在于词书「${existingDeck.name}」，未重复添加',
+            ),
+          ),
         );
       }
       return;
@@ -330,6 +357,16 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AiDataManagementScreen(deckId: widget.deckId),
+      ),
+    );
+  }
+
+  /// 打开去重扫描页面（合并词书内重复单词）
+  void _openDedupScan() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WordDedupScreen(deckId: widget.deckId),
       ),
     );
   }
@@ -451,6 +488,163 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
       wordIds: [word.id],
       message: '确定要使用 AI 更新 "${word.german}" 的词意吗？\n这将覆盖原有的中文释义。',
     );
+  }
+
+  /// 从 AI 查词缓存中解析出该单词的规范化德语词形（result.word）
+  ///
+  /// OCR 导入的单词可能未规范化，AI 查词结果中的 word 为规范词形。
+  /// 优先按当前德语查找缓存；批量 AI 更新后缓存以规范化词形为键，回退 baseForm 查找。
+  Future<String?> _getAiNormalizedWord(AppDatabase db, Word word) async {
+    var cached = await db.aiCacheDao.getCachedResult(word.german);
+    cached ??= (word.baseForm != null &&
+            word.baseForm!.trim().isNotEmpty &&
+            word.baseForm != word.german)
+        ? await db.aiCacheDao.getCachedResult(word.baseForm!)
+        : null;
+    if (cached == null) return null;
+    try {
+      final result =
+          AIDictionaryEngine.parseResult(word.german, cached.resultJson);
+      final normalized = result.word.trim();
+      return normalized.isEmpty ? null : normalized;
+    } catch (e) {
+      debugPrint('AI 缓存解析失败: $e');
+      return null;
+    }
+  }
+
+  /// 将 AI 规范化词形写回 words.german 与 baseForm
+  Future<void> _applyAiNormalizedWord(AppDatabase db, Word word,
+      String normalized) async {
+    await db.wordDao.updateWord(
+      WordsCompanion(
+        id: drift.Value(word.id),
+        german: drift.Value(normalized),
+        baseForm: drift.Value(normalized),
+        updatedAt: drift.Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// 单词行三点菜单：AI 规范化德语词形（与编辑界面的德语保持一致）
+  Future<void> _normalizeGermanWithAi(Word word) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final normalized = await _getAiNormalizedWord(db, word);
+    if (normalized == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('该单词暂无 AI 查词结果，请先使用 AI 更新词义')),
+        );
+      }
+      return;
+    }
+
+    if (normalized == word.german.trim()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('德语已与 AI 词形一致')),
+        );
+      }
+      return;
+    }
+
+    // 确认对话框
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('AI 规范化德语'),
+        content: Text(
+          '将德语从「${word.german}」更新为 AI 规范化词形「$normalized」？\n\n'
+          '此操作会同步单词本与编辑界面中的德语单词。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _applyAiNormalizedWord(db, word, normalized);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已将德语更新为 "$normalized"')),
+      );
+    }
+  }
+
+  /// 批量 AI 规范化德语：扫描词书中所有单词的 AI 查词结果，
+  /// 将德语更新为 AI 规范化词形（无 AI 缓存的单词自动跳过）
+  Future<void> _batchNormalizeGerman() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    final wordsAsync = ref.read(wordsByDeckProvider(widget.deckId));
+    final words = wordsAsync.value ?? const <Word>[];
+    if (words.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('词书还没有单词')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('批量 AI 规范化德语'),
+        content: Text(
+          '将批量扫描词书中 ${words.length} 个单词的 AI 查词结果，'
+          '把德语更新为 AI 规范化词形（无 AI 缓存的单词自动跳过）。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    var updated = 0;
+    var skipped = 0;
+    for (final word in words) {
+      final normalized = await _getAiNormalizedWord(db, word);
+      if (normalized == null) {
+        skipped++;
+        continue;
+      }
+      if (normalized == word.german.trim()) continue;
+      await _applyAiNormalizedWord(db, word, normalized);
+      updated++;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            updated > 0
+                ? '已规范化 $updated 个单词的德语'
+                : '没有需要规范化的单词（$skipped 个暂无 AI 缓存）',
+          ),
+        ),
+      );
+    }
   }
 
   /// 弹出 AI 更新确认对话框并启动批量更新任务（单/多词共用入口，可后台运行）
@@ -693,6 +887,46 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                 },
                 color: WordTypeColors.advPrimary,
               ),
+              _FilterOption(
+                label: '介词',
+                value: 'preposition',
+                groupValue: _filterWordType,
+                onChanged: (value) {
+                  setState(() => _filterWordType = value);
+                  Navigator.pop(context);
+                },
+                color: WordTypeColors.prepPrimary,
+              ),
+              _FilterOption(
+                label: '代词',
+                value: 'pronoun',
+                groupValue: _filterWordType,
+                onChanged: (value) {
+                  setState(() => _filterWordType = value);
+                  Navigator.pop(context);
+                },
+                color: WordTypeColors.pronPrimary,
+              ),
+              _FilterOption(
+                label: '连词',
+                value: 'conjunction',
+                groupValue: _filterWordType,
+                onChanged: (value) {
+                  setState(() => _filterWordType = value);
+                  Navigator.pop(context);
+                },
+                color: WordTypeColors.conjPrimary,
+              ),
+              _FilterOption(
+                label: '其他',
+                value: 'other',
+                groupValue: _filterWordType,
+                onChanged: (value) {
+                  setState(() => _filterWordType = value);
+                  Navigator.pop(context);
+                },
+                color: WordTypeColors.otherPrimary,
+              ),
             ],
           ),
         );
@@ -710,6 +944,7 @@ class _WordTile extends ConsumerWidget {
   final bool isSelected;
   final VoidCallback onAiUpdate;
   final VoidCallback onCopyToDeck;
+  final VoidCallback onNormalizeGerman;
   final VoidCallback? onDelete;
 
   const _WordTile({
@@ -721,6 +956,7 @@ class _WordTile extends ConsumerWidget {
     this.isSelected = false,
     required this.onAiUpdate,
     required this.onCopyToDeck,
+    required this.onNormalizeGerman,
     this.onDelete,
   });
 
@@ -869,6 +1105,9 @@ class _WordTile extends ConsumerWidget {
                       case 'ai_update':
                         onAiUpdate();
                         break;
+                      case 'normalize_german':
+                        onNormalizeGerman();
+                        break;
                       case 'copy_to_deck':
                         onCopyToDeck();
                         break;
@@ -885,6 +1124,16 @@ class _WordTile extends ConsumerWidget {
                           Icon(Icons.auto_awesome, size: 18),
                           SizedBox(width: 8),
                           Text('AI更新词义'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'normalize_german',
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_fix_high, size: 18),
+                          SizedBox(width: 8),
+                          Text('AI规范化德语'),
                         ],
                       ),
                     ),
@@ -940,10 +1189,10 @@ class _FilterOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Radio<String?>(
-        value: value,
+      leading: RadioGroup<String?>(
         groupValue: groupValue,
         onChanged: onChanged,
+        child: Radio<String?>(value: value),
       ),
       title: Row(
         children: [

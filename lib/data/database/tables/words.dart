@@ -8,7 +8,7 @@ class Words extends Table {
   TextColumn get german => text().withLength(min: 1, max: 500)();
   TextColumn get article => text().nullable()(); // der/die/das
   TextColumn get baseForm => text().nullable()();
-  TextColumn get wordType => text().nullable()(); // noun/verb/adjective/adverb/other
+  TextColumn get wordType => text().nullable()(); // noun/verb/adjective/adverb/preposition/pronoun/conjunction/other
   TextColumn get chinese => text().withLength(min: 0, max: 1000)();
   TextColumn get example => text().nullable()();
   TextColumn get tags => text().nullable()(); // JSON array or comma-separated

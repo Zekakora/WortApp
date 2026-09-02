@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../providers/conjugation_provider.dart';
+import '../../../providers/settings_provider.dart';
 import '../../widgets/study_split_layout.dart';
 
 /// 变位练习界面
@@ -334,12 +335,12 @@ class _ConjugationDrillScreenState
                 // 提交前：高亮当前选中项；提交后：选对 / 选错 / 提示正确选项
                 final isPicked = !showFeedback && isSelected;
                 final isCorrectPick =
-                    showFeedback && isSelected && result!.isCorrect;
+                    showFeedback && isSelected && result.isCorrect;
                 final isWrongPick =
-                    showFeedback && isSelected && !result!.isCorrect;
+                    showFeedback && isSelected && !result.isCorrect;
                 final isCorrectOption = showFeedback &&
-                    !result!.isCorrect &&
-                    article == result!.correctAnswer.toLowerCase();
+                    !result.isCorrect &&
+                    article == result.correctAnswer.toLowerCase();
 
                 return Expanded(
                   child: GestureDetector(
@@ -348,6 +349,7 @@ class _ConjugationDrillScreenState
                         : () => _onArticleOptionSelected(article),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
@@ -421,6 +423,10 @@ class _ConjugationDrillScreenState
   /// 点击定冠词选项
   void _onArticleOptionSelected(String article) {
     setState(() => _selectedArticle = article);
+    // 回答后自动确认：开启时选中即检查答案，无需再点击“检查答案”按钮
+    if (ref.read(settingsProvider).autoConfirm) {
+      _submit();
+    }
   }
 
   /// 提示条

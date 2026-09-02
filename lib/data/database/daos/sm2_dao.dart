@@ -15,6 +15,12 @@ class Sm2Dao extends DatabaseAccessor<AppDatabase> with _$Sm2DaoMixin {
         .getSingleOrNull();
   }
 
+  /// 按单词 id 集合批量获取 SM-2 状态（避免逐词查询的 N+1）
+  Future<List<Sm2State>> getStatesForWords(List<int> wordIds) {
+    if (wordIds.isEmpty) return Future.value(const []);
+    return (select(sm2States)..where((t) => t.wordId.isIn(wordIds))).get();
+  }
+
   /// 创建 SM-2 状态
   Future<int> createState(Sm2StatesCompanion entry) {
     return into(sm2States).insert(entry);
@@ -25,32 +31,55 @@ class Sm2Dao extends DatabaseAccessor<AppDatabase> with _$Sm2DaoMixin {
     return update(sm2States).replace(entry);
   }
 
-  /// 获取今日待复习单词数量
-  Future<int> getDueReviewCount() async {
+  /// 获取指定词书中今日待复习单词数量
+  Future<int> getDueReviewCount({required int deckId}) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final count = await customSelect(
-      'SELECT COUNT(*) as cnt FROM sm2_states WHERE next_review <= ?',
+      'SELECT COUNT(*) as cnt FROM sm2_states s '
+      'JOIN words w ON s.word_id = w.id '
+      'WHERE w.deck_id = ? AND s.next_review <= ?',
       // 注意：drift 2.31+ 默认以 unix 秒存储 DateTime，
       // 必须用 withDateTime 让 drift 按数据库存储模式自动编码（不能用毫秒）
-      variables: [Variable.withDateTime(today)],
-      readsFrom: {sm2States},
+      variables: [
+        Variable.withInt(deckId),
+        Variable.withDateTime(today),
+      ],
+      readsFrom: {sm2States, words},
     ).getSingle();
     return count.data['cnt'] as int;
   }
 
-  /// 获取今日待复习的单词 ID 列表
-  Future<List<int>> getDueReviewWordIds({int? limit}) async {
+  /// 获取指定词书中今日待复习的单词 ID 列表（按 next_review 升序）
+  ///
+  /// deck 过滤下推到 SQL，避免「先按全局到期词截断、再过滤词书」
+  /// 导致本词书复习额度被其它词书挤占。
+  Future<List<int>> getDueReviewWordIds({
+    required int deckId,
+    int? limit,
+  }) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final query = select(sm2States)
-      ..where((t) => t.nextReview.isSmallerOrEqualValue(today))
-      ..orderBy([(t) => OrderingTerm.asc(t.nextReview)]);
+    final sql = StringBuffer(
+      'SELECT s.word_id AS word_id FROM sm2_states s '
+      'JOIN words w ON s.word_id = w.id '
+      'WHERE w.deck_id = ? AND s.next_review <= ? '
+      'ORDER BY s.next_review ASC',
+    );
+    final variables = <Variable>[
+      Variable.withInt(deckId),
+      Variable.withDateTime(today),
+    ];
     if (limit != null) {
-      query.limit(limit);
+      sql.write(' LIMIT ?');
+      variables.add(Variable.withInt(limit));
     }
-    final states = await query.get();
-    return states.map((s) => s.wordId).toList();
+    final result = await customSelect(
+      sql.toString(),
+      variables: variables,
+      readsFrom: {sm2States, words},
+    ).get();
+    return result.map((r) => r.data['word_id'] as int).toList();
   }
 
   /// 获取新词（没有 SM-2 状态的单词）的 ID 列表
@@ -118,14 +147,5 @@ class Sm2Dao extends DatabaseAccessor<AppDatabase> with _$Sm2DaoMixin {
   /// 删除单词的 SM-2 状态
   Future<int> deleteByWordId(int wordId) {
     return (delete(sm2States)..where((t) => t.wordId.equals(wordId))).go();
-  }
-
-  /// 删除词书中所有 SM-2 状态
-  Future<void> deleteByDeckId(int deckId) async {
-    // 注意：customStatement 的参数是原始值列表，不能传 Variable 对象（Web 端会报 Unknown db value）
-    await customStatement(
-      'DELETE FROM sm2_states WHERE word_id IN (SELECT id FROM words WHERE deck_id = ?)',
-      [deckId],
-    );
   }
 }

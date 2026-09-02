@@ -38,9 +38,15 @@ class SM2Algorithm {
     double newInterval;
 
     if (quality < 3) {
-      // 忘记 → 重置重复序列
-      newN = 0;
-      newInterval = 1;
+      if (quality == 2) {
+        // 模糊：部分遗忘（如仅冠词记错），保留重复序列，间隔压回 1 天
+        newN = currentN;
+        newInterval = 1;
+      } else {
+        // 忘记 → 重置重复序列
+        newN = 0;
+        newInterval = 1;
+      }
     } else {
       // 正确 → 进入下一阶段
       newN = currentN + 1;

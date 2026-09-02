@@ -88,6 +88,10 @@ class ScoreColors {
 /// 动词 (Verb): 紫色系
 /// 形容词 (Adjektiv): 橙色系
 /// 副词 (Adverb): 青色系
+/// 介词 (Präposition): 粉色系
+/// 代词 (Pronomen): 靛蓝色系
+/// 连词 (Konjunktion): 棕色系
+/// 其他 (Sonstiges): 蓝灰色系
 /// 名词 (Substantiv): 使用冠词颜色
 class WordTypeColors {
   WordTypeColors._();
@@ -125,6 +129,16 @@ class WordTypeColors {
   static const Color conjLight = Color(0xFF8D6E63);
   static const Color conjSurface = Color(0xFFEFEBE9);
 
+  // 代词 - 靛蓝色系
+  static const Color pronPrimary = Color(0xFF283593);
+  static const Color pronLight = Color(0xFF5C6BC0);
+  static const Color pronSurface = Color(0xFFE8EAF6);
+
+  // 其他 - 蓝灰色系
+  static const Color otherPrimary = Color(0xFF546E7A);
+  static const Color otherLight = Color(0xFF90A4AE);
+  static const Color otherSurface = Color(0xFFECEFF1);
+
   /// 根据词性返回对应颜色
   static Color forWordType(String? wordType, {String? article}) {
     // 如果是名词，使用冠词颜色
@@ -148,9 +162,14 @@ class WordTypeColors {
       case 'preposition':
       case 'prep':
         return prepPrimary;
+      case 'pronoun':
+      case 'pron':
+        return pronPrimary;
       case 'conjunction':
       case 'conj':
         return conjPrimary;
+      case 'other':
+        return otherPrimary;
       default:
         return Colors.grey;
     }
@@ -176,9 +195,14 @@ class WordTypeColors {
       case 'preposition':
       case 'prep':
         return prepSurface;
+      case 'pronoun':
+      case 'pron':
+        return pronSurface;
       case 'conjunction':
       case 'conj':
         return conjSurface;
+      case 'other':
+        return otherSurface;
       default:
         return Colors.grey.shade100;
     }
@@ -204,9 +228,14 @@ class WordTypeColors {
       case 'preposition':
       case 'prep':
         return 'Präp';
+      case 'pronoun':
+      case 'pron':
+        return 'Pron';
       case 'conjunction':
       case 'conj':
         return 'Konj';
+      case 'other':
+        return 'Sonst';
       default:
         return '?';
     }
@@ -232,9 +261,14 @@ class WordTypeColors {
       case 'preposition':
       case 'prep':
         return '介词';
+      case 'pronoun':
+      case 'pron':
+        return '代词';
       case 'conjunction':
       case 'conj':
         return '连词';
+      case 'other':
+        return '其他';
       default:
         return '未知';
     }

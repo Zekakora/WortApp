@@ -125,6 +125,73 @@ class StudyStatDao extends DatabaseAccessor<AppDatabase>
     }).toList();
   }
 
+  /// 获取词书中「今日错词」的单词 id 集合
+  ///
+  /// 今日错词判定：今天有答题记录，且正确次数（出现次数 - 错误次数）
+  /// 少于 [minCorrect]（默认 3 次）。用于学习模式「只抓今日错词」
+  /// 抓词策略，与错误统计排行榜共用 study_stats 数据。
+  Future<Set<int>> getTodayWeakWordIds({
+    required int deckId,
+    int minCorrect = 3,
+  }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final rows = await customSelect(
+      '''
+      SELECT w.id AS word_id
+      FROM study_stats s JOIN words w ON s.word_id = w.id
+      WHERE w.deck_id = ? AND s.date >= ?
+      GROUP BY w.id
+      HAVING SUM(s.appearances) - SUM(s.errors) < ?
+      ''',
+      variables: [
+        Variable.withInt(deckId),
+        Variable.withDateTime(today),
+        Variable.withInt(minCorrect),
+      ],
+      readsFrom: {studyStats, words},
+    ).get();
+    return rows.map((row) => row.data['word_id'] as int).toSet();
+  }
+
+  /// 获取词书中「今日答错过」的单词 id 集合
+  ///
+  /// 今日答错过判定：今天有答题记录且错误次数（忘记/模糊）> 0。
+  /// 学习模式「只抓今日错词」以此为准：只有真正答错过（忘记/模糊）的
+  /// 词才进入错词复习，答对不会把词挤出列表；毕业标准由复习轮次
+  /// 「连续干净轮数」控制（见 StudySessionNotifier）。
+  Future<Set<int>> getTodayWrongWordIds({required int deckId}) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final rows = await customSelect(
+      '''
+      SELECT w.id AS word_id
+      FROM study_stats s JOIN words w ON s.word_id = w.id
+      WHERE w.deck_id = ? AND s.date >= ?
+      GROUP BY w.id
+      HAVING SUM(s.errors) > 0
+      ''',
+      variables: [
+        Variable.withInt(deckId),
+        Variable.withDateTime(today),
+      ],
+      readsFrom: {studyStats, words},
+    ).get();
+    return rows.map((row) => row.data['word_id'] as int).toSet();
+  }
+
+  /// 获取所有有学习记录的日期（去重、降序），用于连续打卡统计
+  ///
+  /// 打卡判定：只要当天有过任意答题记录（recordAttempt 写入）即视为已打卡。
+  Future<List<DateTime>> getDistinctStudyDates() async {
+    final rows = await (select(studyStats)
+          ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+        .get();
+    // 同一日期可能有多条记录（不同单词），按日期去重
+    return rows.map((r) => r.date).toSet().toList()
+      ..sort((a, b) => b.compareTo(a));
+  }
+
   /// 删除单词的统计记录
   Future<int> deleteByWordId(int wordId) {
     return (delete(studyStats)..where((t) => t.wordId.equals(wordId))).go();

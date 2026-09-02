@@ -9,6 +9,7 @@ import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
 import '../../../../ui/widgets/study_split_layout.dart';
+import '../../../../ui/widgets/swipe_down_detail_route.dart';
 
 /// 德语拼写模式
 class SpellModeScreen extends ConsumerStatefulWidget {
@@ -131,17 +132,21 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('拼写模式 (${session.currentIndex + 1}/${session.words.length})'),
+        title: Text('拼写模式 (${session.progressTitle})'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(
+            value: session.progress,
+            minHeight: 4,
+            backgroundColor: Colors.transparent,
+          ),
+        ),
       ),
       body: StudySplitLayout(
         key: _splitKey,
         wordId: word.id,
         left: Column(
           children: [
-            LinearProgressIndicator(
-              value: session.progress,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -350,7 +355,7 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
     if (word == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
+      SwipeDownDetailRoute(builder: (_) => WordDetailScreen(wordId: word.id)),
     );
   }
 

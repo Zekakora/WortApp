@@ -113,10 +113,9 @@ class DeckListScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: () {
-                // 重试
-                ref.read(databaseStateProvider.notifier);
-              },
+              onPressed: dbState.isLoading
+                  ? null
+                  : () => ref.read(databaseStateProvider.notifier).retry(),
               child: const Text('重试'),
             ),
           ],
@@ -319,11 +318,23 @@ class DeckListScreen extends ConsumerWidget {
     );
 
     final importService = ImportService(db);
-    final result = await importService.importBackup(
-      filePath: filePath,
-      fileBytes: fileBytes,
-      fileName: fileName,
-    );
+    BackupImportResult result;
+    try {
+      result = await importService.importBackup(
+        filePath: filePath,
+        fileBytes: fileBytes,
+        fileName: fileName,
+      );
+    } catch (e) {
+      debugPrint('备份导入失败: $e');
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+      return;
+    }
 
     if (context.mounted) {
       Navigator.pop(context); // 关闭加载对话框
@@ -389,25 +400,36 @@ class DeckListScreen extends ConsumerWidget {
 
     ImportResult result;
 
-    if (config.mode == ImportMode.simple && config.wordColumnIndex != null) {
-      // 简单模式：只导入单词列
-      result = await importService.importSimpleMode(
-        filePath: filePath,
-        fileBytes: fileBytes,
-        fileName: fileName,
-        deckId: deckId,
-        wordColumnIndex: config.wordColumnIndex!,
-        hasHeader: config.hasHeader,
-      );
-    } else {
-      // 完整模式：按原格式导入
-      result = await importService.importFromFile(
-        filePath: filePath,
-        fileBytes: fileBytes,
-        fileName: fileName,
-        deckId: deckId,
-        hasHeader: config.hasHeader,
-      );
+    try {
+      if (config.mode == ImportMode.simple && config.wordColumnIndex != null) {
+        // 简单模式：只导入单词列
+        result = await importService.importSimpleMode(
+          filePath: filePath,
+          fileBytes: fileBytes,
+          fileName: fileName,
+          deckId: deckId,
+          wordColumnIndex: config.wordColumnIndex!,
+          hasHeader: config.hasHeader,
+        );
+      } else {
+        // 完整模式：按原格式导入
+        result = await importService.importFromFile(
+          filePath: filePath,
+          fileBytes: fileBytes,
+          fileName: fileName,
+          deckId: deckId,
+          hasHeader: config.hasHeader,
+        );
+      }
+    } catch (e) {
+      debugPrint('导入失败: $e');
+      if (context.mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+      return;
     }
 
     if (context.mounted) {
@@ -797,7 +819,7 @@ class _DeckCard extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => controller.dispose());
   }
 
   void _importToDeck(BuildContext context, WidgetRef ref) async {
@@ -835,12 +857,24 @@ class _DeckCard extends ConsumerWidget {
             const Center(child: CircularProgressIndicator()),
       );
 
-      final importResult = await importService.importFromFile(
-        filePath: filePath,
-        fileBytes: fileBytes,
-        fileName: fileName,
-        deckId: deck.id,
-      );
+      ImportResult importResult;
+      try {
+        importResult = await importService.importFromFile(
+          filePath: filePath,
+          fileBytes: fileBytes,
+          fileName: fileName,
+          deckId: deck.id,
+        );
+      } catch (e) {
+        debugPrint('导入失败: $e');
+        if (context.mounted) {
+          Navigator.pop(context); // 关闭加载对话框
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('导入失败: $e')),
+          );
+        }
+        return;
+      }
 
       if (context.mounted) {
         Navigator.pop(context);
@@ -1104,7 +1138,7 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
                 Text(
                   state.currentTask!.currentWord!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
+                        color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                       ),
                 ),
               const SizedBox(width: 8),
@@ -1124,7 +1158,7 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
           const SizedBox(height: 4),
           LinearProgressIndicator(
             value: state.currentTask?.progress,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
             valueColor: AlwaysStoppedAnimation<Color>(
               Theme.of(context).colorScheme.primary,
             ),

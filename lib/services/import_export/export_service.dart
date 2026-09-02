@@ -246,6 +246,14 @@ class ExportService {
             'updatedAt': s.updatedAt.toIso8601String(),
           }).toList();
 
+      // 删除墓碑（跨端删除传播：对端据此删除本地已删除的单词/词书）
+      final deletionRows = await _db.getAllDeletions();
+      final deletionsJson = deletionRows.map((d) => {
+            'deck': d.deckName,
+            'german': d.german,
+            'deletedAt': d.deletedAt.toIso8601String(),
+          }).toList();
+
       for (final deck in decks) {
         final words = await _db.wordDao.getWordsByDeck(deck.id);
         final cacheMap = await _db.conjugationDao.getCachedByDeck(deck.id);
@@ -315,17 +323,19 @@ class ExportService {
       final backup = <String, dynamic>{
         'app': 'WortApp',
         'type': 'wortapp-backup',
-        'version': 4,
+        'version': 5,
         'exportedAt': DateTime.now().toIso8601String(),
         'deckCount': decksJson.length,
         'wordCount': wordCount,
         'aiCacheCount': aiCacheJson.length,
         'aiStatusCount': aiStatusJson.length,
         'settingsCount': settingsJson.length,
+        'deletionCount': deletionsJson.length,
         'decks': decksJson,
         'aiCache': aiCacheJson,
         'aiStatus': aiStatusJson,
         'settings': settingsJson,
+        'deletions': deletionsJson,
       };
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(backup);

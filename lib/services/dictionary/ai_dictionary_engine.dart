@@ -6,22 +6,19 @@ import 'dictionary_engine.dart';
 /// AI 深度解析引擎
 class AIDictionaryEngine implements DictionaryEngine {
   final AIService _aiService;
-  final Future<void> Function(String word, String resultJson)? _cacheCallback;
-  final Future<String?> Function(String word)? _getCacheCallback;
+  final Future<void> Function(String word, String resultJson)? cacheCallback;
+  final Future<String?> Function(String word)? getCacheCallback;
 
   /// 记录 AI 请求结果（success=false 时携带失败原因），用于「数据管理」展示与重试
   final Future<void> Function(String word, bool success, String? error)?
-      _statusCallback;
+      statusCallback;
 
   AIDictionaryEngine(
     this._aiService, {
-    Future<void> Function(String word, String resultJson)? cacheCallback,
-    Future<String?> Function(String word)? getCacheCallback,
-    Future<void> Function(String word, bool success, String? error)?
-        statusCallback,
-  })  : _cacheCallback = cacheCallback,
-        _getCacheCallback = getCacheCallback,
-        _statusCallback = statusCallback;
+    this.cacheCallback,
+    this.getCacheCallback,
+    this.statusCallback,
+  });
 
   @override
   String get name => 'AI 解析';
@@ -30,16 +27,28 @@ class AIDictionaryEngine implements DictionaryEngine {
   Future<DictionaryResult?> lookup(String word, {bool forceRefresh = false}) async {
     try {
       // 先检查缓存（手动更新 forceRefresh=true 时跳过缓存，强制请求 AI）
-      if (!forceRefresh && _getCacheCallback != null) {
-        final cachedJson = await _getCacheCallback(word);
+      final cacheGetter = getCacheCallback;
+      if (!forceRefresh && cacheGetter != null) {
+        String? cachedJson;
+        try {
+          cachedJson = await cacheGetter(word);
+        } catch (e) {
+          debugPrint('读取 AI 缓存失败: $word - $e');
+        }
         if (cachedJson != null && !_isPollutedCache(cachedJson)) {
-          final cachedResult = _parseResult(word, cachedJson);
-          if (cachedResult.definitions.isNotEmpty) {
-            debugPrint('Using cached result for: $word');
-            return cachedResult;
+          try {
+            final cachedResult = _parseResult(word, cachedJson);
+            if (cachedResult.definitions.isNotEmpty) {
+              debugPrint('Using cached result for: $word');
+              return cachedResult;
+            }
+            // 缓存结果缺少释义，忽略缓存重新查询
+            debugPrint('缓存结果缺少释义，重新查询: $word');
+          } catch (e) {
+            // 缓存损坏（结构异常）：忽略并重新查询；查询成功后会覆盖坏缓存自愈，
+            // 避免该词从此每次查询都失败
+            debugPrint('AI 缓存解析失败，重新查询: $word - $e');
           }
-          // 缓存结果缺少释义，忽略缓存重新查询
-          debugPrint('缓存结果缺少释义，重新查询: $word');
         } else if (cachedJson != null) {
           debugPrint('缓存含"null"占位符污染，重新查询: $word');
         }
@@ -55,7 +64,7 @@ class AIDictionaryEngine implements DictionaryEngine {
   "analysis": "词根/等级/近义词(50字内)",
   "article": "der/die/das",
   "plural": "复数",
-  "part_of_speech": "verb/noun/adjective/adverb/other",
+  "part_of_speech": "verb/noun/adjective/adverb/preposition/pronoun/conjunction/other",
   "verb_type": "basic/separable/null",
   "conjugation": {"ich":"","du":"","er":"","wir":"","ihr":"","sie":""},
   "separable_prefix": "前缀或null",
@@ -114,8 +123,9 @@ class AIDictionaryEngine implements DictionaryEngine {
       // 缓存结果（仅当包含释义时缓存，避免把不完整数据写入缓存）
       final result = _parseResult(word, jsonStr);
       if (result.definitions.isNotEmpty) {
-        if (_cacheCallback != null) {
-          await _cacheCallback(word, jsonStr);
+        final cacheWriter = cacheCallback;
+        if (cacheWriter != null) {
+          await cacheWriter(word, jsonStr);
         }
         await _recordStatus(word, true, null);
       } else {
@@ -136,7 +146,7 @@ class AIDictionaryEngine implements DictionaryEngine {
   Future<void> _recordStatus(
       String word, bool success, String? error) async {
     try {
-      await _statusCallback?.call(word, success, error);
+      await statusCallback?.call(word, success, error);
     } catch (e) {
       debugPrint('记录AI请求状态失败: $e');
     }
@@ -228,8 +238,9 @@ class AIDictionaryEngine implements DictionaryEngine {
     return map.isEmpty ? null : map;
   }
 
-  /// 将 AI 返回的词性统一规范为小写英文（verb/noun/adjective/adverb/other）
-  /// AI 可能返回 "Verb"、"动词" 等不规范值，统一后保证下拉框/标签正常匹配
+  /// 将 AI 返回的词性统一规范为小写英文
+  /// （verb/noun/adjective/adverb/preposition/pronoun/conjunction/other）
+  /// AI 可能返回 "Verb"、"动词"、"Präposition" 等不规范值，统一后保证下拉框/标签正常匹配
   static String? _normalizePartOfSpeech(String? value) {
     if (value == null) return null;
     final s = value.trim().toLowerCase();
@@ -250,6 +261,27 @@ class AIDictionaryEngine implements DictionaryEngine {
       case 'adv':
       case '副词':
         return 'adverb';
+      case 'preposition':
+      case 'prep':
+      case '介词':
+      case 'präposition':
+      case 'praeposition':
+        return 'preposition';
+      case 'pronoun':
+      case 'pron':
+      case '代词':
+      case 'pronomen':
+        return 'pronoun';
+      case 'conjunction':
+      case 'conj':
+      case '连词':
+      case 'konjunktion':
+        return 'conjunction';
+      case 'other':
+      case '其他':
+      case 'sonst':
+      case 'sonstiges':
+        return 'other';
       default:
         // 无法识别的词性不传，避免脏值入库
         return null;
@@ -375,7 +407,6 @@ class AIDictionaryEngine implements DictionaryEngine {
       int bracketCount = 0;
       bool inString = false;
       bool escaped = false;
-      int lastValidPos = 0;
 
       for (int i = 0; i < fixed.length; i++) {
         final char = fixed[i];
@@ -401,9 +432,6 @@ class AIDictionaryEngine implements DictionaryEngine {
           braceCount++;
         } else if (char == '}') {
           braceCount--;
-          if (braceCount == 0 && bracketCount == 0) {
-            lastValidPos = i;
-          }
         } else if (char == '[') {
           bracketCount++;
         } else if (char == ']') {

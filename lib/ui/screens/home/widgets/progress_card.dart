@@ -18,6 +18,7 @@ class ProgressCard extends ConsumerWidget {
 
     final wordCount = ref.watch(wordCountProvider(deckId!));
     final studyPlan = ref.watch(studyPlanProvider(deckId!));
+    final checkInStreak = ref.watch(checkInStreakProvider);
 
     return Card(
       child: Padding(
@@ -71,11 +72,25 @@ class ProgressCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _StatItem(
-                  icon: Icons.local_fire_department,
-                  label: '连续打卡',
-                  value: '0 天',
-                  color: Colors.orange,
+                checkInStreak.when(
+                  data: (days) => _StatItem(
+                    icon: Icons.local_fire_department,
+                    label: '连续打卡',
+                    value: '$days 天',
+                    color: Colors.orange,
+                  ),
+                  loading: () => _StatItem(
+                    icon: Icons.local_fire_department,
+                    label: '连续打卡',
+                    value: '...',
+                    color: Colors.orange,
+                  ),
+                  error: (e, s) => _StatItem(
+                    icon: Icons.local_fire_department,
+                    label: '连续打卡',
+                    value: '0 天',
+                    color: Colors.orange,
+                  ),
                 ),
                 wordCount.when(
                   data: (count) => _StatItem(

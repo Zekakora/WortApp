@@ -314,6 +314,24 @@ class ImportService {
     );
   }
 
+  /// 构建“全局规范化词形 → 所在词书名”映射（用于导入去重）
+  ///
+  /// 规范化词形见 [GermanParser.canonicalKey]：剥离冠词/复数后缀、保留大小写。
+  /// 一次性加载，避免逐行查询；导入过程中插入的新词会同步追加进映射。
+  Future<Map<String, String>> _loadGlobalCanonicalKeys() async {
+    final all = await _db.wordDao.getAllWords();
+    final decks = await _db.deckDao.getAllDecks();
+    final deckNameById = {for (final d in decks) d.id: d.name};
+    final map = <String, String>{};
+    for (final w in all) {
+      map.putIfAbsent(
+        GermanParser.canonicalKey(w.german),
+        () => deckNameById[w.deckId] ?? '',
+      );
+    }
+    return map;
+  }
+
   /// 处理简单模式导入（只导入单词列）
   Future<ImportResult> _processRowsSimpleMode({
     required List<List<dynamic>> rows,
@@ -328,6 +346,9 @@ class ImportService {
     // 跳过表头
     final dataRows = hasHeader ? rows.skip(1).toList() : rows;
     final totalRows = dataRows.length;
+
+    // 全局规范化词形去重：防止导入的单词与任何词书中已有单词重复
+    final existingByKey = await _loadGlobalCanonicalKeys();
 
     for (int i = 0; i < dataRows.length; i++) {
       final row = dataRows[i];
@@ -350,10 +371,16 @@ class ImportService {
 
         // 先解析德语单词
         final parsed = GermanParser.parse(german);
+        final key = GermanParser.canonicalKey(german);
 
-        // 检查是否已存在（使用解析后的主干）
-        final existing = await _db.wordDao.findWordByGerman(deckId, parsed.baseWord);
-        if (existing != null) {
+        // 全局查重（含词书内）：已存在则跳过
+        final existingDeck = existingByKey[key];
+        if (existingDeck != null) {
+          errors.add(
+            '行 $rowNum: 单词“${parsed.baseWord}”'
+            '${existingDeck.isEmpty ? '' : '（已存在于词书「$existingDeck」）'}'
+            '已存在，已跳过',
+          );
           skipCount++;
           continue;
         }
@@ -372,6 +399,7 @@ class ImportService {
             updatedAt: drift.Value(now),
           ),
         );
+        existingByKey[key] = '';
 
         successCount++;
       } catch (e) {
@@ -741,8 +769,13 @@ class ImportService {
       final german = _cleanString(w['german']?.toString() ?? '');
       if (german.isEmpty) return (0, 1, null);
 
-      // 词书内查重：同一词书内不允许重复（跨词书允许重复，共享 AI 查词缓存）
-      final existing = await _db.wordDao.findWordByGerman(deckId, german);
+      // 词书内规范化查重：同一词书内不允许重复（`der Hund` 与 `Hund`
+      // 归为同一词）；备份恢复不做全局去重，忠实还原跨词书内容
+      final key = GermanParser.canonicalKey(german);
+      final existing = await _db.wordDao.findWordByCanonicalKeyInDeck(
+        deckId,
+        key,
+      );
       if (existing != null) return (0, 1, null);
 
       final now = DateTime.now();
@@ -867,6 +900,9 @@ class ImportService {
     final dataRows = hasHeader ? rows.skip(1).toList() : rows;
     final totalRows = dataRows.length;
 
+    // 全局规范化词形去重：防止导入的单词与任何词书中已有单词重复
+    final existingByKey = await _loadGlobalCanonicalKeys();
+
     for (int i = 0; i < dataRows.length; i++) {
       final row = dataRows[i];
       final rowNum = i + (hasHeader ? 2 : 1);
@@ -889,13 +925,16 @@ class ImportService {
 
         // 解析德语单词
         final parsed = GermanParser.parse(german);
+        final key = GermanParser.canonicalKey(german);
 
-        // 词书内查重：同一词书内不允许重复，重复单词跳过
-        // （跨词书允许重复，共享 AI 查词缓存）
-        final existing =
-            await _db.wordDao.findWordByGerman(deckId, parsed.baseWord);
-        if (existing != null) {
-          errors.add('行 $rowNum: 单词“${parsed.baseWord}”已存在，已跳过');
+        // 全局查重（含词书内）：已存在则跳过
+        final existingDeck = existingByKey[key];
+        if (existingDeck != null) {
+          errors.add(
+            '行 $rowNum: 单词“${parsed.baseWord}”'
+            '${existingDeck.isEmpty ? '' : '（已存在于词书「$existingDeck」）'}'
+            '已存在，已跳过',
+          );
           skipCount++;
           continue;
         }
@@ -924,6 +963,7 @@ class ImportService {
             updatedAt: drift.Value(now),
           ),
         );
+        existingByKey[key] = '';
 
         successCount++;
       } catch (e) {

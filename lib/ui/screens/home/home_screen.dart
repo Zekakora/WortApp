@@ -1,9 +1,15 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/onedrive_config.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/database_provider.dart';
+import '../../../providers/onedrive_provider.dart';
+import '../../widgets/onedrive_sync_actions.dart';
 import 'widgets/progress_card.dart';
 import 'widgets/feature_cards.dart';
+import 'widgets/onedrive_sync_button.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -14,6 +20,8 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        // 左上角 OneDrive 同步图标（未登录点登录，已登录点上传）
+        leading: const OneDriveSyncButton(),
         title: activeDeck.when(
           data: (deck) => Text(deck?.name ?? 'WortApp'),
           loading: () => const Text('WortApp'),
@@ -27,26 +35,65 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 今日进度卡片
-            ProgressCard(deckId: activeDeck.valueOrNull?.id),
-            const SizedBox(height: 24),
-            // 功能入口
-            Text(
-              '学习功能',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: RefreshIndicator(
+        onRefresh: () => _refresh(context, ref),
+        child: ScrollConfiguration(
+          // 桌面端也允许鼠标拖拽触发下拉刷新
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+            },
+          ),
+          child: SingleChildScrollView(
+            // 内容不满一屏时也能下拉刷新
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 今日进度卡片
+                ProgressCard(deckId: activeDeck.valueOrNull?.id),
+                const SizedBox(height: 24),
+                // 功能入口
+                Text(
+                  '学习功能',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                const FeatureCards(),
+              ],
             ),
-            const SizedBox(height: 16),
-            const FeatureCards(),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// 下拉刷新：OneDrive 已连接时执行差异同步，否则仅提示
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    // Web 平台或未配置 Azure：无云端同步能力，本地数据由数据库流实时更新
+    if (kIsWeb || !OneDriveConfig.isConfigured) {
+      _showSnack(context, '数据已是最新');
+      return;
+    }
+
+    if (!ref.read(onedriveSyncProvider).isConnected) {
+      _showSnack(context, '尚未连接 OneDrive，点击左上角云朵图标登录后即可同步');
+      return;
+    }
+
+    final result = await runOneDriveSync(context, ref);
+    if (!context.mounted) return;
+    showOneDriveSyncResult(context, result, successMsg: '同步完成');
+  }
+
+  void _showSnack(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 

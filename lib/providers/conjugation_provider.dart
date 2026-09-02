@@ -34,6 +34,12 @@ final conjugationServiceProvider = Provider<ConjugationService?>((ref) {
 /// 练习大类
 enum PracticeCategory { verb, noun, adjective }
 
+/// 变位练习抓词范围
+///
+/// - [random]：随机练习——从整个词书随机抽取
+/// - [todayOnly]：只练今日单词——仅从今天学习过的单词中抽取
+enum ConjugationPickMode { random, todayOnly }
+
 /// 二级练习模式（如：动词变位-现在时、名词变格-第二格单数…）
 class PracticeMode {
   final String id;
@@ -253,15 +259,22 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
     'sie_Sie': 'sie/Sie',
   };
 
-  /// 加载练习：从词书中抽取 limit 个符合条件的单词组成练习队列
+  /// 加载练习：按 [pickMode] 决定单词来源，抽取 limit 个符合条件的单词组成练习队列
+  ///
+  /// - [ConjugationPickMode.random]：从整个词书随机抽取
+  /// - [ConjugationPickMode.todayOnly]：仅从今日学习过的单词中抽取
+  ///   （与学习模式口径一致：lastStudyDate 为今天）
   Future<void> loadDrill({
     required int deckId,
     required PracticeMode mode,
     required int limit,
+    ConjugationPickMode pickMode = ConjugationPickMode.random,
   }) async {
     if (_db == null) return;
 
-    final words = await _db.wordDao.getWordsByDeck(deckId);
+    final words = pickMode == ConjugationPickMode.todayOnly
+        ? await _db.wordDao.getTodayStudiedWords(deckId)
+        : await _db.wordDao.getWordsByDeck(deckId);
     final candidates =
         words.where((w) => w.wordType == mode.requiredWordType).toList();
 

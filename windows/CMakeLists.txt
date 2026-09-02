@@ -32,6 +32,16 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# flutter_inappwebview_windows 仍使用微软已废弃的 <experimental/coroutine>，
+# 新版 MSVC (VS 18.x / MSVC 14.51+) 将其升级为 STL1011 硬错误。
+# 定义该宏以兼容（flutter_inappwebview 升级前无法移除）。
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
+# 兼容插件的 add_custom_command(TARGET ... DEPENDS) 旧写法（CMake 4.x 策略）。
+if(POLICY CMP0175)
+  cmake_policy(SET CMP0175 OLD)
+endif()
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by

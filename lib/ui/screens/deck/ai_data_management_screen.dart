@@ -52,6 +52,21 @@ class AiWordStatusEntry {
 
   /// 是否需要重试（没有 AI 释义的单词，含请求失败与从未请求）
   bool get needsRetry => !hasAiDefinition;
+
+  /// 当前中文释义是否为英文（OCR/导入词书可能给出英文释义）
+  bool get isEnglishMeaning => isEnglishLike(word.chinese);
+}
+
+/// 判断释义文本是否为英文：包含拉丁字母但几乎不含中文（CJK）字符
+bool isEnglishLike(String text) {
+  final t = text.trim();
+  if (t.isEmpty) return false;
+  final hasLatin = RegExp(r'[a-zA-Z]').hasMatch(t);
+  if (!hasLatin) return false;
+  // 统计 CJK 字符占比，若含中文则视为正常中文释义
+  final cjkCount =
+      RegExp(r'[\u4E00-\u9FFF\u3400-\u4DBF]').allMatches(t).length;
+  return cjkCount == 0;
 }
 
 /// 筛选条件
@@ -59,7 +74,8 @@ enum _AiStatusFilter {
   all('全部'),
   needsRetry('需重试'),
   hasDefinition('已有释义'),
-  failed('请求失败');
+  failed('请求失败'),
+  englishMeaning('英文释义');
 
   final String label;
   const _AiStatusFilter(this.label);
@@ -143,16 +159,39 @@ class _AiDataManagementScreenState
         return _entries.where((e) => e.hasAiDefinition).toList();
       case _AiStatusFilter.failed:
         return _entries.where((e) => e.status == AiWordStatus.requestFailed).toList();
+      case _AiStatusFilter.englishMeaning:
+        return _entries.where((e) => e.isEnglishMeaning).toList();
     }
   }
 
-  /// 一键选择所有需要重试的单词
-  void _selectAllNeedsRetry() {
+  /// 一键选择当前筛选条件下的全部单词
+  void _selectAllFiltered() {
+    final ids = _filteredEntries.map((e) => e.word.id).toList();
     setState(() {
       _selectedIds
         ..clear()
-        ..addAll(_entries.where((e) => e.needsRetry).map((e) => e.word.id));
+        ..addAll(ids);
     });
+  }
+
+  /// 当前筛选条件下的单词是否已被全部选中
+  bool get _allFilteredSelected {
+    final ids = _filteredEntries.map((e) => e.word.id).toSet();
+    if (ids.isEmpty) return false;
+    return _selectedIds.containsAll(ids);
+  }
+
+  /// 切换全选 / 取消全选当前筛选条件下的单词
+  void _toggleSelectAllFiltered() {
+    if (_allFilteredSelected) {
+      // 已全部选中则取消选择
+      setState(() {
+        _selectedIds.removeWhere(
+            (id) => _filteredEntries.any((e) => e.word.id == id));
+      });
+    } else {
+      _selectAllFiltered();
+    }
   }
 
   void _toggleSelection(int wordId) {
@@ -245,10 +284,11 @@ class _AiDataManagementScreenState
         actions: [
           const BatchTaskProgressButton(),
           IconButton(
-            icon: const Icon(Icons.select_all),
-            tooltip: '一键选择需重试',
-            onPressed:
-                _entries.any((e) => e.needsRetry) ? _selectAllNeedsRetry : null,
+            icon: Icon(
+              _allFilteredSelected ? Icons.deselect : Icons.select_all,
+            ),
+            tooltip: '全选当前页面单词',
+            onPressed: _filteredEntries.isEmpty ? null : _toggleSelectAllFiltered,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -309,7 +349,7 @@ class _AiDataManagementScreenState
                   children: [
                     if (_selectedIds.isEmpty)
                       Text(
-                        '勾选没有 AI 释义或请求失败的单词，点击下方按钮一键重试',
+                        '勾选需要处理的单词，点击下方按钮一键 AI 更新（无 AI 释义、请求失败或释义为英文的单词）',
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -317,7 +357,7 @@ class _AiDataManagementScreenState
                       )
                     else
                       Text(
-                        '已选择 $_selectedIdsCount 个单词（已有 AI 释义的单词不会重复更新）',
+                        '已选择 $_selectedIdsCount 个单词（AI 更新将覆盖其当前释义）',
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -356,6 +396,8 @@ class _AiDataManagementScreenState
             .where((e) => e.status == AiWordStatus.requestFailed)
             .toList()
             .length;
+      case _AiStatusFilter.englishMeaning:
+        return _entries.where((e) => e.isEnglishMeaning).toList().length;
     }
   }
 

@@ -3,6 +3,7 @@ import '../services/ai/ai_service.dart';
 import '../services/dictionary/dictionary_engine.dart';
 import '../services/dictionary/ai_dictionary_engine.dart';
 import '../services/dictionary/wiktionary_engine.dart';
+import '../services/dictionary/godic_engine.dart';
 import 'settings_provider.dart';
 import 'database_provider.dart';
 
@@ -10,6 +11,7 @@ import 'database_provider.dart';
 enum DictionaryEngineType {
   ai,
   wiktionary,
+  godic,
 }
 
 /// 当前选择的查词引擎
@@ -64,6 +66,11 @@ final aiDictionaryEngineProvider = Provider<AIDictionaryEngine?>((ref) {
 /// Wiktionary 查词引擎 Provider
 final wiktionaryEngineProvider = Provider<WiktionaryEngine>((ref) {
   return WiktionaryEngine();
+});
+
+/// 德语助手（godic.net）查词引擎 Provider
+final godicEngineProvider = Provider<GedicDictionaryEngine>((ref) {
+  return GedicDictionaryEngine();
 });
 
 /// 查词结果
@@ -128,6 +135,10 @@ class SearchNotifier extends StateNotifier<SearchResult> {
           break;
         case DictionaryEngineType.wiktionary:
           final engine = _ref.read(wiktionaryEngineProvider);
+          result = await engine.lookup(word);
+          break;
+        case DictionaryEngineType.godic:
+          final engine = _ref.read(godicEngineProvider);
           result = await engine.lookup(word);
           break;
       }

@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/search_provider.dart';
@@ -135,6 +136,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
         try {
           // 解析缓存的JSON数据
           final parsedResult = AIDictionaryEngine.parseResult(_word!.german, cached.resultJson);
+          if (!mounted) return;
           setState(() {
             _aiResult = parsedResult;
             _isLoadingAi = false;
@@ -166,6 +168,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
       // 调用AI查词
       final engine = ref.read(aiDictionaryEngineProvider);
       if (engine == null) {
+        if (!mounted) return;
         setState(() {
           _isLoadingAi = false;
           _isWaitingForBatch = false;
@@ -201,6 +204,66 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     }
   }
 
+  /// AI 更新词义：跳过缓存强制请求 AI，并写回 words 表（引擎自动更新缓存与请求状态）
+  Future<void> _refreshAiResult() async {
+    final word = _word;
+    if (word == null || _isLoadingAi) return;
+
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+
+    // 单词已在后台批量查询队列中时跳过，避免重复消耗 token
+    if (ref.read(batchUpdateProvider.notifier).isWordPending(word.german)) {
+      _showSnack('该单词已在后台 AI 查询队列中，请稍候');
+      return;
+    }
+
+    final engine = ref.read(aiDictionaryEngineProvider);
+    if (engine == null) {
+      _showSnack('请先在设置中配置 AI API Key');
+      return;
+    }
+
+    setState(() {
+      _isLoadingAi = true;
+      _isWaitingForBatch = false;
+    });
+
+    try {
+      final result = await engine.lookup(word.german, forceRefresh: true);
+      if (!mounted) return;
+      if (result != null && result.definitions.isNotEmpty) {
+        setState(() {
+          _aiResult = result;
+          _isLoadingAi = false;
+        });
+        // AI 结果写回 words 表，保证详情页与单词列表同步显示
+        await _persistAiResultToWord(result);
+        _showSnack('AI 词义已更新');
+      } else {
+        setState(() {
+          _isLoadingAi = false;
+        });
+        _showSnack('AI 更新失败，请稍后重试');
+      }
+    } catch (e) {
+      debugPrint('AI 更新词义失败: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAi = false;
+        });
+        _showSnack('AI 更新失败: $e');
+      }
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   /// 将AI解析结果写回words表，保证单词列表实时显示释义与词性。
   /// 仅更新AI提供的非空字段，避免覆盖用户已有的其他数据。
   Future<void> _persistAiResultToWord(DictionaryResult result) async {
@@ -226,6 +289,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     try {
       await db.wordDao.updateWord(
         WordsCompanion(
+          id: drift.Value(word.id),
           chinese: drift.Value(aiChinese),
           article: result.article == null
               ? const drift.Value.absent()
@@ -277,6 +341,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
       final infFields = Inflection.wordsFields(result);
       await db.wordDao.updateWord(
         WordsCompanion(
+          id: drift.Value(word.id),
           verbPresent: infFields['verbPresent'] == null
               ? const drift.Value.absent()
               : drift.Value(infFields['verbPresent']),
@@ -362,16 +427,57 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             tooltip: word.isFavorite ? '取消收藏' : '收藏',
             onPressed: _toggleFavorite,
           ),
-          if (!widget.readOnly) ...[
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => _showEditDialog(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _showDeleteDialog(context),
-            ),
-          ],
+          // 更多选项（编辑/删除仅在非只读模式显示，分屏防误触）
+          PopupMenuButton<String>(
+            tooltip: '更多选项',
+            onSelected: (value) {
+              switch (value) {
+                case 'ai':
+                  _refreshAiResult();
+                case 'edit':
+                  _showEditDialog(context);
+                case 'delete':
+                  _showDeleteDialog(context);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'ai',
+                enabled: !_isLoadingAi,
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome,
+                        size: 20, color: colorScheme.primary),
+                    const SizedBox(width: 12),
+                    const Text('AI 更新词义'),
+                  ],
+                ),
+              ),
+              if (!widget.readOnly) ...[
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 20),
+                      SizedBox(width: 12),
+                      Text('编辑'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline,
+                          size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('删除', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -1085,7 +1191,16 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
   bool _isSaving = false;
 
   /// 下拉框支持的词性集合，避免脏值触发 DropdownButton 断言崩溃
-  static const _supportedWordTypes = {'noun', 'verb', 'adjective', 'adverb', 'other'};
+  static const _supportedWordTypes = {
+    'noun',
+    'verb',
+    'adjective',
+    'adverb',
+    'preposition',
+    'pronoun',
+    'conjunction',
+    'other',
+  };
   /// 下拉框支持的名词类型集合
   static const _supportedNounTypes = {'countable', 'uncountable', 'both'};
 
@@ -1176,7 +1291,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             const SizedBox(height: 12),
             // 词性选择
             DropdownButtonFormField<String>(
-              value: _selectedWordType,
+              initialValue: _selectedWordType,
               decoration: const InputDecoration(labelText: '词性'),
               items: const [
                 DropdownMenuItem(value: 'noun', child: Text('名词')),
@@ -1184,6 +1299,9 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
                 DropdownMenuItem(
                     value: 'adjective', child: Text('形容词')),
                 DropdownMenuItem(value: 'adverb', child: Text('副词')),
+                DropdownMenuItem(value: 'preposition', child: Text('介词')),
+                DropdownMenuItem(value: 'pronoun', child: Text('代词')),
+                DropdownMenuItem(value: 'conjunction', child: Text('连词')),
                 DropdownMenuItem(value: 'other', child: Text('其他')),
               ],
               onChanged: (value) {
@@ -1196,7 +1314,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 名词类型（仅名词显示）
             if (_selectedWordType == 'noun')
               DropdownButtonFormField<String>(
-                value: _selectedNounType,
+                initialValue: _selectedNounType,
                 decoration: const InputDecoration(labelText: '名词类型'),
                 items: const [
                   DropdownMenuItem(
@@ -1280,6 +1398,33 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
       return;
     }
 
+    // 修改德语词形时做全局规范化查重（排除自身），防止编辑造成重复
+    // （`der Hund` 与 `Hund` 归为同一词，德语大小写保留语义）
+    if (GermanParser.canonicalKey(german) !=
+        GermanParser.canonicalKey(widget.word.german)) {
+      final dup = await db.wordDao.findWordByCanonicalKey(
+        GermanParser.canonicalKey(german),
+      );
+      if (dup != null && dup.id != widget.word.id) {
+        final dupDeck = await db.deckDao.getDeckById(dup.deckId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                dupDeck == null
+                    ? '该单词已存在，未重复添加'
+                    : '该单词已存在于词书「${dupDeck.name}」',
+              ),
+            ),
+          );
+        }
+        setState(() {
+          _isSaving = false;
+        });
+        return;
+      }
+    }
+
     try {
       // 解析德语获取 baseForm
       final baseForm = german.contains(' ')
@@ -1316,11 +1461,15 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
         widget.onSaved(updatedWord);
       }
 
-      // 保存后同步更新AI缓存，保证详情页展示与编辑内容一致
+      // 保存后同步更新AI缓存，保证详情页展示与编辑内容一致；
+      // 若德语词形发生变化，把缓存从旧 key 迁移到新 key，
+      // 避免详情页按新词形查不到缓存（重新请求 AI / 显示旧数据）
       try {
-        final cached = await db.aiCacheDao.getCachedResult(widget.word.german);
+        final oldGerman = widget.word.german;
+        final cached = await db.aiCacheDao.getCachedResult(oldGerman);
         if (cached != null) {
           final data = jsonDecode(cached.resultJson) as Map<String, dynamic>;
+          data['word'] = german;
           data['definitions'] = chinese
               .split('\n')
               .map((e) => e.trim())
@@ -1340,9 +1489,12 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
           data['part_of_speech'] = _selectedWordType;
           data['noun_type'] = _selectedNounType;
           await db.aiCacheDao.saveToCache(
-            word: widget.word.german,
+            word: german,
             resultJson: jsonEncode(data),
           );
+          if (oldGerman != german) {
+            await db.aiCacheDao.deleteCache(oldGerman);
+          }
         }
       } catch (e) {
         debugPrint('同步更新AI缓存失败: $e');

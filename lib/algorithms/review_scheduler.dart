@@ -1,7 +1,5 @@
 import 'dart:math' show max;
-import 'package:drift/drift.dart' as drift;
 import '../data/database/app_database.dart';
-import 'sm2_algorithm.dart';
 
 /// 复习队列调度器
 class ReviewScheduler {
@@ -14,17 +12,11 @@ class ReviewScheduler {
     required int deckId,
     int? limit,
   }) async {
-    final wordIds = await _db.sm2Dao.getDueReviewWordIds(limit: limit);
-    if (wordIds.isEmpty) return [];
-
-    final words = <Word>[];
-    for (final id in wordIds) {
-      final word = await _db.wordDao.getWordById(id);
-      if (word != null && word.deckId == deckId) {
-        words.add(word);
-      }
-    }
-    return words;
+    final wordIds = await _db.sm2Dao.getDueReviewWordIds(
+      deckId: deckId,
+      limit: limit,
+    );
+    return _db.wordDao.getWordsByIds(wordIds);
   }
 
   /// 获取新词（未学习过的单词）
@@ -33,14 +25,7 @@ class ReviewScheduler {
     int? limit,
   }) async {
     final wordIds = await _db.sm2Dao.getNewWordIds(deckId, limit: limit);
-    final words = <Word>[];
-    for (final id in wordIds) {
-      final word = await _db.wordDao.getWordById(id);
-      if (word != null) {
-        words.add(word);
-      }
-    }
-    return words;
+    return _db.wordDao.getWordsByIds(wordIds);
   }
 
   /// 获取今日学习计划
@@ -90,7 +75,7 @@ class ReviewScheduler {
 
     // 获取统计信息
     final totalWords = await _db.wordDao.getWordCount(deckId);
-    final dueCount = await _db.sm2Dao.getDueReviewCount();
+    final dueCount = await _db.sm2Dao.getDueReviewCount(deckId: deckId);
 
     return StudyPlan(
       date: today,
@@ -106,67 +91,15 @@ class ReviewScheduler {
     );
   }
 
-  /// 提交学习反馈
+  /// 提交学习反馈（SM-2 状态落库 + 刷新上次学习日期）
+  ///
+  /// 实际逻辑收敛在 [AppDatabase.submitStudyFeedback]，避免与
+  /// [StudySessionNotifier.submitFeedback] 重复实现。
   Future<void> submitFeedback({
     required int wordId,
     required int quality,
-  }) async {
-    final now = DateTime.now();
-    final sm2State = await _db.sm2Dao.getStateByWordId(wordId);
-
-    if (sm2State == null) {
-      // 首次学习，创建 SM-2 状态
-      final result = SM2Algorithm.calculate(
-        quality: quality,
-        currentN: 0,
-        currentInterval: 0,
-        currentEF: 2.5,
-      );
-
-      await _db.sm2Dao.createState(
-        Sm2StatesCompanion(
-          wordId: drift.Value(wordId),
-          repetitionN: drift.Value(result.repetitionN),
-          intervalDays: drift.Value(result.intervalDays),
-          easeFactor: drift.Value(result.easeFactor),
-          nextReview: drift.Value(result.nextReview),
-          lastReview: drift.Value(now),
-          totalReviews: const drift.Value(1),
-          correctStreak: drift.Value(quality >= 3 ? 1 : 0),
-          createdAt: drift.Value(now),
-          updatedAt: drift.Value(now),
-        ),
-      );
-    } else {
-      // 更新现有状态
-      final result = SM2Algorithm.calculate(
-        quality: quality,
-        currentN: sm2State.repetitionN,
-        currentInterval: sm2State.intervalDays,
-        currentEF: sm2State.easeFactor,
-      );
-
-      await _db.sm2Dao.updateState(
-        Sm2StatesCompanion(
-          id: drift.Value(sm2State.id),
-          wordId: drift.Value(wordId),
-          repetitionN: drift.Value(result.repetitionN),
-          intervalDays: drift.Value(result.intervalDays),
-          easeFactor: drift.Value(result.easeFactor),
-          nextReview: drift.Value(result.nextReview),
-          lastReview: drift.Value(now),
-          totalReviews: drift.Value(sm2State.totalReviews + 1),
-          correctStreak: drift.Value(
-            quality >= 3 ? sm2State.correctStreak + 1 : 0,
-          ),
-          createdAt: drift.Value(sm2State.createdAt),
-          updatedAt: drift.Value(now),
-        ),
-      );
-    }
-
-    // 更新单词的上次学习日期
-    await _db.wordDao.updateLastStudyDate(wordId);
+  }) {
+    return _db.submitStudyFeedback(wordId: wordId, quality: quality);
   }
 }
 
@@ -202,15 +135,4 @@ class StudyPlan {
   /// 今日总学习数
   int get totalStudyCount =>
       newWords.length + reviewWords.length + todayWords.length;
-
-  /// 是否还有待学习的单词
-  bool get hasMoreToStudy =>
-      newWords.length < dailyNewLimit || reviewWords.length < dailyReviewLimit;
-
-  /// 完成百分比
-  double get progressPercent {
-    if (totalStudyCount == 0) return 0;
-    // 这里需要跟踪已完成数，暂时返回 0
-    return 0;
-  }
 }

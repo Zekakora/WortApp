@@ -93,6 +93,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
         maxRows: 5,
       );
 
+      if (!mounted) return;
       setState(() {
         _preview = preview;
         _isLoading = false;
@@ -102,6 +103,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = '加载文件失败: $e';
         _isLoading = false;
@@ -189,18 +191,31 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
           // 导入模式选择
           const Text('导入模式', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          _buildModeOption(
-            mode: ImportMode.simple,
-            icon: Icons.auto_awesome,
-            title: '智能导入',
-            subtitle: '只选择单词列，AI自动获取词意、词性等信息',
-          ),
-          const SizedBox(height: 8),
-          _buildModeOption(
-            mode: ImportMode.full,
-            icon: Icons.table_chart,
-            title: '完整导入',
-            subtitle: '按固定格式导入（德语、中文、例句等）',
+          RadioGroup<ImportMode>(
+            groupValue: _selectedMode,
+            onChanged: (value) {
+              setState(() {
+                _selectedMode = value ?? _selectedMode;
+              });
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildModeOption(
+                  mode: ImportMode.simple,
+                  icon: Icons.auto_awesome,
+                  title: '智能导入',
+                  subtitle: '只选择单词列，AI自动获取词意、词性等信息',
+                ),
+                const SizedBox(height: 8),
+                _buildModeOption(
+                  mode: ImportMode.full,
+                  icon: Icons.table_chart,
+                  title: '完整导入',
+                  subtitle: '按固定格式导入（德语、中文、例句等）',
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -262,20 +277,12 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
           ),
           borderRadius: BorderRadius.circular(12),
           color: isSelected
-              ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
               : null,
         ),
         child: Row(
           children: [
-            Radio<ImportMode>(
-              value: mode,
-              groupValue: _selectedMode,
-              onChanged: (value) {
-                setState(() {
-                  _selectedMode = value!;
-                });
-              },
-            ),
+            Radio<ImportMode>(value: mode),
             Icon(icon, color: isSelected ? Theme.of(context).colorScheme.primary : null),
             const SizedBox(width: 8),
             Expanded(
@@ -368,7 +375,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .primaryContainer
-                                .withOpacity(0.3),
+                                .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(4),
                           )
                         : null,

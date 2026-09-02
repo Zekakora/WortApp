@@ -1,7 +1,7 @@
 # WortApp 项目进度文档
 
 ## 📅 更新日期
-2026-08-05 (最新)
+2026-08-07 (最新)
 
 ---
 
@@ -34,6 +34,8 @@
 - [x] 词书 CRUD（创建、重命名、删除）
 - [x] 词书切换
 - [x] 单词列表（搜索、筛选、熟练度标记）
+- [x] **规范化词形去重**：`der Hund` 与 `Hund` 归为同一词（`GermanParser.canonicalKey`，保留大小写语义）；CSV/Excel 导入全局去重、手动加词/查词入库/编辑改词形全局防重复，备份导入/复制到词书按词书内规范化去重
+- [x] **去重扫描工具**：单词列表「去重扫描」FAB，扫描词书内重复分组、逐组选择保留记录，其余 SM-2/统计/变位缓存合并后删除（修复已存在的重复）
 - [x] 单词三点菜单删除（确认对话框，删除后自动清理 SM2/变位缓存；无其他词书引用时释放 AI 释义缓存与请求状态）
 - [x] 重置学习进度按钮（新建单词上方，黄色警告弹窗二次确认，清空全部 SM2 状态并归零熟练度）
 - [x] Excel/CSV 导入服务
@@ -51,6 +53,7 @@
 - [x] 每轮词量与每日上限控制（新词/复习独立限额）+ 抽词兜底循环复习
 - [x] 抓词模式（正常抓词 / 收藏优先 / 只抓收藏）
 - [x] 四选一干扰项全词库随机抽取（池化机制）
+- [x] 错词重考：答错（忘记/模糊）的单词主列表学完后按先进先出重考，答对移出，重考次数超限放弃（循环复习模式除外）
 - [x] 学习统计：study_stats 表 + 底部错误统计排行榜（今日/历史，独立二级页面）
 
 ### AI 集成
@@ -248,6 +251,74 @@ C:\flutter\bin\flutter build apk --release -v > build\flutter_build.log 2>&1
 ---
 
 ## 📝 开发日志
+
+### 2026-08-07 (动效优化：页面转场去缩放 + 微动画非线性)
+- [x] **全局页面转场改为 FadeForwards**：`app_theme.dart` 亮/暗主题新增 `pageTransitionsTheme`，全部平台统一 `FadeForwardsPageTransitionsBuilder`，替代 Windows/Linux 默认 `ZoomPageTransitionsBuilder` 与 Android 默认 `PredictiveBackPageTransitionsBuilder`（二者均会让下层页面缩放/缩小，返回与滑动手势观感突兀）。现在导航为轻量淡入淡出。
+- [x] **线性微动画改非线性**：翻牌模式冠词选择 `AnimatedContainer`、变位练习选项 `AnimatedContainer` 补 `curve: Curves.easeOut`；分屏模糊层 `AnimatedSwitcher` 补 `switchInCurve: easeOut / switchOutCurve: easeIn`
+- [x] 学习页动画（翻牌/快闪卡/下滑详情）原已使用 easeOutCubic 等曲线，未改动
+- [x] `flutter analyze` 无 issue，158 个测试全部通过
+- ⚠️ 若观感不佳需撤回：删除两处 `pageTransitionsTheme`（app_theme.dart 亮/暗主题）、回退三处 `AnimatedContainer`/`AnimatedSwitcher` 的 curve 参数
+
+### 2026-08-07 (学习模式进度条：透明轨道 + 贯穿分屏)
+- [x] 6 个学习模式（翻牌/快闪/看德选中/看中选德/听音/拼写）的 `LinearProgressIndicator` 从 body 顶部移到 `AppBar.bottom`：进度条贯穿全宽（横屏分屏时跨越左侧答题区与右侧单词详情区），轨道改透明（进度为 0 时不可见，避免"灰色粗线"），`minHeight: 4`
+- [x] 验证：`flutter analyze` 无 issue，177 个测试全部通过
+
+### 2026-08-07 (编辑缓存迁移 / 展开式FAB / 对话框controller释放)
+- [x] **编辑德语词形后 AI 缓存 key 迁移**：`_EditWordDialog` 保存时若词形变化，把 `ai_lookup_cache` 从旧 key 迁移到新 key（更新 word/释义/例句后存新 key、删旧 key），避免详情页按新词形查不到缓存而重复请求 AI 或显示旧数据
+- [x] **单词列表 FAB 收进展开式菜单（无遮罩）**：新增通用 `ExpandingFab` 组件；「重置进度/数据管理/批量AI规范化/去重扫描」收进展开菜单（主按钮 `tune` 图标、无半透明遮罩、点主按钮再次收起），「新建单词」保留为底部主按钮（extended FAB），列表底部留白适配两行按钮
+- [x] **对话框 TextEditingController 释放**：为 7 处临时创建的 controller 补 dispose（await 后 dispose 或 `.whenComplete`）——新建单词、重命名词书、AI 配置(3)、API Key、每日上限、新建词书(2)；不再泄漏
+- [x] 验证：`flutter analyze` 无 issue，177 个测试全部通过
+
+### 2026-08-07 (全量审查高危/中危修复)
+- [x] **H1 AI/变格结果未落库**：`word_detail_screen` 两处 `updateWord` 缺 `id`（`Value.absent().value` 抛错被吞，AI 结果从未写回 words 表）；补 `id` + `word_dao.updateWord` 缺 id 时抛 `ArgumentError`
+- [x] **H2 重命名取消激活**：`updateDeck` 由 `replace` 改 `write`（缺席列不再写回默认值），重命名激活词书不再静默取消激活
+- [x] **H3 数据库重试**：`DatabaseNotifier` 新增公开 `retry()`（失败时释放实例），初始化失败页「重试」按钮接线
+- [x] **H5 变位后台生成 ref-after-dispose**：`_GenerateProgressDialog` 改为父级 `onDone` 回调刷新缓存，不再误标任务失败
+- [x] **H6 复习队列跨词书串扰**：`getDueReviewWordIds` 下推 deckId JOIN words 再 LIMIT；`getWordsByIds` 批量取词消除 N+1
+- [x] **M settings 门控**：设置逐 key 独立加载，未配 AI Key 不再丢其它设置
+- [x] **M 重复入库**：`batch_ai_service` 入库前按 `result.word` 规范化二次查重
+- [x] **M 变位重生成丢数据**：`regenerateWord` 先生成后 upsert 覆盖，AI 失败保留旧缓存
+- [x] **M 损坏缓存自愈**：`ai_dictionary_engine.lookup` 缓存解析失败时跳过并重新查询
+- [x] **M 导入卡死/崩溃**：三处导入流程 try/catch 关 loading；`import_dialog`/`word_detail` 多处 await 后补 `mounted`
+- [x] **M 批量任务**：`completeTask` 空任务列表 RangeError + 死三元清理
+- [x] **M 输入/状态**：每日上限校验 >0；`onedrive_provider` 四方法 try/catch 复位 isBusy
+- [x] **M 去重扫描 N 查询**：批量 `getStatesForWords` 一次取回 SM-2 状态
+- [x] **L 死代码/依赖**：删除未使用的 `generateBatch`/`deleteConjugationData`/`deleteWordsByDeck`/`getWordTypes`/`getDeckCount`/`deleteByDeckId`、`VerbSeparabilityChip`/`PrepositionChip`、`GenderColorExtension`；pubspec 移除无引用的 `js`/`sqlite3`/`sqflite_common_ffi_web`/`cupertino_icons`
+- [x] 验证：`flutter analyze` 无 issue，177 个测试全部通过
+
+### 2026-08-07 (OneDrive 增量同步代码审查与修复)- [x] **修复冲突检测锚点不对称**（数据静默覆盖）：`backup_merger._mergeWord` 本地侧原用 `cloudExportedAt` 做锚点、云端侧用 `lastSyncAt`，导致"对端在我编辑后先上传"时漏判冲突、本地编辑被 LWW 静默覆盖不弹窗；改为两侧统一用 `lastSyncAt`（`lastSyncAt ?? cloudExportedAt`），首次同步退化为纯 LWW 不误报；新增 2 个回归测试（漏判场景 / 首次同步）
+- [x] **词书名不区分大小写**：`_indexDecks` 原按精确大小写匹配，与 applyToDatabase/墓碑（小写）不一致，两端仅大小写不同的词书会被并出两本；改为小写 key，冲突提示仍保留原始大小写
+- [x] **激活词书兜底对新词书生效**：`applyToDatabase` 原用合并前构建的 `deckByName` 查激活词书，本次新建的词书查不到导致可能多本激活；改为 `deckIdByName` 并在创建时写入，同时让墓碑删除也能命中本批新建词书
+- [x] **wordsUpdated 统计不虚高**：`_mergeWord` 原对每对共同单词都返回 true（一致也计"更新"）；改为合并结果与本地深度比较（先剥离 null/空串/空列表/空 Map/false/0 默认值），仅真实变化才计数
+- [x] 新增 backup_merger_apply_test（大小写合并 / wordsUpdated 计数 / 新建激活词书）；`flutter analyze` 无 issue，156 个测试全部通过
+
+### 2026-08-07 (错词重考 / 规范化去重 / 代码健康度)
+- [x] **错词重考**：答错（忘记/模糊）的单词进入重考队列，主列表学完后按先进先出重考，答对移出、再错回到队尾，重考次数上限 2 次（超过放弃）；循环复习模式不使用重考（每大轮本就覆盖全部单词）；新增 redo_queue_test 6 个用例
+- [x] **规范化词形去重（替代 UUID）**：新增 `GermanParser.canonicalKey`（剥离冠词/复数后缀、**保留大小写**——德语 `Lernen` 与 `lernen` 是不同词）；`WordDao` 新增 `findWordByCanonicalKey`（全局）与 `findWordByCanonicalKeyInDeck`
+  - CSV/Excel 导入（完整+智能）：**全局去重**，跨词书已有单词跳过并提示所在词书
+  - 手动加词 / 查词入库 / AI 批量补词 / 编辑改词形：全局去重（排除自身），阻止重复
+  - 备份导入 / 复制到词书 / 同步合并写库：词书内规范化去重（忠实还原备份、保留复制功能），修复「der Hund 与 Hund」误判为两个词的漏洞
+- [x] **去重扫描工具**（修复已有重复）：单词列表右下新增「去重扫描」FAB；按规范化词形扫描词书内重复并分组，逐组勾选保留记录（默认推荐有 SM-2 状态/熟练度高/更新时间新者），其余记录的 SM-2 状态、每日错误统计、变位缓存合并进保留词后删除（不写墓碑、不释放共享 AI 缓存）；新增 `AppDatabase.findDeckDuplicateGroups` / `mergeDuplicateGroup` 与 word_dedup_test 6 个用例
+- [x] SM-2 提交逻辑去重：抽取 `AppDatabase.submitStudyFeedback`（事务），`ReviewScheduler.submitFeedback` 与 `StudySessionNotifier.submitFeedback` 共用
+- [x] 修复 `StudyPlan.progressPercent` 恒返回 0 的死代码（连同未使用的 hasMoreToStudy 一并移除）
+- [x] 修复 `dueReviewCount` 未按词书过滤（progress_card「待复习」显示全库虚高），改为按 deckId JOIN 统计
+- [x] **`flutter analyze` 从 67 个问题降到 0**：`analysis_options` 排除 `third_party/**`；修掉 lib 内全部 warning（多余 `!`、未用变量、`withOpacity`→`withValues`、`Radio`→`RadioGroup`、`DropdownButtonFormField value`→`initialValue`、6 处 use_build_context_synchronously、wiktionary `print`→`debugPrint`）与 info 级 lint
+- [x] 测试：更新 import_dedup_test（跨词书导入改为全局跳过）、新增冠词变体去重与大小写不合并用例、新增 redo_queue_test 与 word_dedup_test；`flutter analyze` 无 issue，146 个测试全部通过
+
+### 2026-08-07 (变位练习练习范围)
+- [x] 变位练习练习参数新增“练习范围”选项：随机练习 / 只练今日单词（持久化到 settings 表）
+- [x] conjugation_provider 新增 ConjugationPickMode 枚举，loadDrill 按范围选取单词来源（今日 = lastStudyDate 为今天，与学习模式口径一致）
+- [x] 只练今日单词且今日未学习时给出引导提示（请先在学习模式学习）
+- [x] 新增 conjugation_drill_test 两个用例（仅抽今日单词 / 今日未学习不出题），22 个测试全部通过
+
+### 2026-08-07 (AI 规范化德语)
+- [x] 单词列表新增「AI规范化德语」：从 AI 查词缓存解析规范词形（result.word），写回 words.german 与 baseForm，修复 OCR 导入单词未规范化问题
+- [x] 单词语义三点菜单保留「AI规范化德语」入口（auto_fix_high 图标）
+- [x] 批量「AI规范化德语」移到右下方 FAB（数据管理按钮下方，auto_fix_high 图标），一键扫描词书中所有单词
+- [x] 缓存查找兼容两种键：详情页更新按原词缓存、批量 AI 更新按 result.word 缓存（回退 baseForm 查找）
+- [x] 规范化前确认对话框（展示旧词 → 新词），无 AI 缓存时提示先使用 AI 更新词义
+- [x] 数据管理页新增「英文释义」筛选与一键选择（translate 图标）：检测中文释义为英文的单词（含拉丁字母且无 CJK 字符），选中后批量 AI 更新为中文释义
+- [x] 数据管理底部提示文案同步更新（覆盖无 AI 释义 / 请求失败 / 英文释义三种场景）
 
 ### 2026-08-03 (上午)
 - 完成项目基础架构搭建

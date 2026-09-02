@@ -25,14 +25,17 @@ class ConjugationScreen extends ConsumerStatefulWidget {
 
 class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
   static const _countKey = 'practiceWordCount';
+  static const _pickModeKey = 'practicePickMode';
   static const _presetCounts = [10, 20, 50];
 
   int _wordCount = 10;
+  ConjugationPickMode _pickMode = ConjugationPickMode.random;
 
   @override
   void initState() {
     super.initState();
     _loadWordCount();
+    _loadPickMode();
   }
 
   /// 从数据库加载练习词量设置
@@ -54,6 +57,27 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
       await db?.setSetting(_countKey, count.toString());
     } catch (e) {
       debugPrint('保存练习词量失败: $e');
+    }
+  }
+
+  /// 从数据库加载练习范围设置
+  Future<void> _loadPickMode() async {
+    final db = ref.read(databaseProvider);
+    final value = await db?.getSetting(_pickModeKey);
+    final parsed = ConjugationPickMode.values.asNameMap()[value];
+    if (parsed != null && mounted) {
+      setState(() => _pickMode = parsed);
+    }
+  }
+
+  /// 保存练习范围设置
+  Future<void> _setPickMode(ConjugationPickMode mode) async {
+    setState(() => _pickMode = mode);
+    final db = ref.read(databaseProvider);
+    try {
+      await db?.setSetting(_pickModeKey, mode.name);
+    } catch (e) {
+      debugPrint('保存练习范围失败: $e');
     }
   }
 
@@ -116,11 +140,19 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
       deckId: activeDeck.id,
       mode: mode,
       limit: _wordCount,
+      pickMode: _pickMode,
     );
 
     if (!context.mounted) return;
     final state = ref.read(conjugationDrillProvider);
     if (state.questions.isEmpty) {
+      if (_pickMode == ConjugationPickMode.todayOnly) {
+        // 只练今日单词：优先提示今日未学习，而非词书缺数据
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('今日还没有学习过的单词，请先在学习模式中学习')),
+        );
+        return;
+      }
       // 动词时态与形容词变级需要 AI 生成的变位数据
       final needsGeneratedData =
           mode.isVerbTense || mode.id == 'adj_steigerung';
@@ -290,6 +322,43 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                               ),
                         ),
                       ],
+                      const SizedBox(height: 16),
+                      Text(
+                        '练习范围',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<ConjugationPickMode>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: ConjugationPickMode.random,
+                            label: Text('随机练习'),
+                          ),
+                          ButtonSegment(
+                            value: ConjugationPickMode.todayOnly,
+                            label: Text('只练今日单词'),
+                          ),
+                        ],
+                        selected: {_pickMode},
+                        onSelectionChanged: (selection) {
+                          _setPickMode(selection.first);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _pickMode == ConjugationPickMode.todayOnly
+                            ? '仅从今天学习过的单词中抽取'
+                            : '从整个词书随机抽取',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
                     ],
                   ),
                 ),
@@ -439,6 +508,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
           deckId: activeDeck.id,
           concurrency: ref.read(settingsProvider).aiConcurrency,
           notifier: ref.read(batchUpdateProvider.notifier),
+          onDone: () =>
+              ref.invalidate(deckConjugationCacheProvider(activeDeck.id)),
         ),
       );
     }
@@ -454,12 +525,15 @@ class _GenerateProgressDialog extends ConsumerStatefulWidget {
   final int deckId;
   final int concurrency;
   final BatchUpdateNotifier notifier;
+  /// 任务完成后刷新变位缓存的回调（由父级传入，规避对话框关闭后 ref 失效）
+  final VoidCallback onDone;
 
   const _GenerateProgressDialog({
     required this.service,
     required this.deckId,
     required this.concurrency,
     required this.notifier,
+    required this.onDone,
   });
 
   @override
@@ -535,7 +609,7 @@ class _GenerateProgressDialogState
       );
 
       // 不依赖 mounted：对话框关闭后任务仍在后台运行；
-      // 最后一次进度回调即最终结果，完成时刷新变位缓存
+      // 最后一次进度回调即最终结果，完成时通过父级回调刷新变位缓存
       widget.notifier.completeTask(
         taskId,
         BatchUpdateProgress(
@@ -546,7 +620,11 @@ class _GenerateProgressDialogState
           isRunning: false,
         ),
       );
-      ref.invalidate(deckConjugationCacheProvider(widget.deckId));
+      try {
+        widget.onDone();
+      } catch (_) {
+        // 父级页面已销毁时刷新缓存无意义，忽略且不把任务误判为失败
+      }
       if (mounted) setState(() => _isComplete = true);
     } catch (e) {
       widget.notifier.failTask(taskId, e.toString());

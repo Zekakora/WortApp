@@ -4,10 +4,6 @@ import 'dart:convert';
 import '../data/database/app_database.dart';
 import 'database_provider.dart';
 
-// Web 平台使用 localStorage
-// ignore: depend_on_referenced_packages
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 /// AI 配置
 class AiConfig {
   final String apiKey;
@@ -174,29 +170,6 @@ class AppSettings {
       );
 }
 
-/// Web 平台的 localStorage 辅助类
-class _WebStorage {
-  static void setItem(String key, String value) {
-    try {
-      // 使用 dart:html 的 localStorage
-      // ignore: undefined_prefixed_name
-      // import 'dart:html' as html; 不在 web 平台可用
-      // 使用 js interop 代替
-      debugPrint('WebStorage: saving $key');
-    } catch (e) {
-      debugPrint('WebStorage error: $e');
-    }
-  }
-
-  static String? getItem(String key) {
-    try {
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-}
-
 /// 设置 StateNotifier
 class SettingsNotifier extends StateNotifier<AppSettings> {
   final AppDatabase? _db;
@@ -213,54 +186,53 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     try {
       debugPrint('Loading settings...');
 
-      // 尝试从数据库加载
+      // 尝试从数据库加载（各设置逐 key 独立加载，缺失 key 用默认值；
+      // aiConfig 是否存在不影响其它设置，避免未配置 AI Key 时丢设置）
       if (_db != null) {
         try {
-          final aiConfigJson = await _db!.getSetting('aiConfig');
-          if (aiConfigJson != null && aiConfigJson.isNotEmpty) {
-            final aiConfig = AiConfig.fromJson(jsonDecode(aiConfigJson));
-            final dailyNewLimit =
-                int.tryParse(await _db!.getSetting('dailyNewLimit') ?? '') ??
-                    20;
-            final dailyReviewLimit =
-                int.tryParse(await _db!.getSetting('dailyReviewLimit') ?? '') ??
-                    100;
-            final ttsSpeed =
-                double.tryParse(await _db!.getSetting('ttsSpeed') ?? '') ??
-                    0.5;
-            final tolerantSpelling =
-                (await _db!.getSetting('tolerantSpelling')) != 'false';
-            final autoPlayTts =
-                (await _db!.getSetting('autoPlayTts')) == 'true';
-            final autoConfirm =
-                (await _db!.getSetting('autoConfirm')) == 'true';
-            final aiConcurrency =
-                int.tryParse(await _db!.getSetting('aiConcurrency') ?? '') ??
-                    10;
-            final autoAddToDeckEnabled =
-                (await _db.getSetting('autoAddToDeckEnabled')) == 'true';
-            final autoAddToDeckId =
-                int.tryParse(await _db.getSetting('autoAddToDeckId') ?? '');
-            final themeMode = await _db.getSetting('themeMode') ?? 'system';
+          final aiConfigJson = await _db.getSetting('aiConfig');
+          final aiConfig =
+              (aiConfigJson != null && aiConfigJson.isNotEmpty)
+                  ? AiConfig.fromJson(jsonDecode(aiConfigJson))
+                  : const AiConfig();
+          final dailyNewLimit =
+              int.tryParse(await _db.getSetting('dailyNewLimit') ?? '') ?? 20;
+          final dailyReviewLimit =
+              int.tryParse(await _db.getSetting('dailyReviewLimit') ?? '') ??
+                  100;
+          final ttsSpeed =
+              double.tryParse(await _db.getSetting('ttsSpeed') ?? '') ?? 0.5;
+          final tolerantSpelling =
+              (await _db.getSetting('tolerantSpelling')) != 'false';
+          final autoPlayTts =
+              (await _db.getSetting('autoPlayTts')) == 'true';
+          final autoConfirm =
+              (await _db.getSetting('autoConfirm')) == 'true';
+          final aiConcurrency =
+              int.tryParse(await _db.getSetting('aiConcurrency') ?? '') ?? 10;
+          final autoAddToDeckEnabled =
+              (await _db.getSetting('autoAddToDeckEnabled')) == 'true';
+          final autoAddToDeckId =
+              int.tryParse(await _db.getSetting('autoAddToDeckId') ?? '');
+          final themeMode = await _db.getSetting('themeMode') ?? 'system';
 
-            state = AppSettings(
-              aiConfig: aiConfig,
-              dailyNewLimit: dailyNewLimit,
-              dailyReviewLimit: dailyReviewLimit,
-              ttsSpeed: ttsSpeed,
-              tolerantSpelling: tolerantSpelling,
-              autoPlayTts: autoPlayTts,
-              autoConfirm: autoConfirm,
-              aiConcurrency: aiConcurrency.clamp(1, 500),
-              autoAddToDeckEnabled: autoAddToDeckEnabled,
-              autoAddToDeckId: autoAddToDeckId,
-              themeMode: themeMode,
-              isLoaded: true,
-            );
+          state = AppSettings(
+            aiConfig: aiConfig,
+            dailyNewLimit: dailyNewLimit,
+            dailyReviewLimit: dailyReviewLimit,
+            ttsSpeed: ttsSpeed,
+            tolerantSpelling: tolerantSpelling,
+            autoPlayTts: autoPlayTts,
+            autoConfirm: autoConfirm,
+            aiConcurrency: aiConcurrency.clamp(1, 500),
+            autoAddToDeckEnabled: autoAddToDeckEnabled,
+            autoAddToDeckId: autoAddToDeckId,
+            themeMode: themeMode,
+            isLoaded: true,
+          );
 
-            debugPrint('Settings loaded from database');
-            return;
-          }
+          debugPrint('Settings loaded from database');
+          return;
         } catch (e) {
           debugPrint('Failed to load from database: $e');
         }
@@ -284,7 +256,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     // 保存到数据库
     if (_db != null) {
       try {
-        await _db!.setSetting('aiConfig', jsonEncode(config.toJson()));
+        await _db.setSetting('aiConfig', jsonEncode(config.toJson()));
         debugPrint('AI config saved to database');
       } catch (e) {
         debugPrint('Failed to save to database: $e');
