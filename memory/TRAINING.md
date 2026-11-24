@@ -108,6 +108,21 @@ flutter test                       # 299 tests, All tests passed
 flutter build apk --debug          # Android 编译验证
 ```
 
+### 交付流程（用户要求，长期有效）
+
+**每次任务完成后都要把新构建装到已连接的平板上**，不要等用户再提：
+
+```powershell
+flutter build apk --debug
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r build\app\outputs\flutter-apk\app-debug.apk
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell am force-stop com.zekakora.wortapp
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell am start -n com.zekakora.wortapp/com.wortapp.wortapp.MainActivity
+```
+
+- 设备：`26048RP6AC`（Android 17 / API 37，arm64），包名 `com.zekakora.wortapp`。
+- `install -r` 覆盖安装、**保留用户数据**；release 与 debug 都用 debug keystore 签名，可直接互通升级。
+- 数据库只向前迁移（当前 schemaVersion 6），装回旧版 APK 打不开已升级的库。
+
 训练模块相关测试：
 
 - `test/training_core_test.dart`：标准化、听写差异、Schema 校验、程序判分、DAO 持久化
