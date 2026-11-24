@@ -10,6 +10,9 @@ void main() {
       ),
     );
 
+    // 本地化代理（GlobalMaterialLocalizations 等）异步加载，需再 pump 一帧后界面才渲染
+    await tester.pump();
+
     // Verify that the app renders
     expect(find.text('WortApp'), findsOneWidget);
 

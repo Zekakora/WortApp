@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/app_localizations.dart';
 import '../services/ai/batch_ai_service.dart';
 
 /// 任务状态枚举
@@ -99,7 +100,7 @@ class BatchUpdateState {
 
   /// 总进度文本
   String get progressText {
-    if (currentTask == null) return '无任务';
+    if (currentTask == null) return AppLocale.tr('无任务');
     return '${currentTask!.completed}/${currentTask!.total}';
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data';
+import '../../core/i18n/app_localizations.dart';
 import '../../services/import_export/import_service.dart';
 import '../../providers/database_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,7 +80,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       final db = ref.read(databaseProvider);
       if (db == null) {
         setState(() {
-          _error = '数据库未就绪';
+          _error = AppLocale.tr('数据库未就绪');
           _isLoading = false;
         });
         return;
@@ -105,7 +106,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '加载文件失败: $e';
+        _error = AppLocale.trArgs('加载文件失败: {0}', [e]);
         _isLoading = false;
       });
     }
@@ -114,7 +115,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('导入选项'),
+      title: Text(context.tr('导入选项')),
       content: SizedBox(
         width: double.maxFinite,
         child: _isLoading
@@ -143,11 +144,11 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.tr('取消')),
         ),
         FilledButton(
           onPressed: _canImport() ? _onImport : null,
-          child: const Text('开始导入'),
+          child: Text(context.tr('开始导入')),
         ),
       ],
     );
@@ -176,7 +177,10 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          '${_preview!.headers.length} 列, ${_preview!.rows.length} 行预览',
+                          context.trArgs('{0} 列, {1} 行预览', [
+                            _preview!.headers.length,
+                            _preview!.rows.length,
+                          ]),
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
@@ -189,7 +193,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
           const SizedBox(height: 16),
 
           // 导入模式选择
-          const Text('导入模式', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(context.tr('导入模式'),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           RadioGroup<ImportMode>(
             groupValue: _selectedMode,
@@ -204,15 +209,15 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 _buildModeOption(
                   mode: ImportMode.simple,
                   icon: Icons.auto_awesome,
-                  title: '智能导入',
-                  subtitle: '只选择单词列，AI自动获取词意、词性等信息',
+                  title: context.tr('智能导入'),
+                  subtitle: context.tr('只选择单词列，AI自动获取词意、词性等信息'),
                 ),
                 const SizedBox(height: 8),
                 _buildModeOption(
                   mode: ImportMode.full,
                   icon: Icons.table_chart,
-                  title: '完整导入',
-                  subtitle: '按固定格式导入（德语、中文、例句等）',
+                  title: context.tr('完整导入'),
+                  subtitle: context.tr('按固定格式导入（德语、中文、例句等）'),
                 ),
               ],
             ),
@@ -221,7 +226,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
 
           // 简单模式：列选择
           if (_selectedMode == ImportMode.simple) ...[
-            const Text('选择单词列', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.tr('选择单词列'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             _buildColumnSelector(),
             const SizedBox(height: 16),
@@ -235,7 +241,7 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                 _hasHeader = value ?? true;
               });
             },
-            title: const Text('首行为表头'),
+            title: Text(context.tr('首行为表头')),
             contentPadding: EdgeInsets.zero,
             dense: true,
           ),
@@ -243,7 +249,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
           // 数据预览
           if (_preview!.rows.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const Text('数据预览', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.tr('数据预览'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             _buildPreviewTable(),
           ],
@@ -307,7 +314,8 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
       children: List.generate(_preview!.headers.length, (index) {
         final header = _preview!.headers[index];
         final isSelected = _selectedColumnIndex == index;
-        final displayText = header.isNotEmpty ? header : '列 ${index + 1}';
+        final displayText =
+            header.isNotEmpty ? header : context.trArgs('列 {0}', [index + 1]);
 
         return ChoiceChip(
           label: Text(displayText),
@@ -350,7 +358,9 @@ class _ImportDialogState extends ConsumerState<ImportDialog> {
                       )
                     : null,
                 child: Text(
-                  entry.value.isNotEmpty ? entry.value : '列${entry.key + 1}',
+                  entry.value.isNotEmpty
+                      ? entry.value
+                      : context.trArgs('列 {0}', [entry.key + 1]),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,

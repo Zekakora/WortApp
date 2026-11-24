@@ -4,6 +4,7 @@ import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../core/utils/german_parser.dart';
 import '../../data/database/app_database.dart';
 
@@ -91,7 +92,7 @@ class ImportService {
         maxRows: maxRows,
       );
     } else {
-      throw Exception('不支持的文件格式: .$ext');
+      throw Exception(AppLocale.trArgs('不支持的文件格式: .{0}', [ext]));
     }
   }
 
@@ -111,11 +112,11 @@ class ImportService {
       // 原生平台使用文件路径
       final file = File(filePath);
       if (!await file.exists()) {
-        throw Exception('文件不存在: $filePath');
+        throw Exception(AppLocale.trArgs('文件不存在: {0}', [filePath]));
       }
       content = await file.readAsString();
     } else {
-      throw Exception('未提供文件数据');
+      throw Exception(AppLocale.tr('未提供文件数据'));
     }
 
     // 去除 UTF-8 BOM（本应用导出的 CSV 带 BOM，避免 Excel 乱码）
@@ -153,11 +154,11 @@ class ImportService {
       // 原生平台使用文件路径
       final file = File(filePath);
       if (!await file.exists()) {
-        throw Exception('文件不存在: $filePath');
+        throw Exception(AppLocale.trArgs('文件不存在: {0}', [filePath]));
       }
       bytes = await file.readAsBytes();
     } else {
-      throw Exception('未提供文件数据');
+      throw Exception(AppLocale.tr('未提供文件数据'));
     }
 
     final excel = Excel.decodeBytes(bytes);
@@ -216,7 +217,7 @@ class ImportService {
         totalRows: 0,
         successCount: 0,
         skipCount: 0,
-        errors: ['不支持的文件格式: .$ext'],
+        errors: [AppLocale.trArgs('不支持的文件格式: .{0}', [ext])],
       );
     }
   }
@@ -244,7 +245,7 @@ class ImportService {
             totalRows: 0,
             successCount: 0,
             skipCount: 0,
-            errors: ['文件不存在: $filePath'],
+            errors: [AppLocale.trArgs('文件不存在: {0}', [filePath])],
           );
         }
         content = await file.readAsString();
@@ -253,7 +254,7 @@ class ImportService {
           totalRows: 0,
           successCount: 0,
           skipCount: 0,
-          errors: ['未提供文件数据'],
+          errors: [AppLocale.tr('未提供文件数据')],
         );
       }
       // 去除 UTF-8 BOM（本应用导出的 CSV 带 BOM，避免 Excel 乱码）
@@ -270,7 +271,7 @@ class ImportService {
             totalRows: 0,
             successCount: 0,
             skipCount: 0,
-            errors: ['文件不存在: $filePath'],
+            errors: [AppLocale.trArgs('文件不存在: {0}', [filePath])],
           );
         }
         bytes = await file.readAsBytes();
@@ -279,7 +280,7 @@ class ImportService {
           totalRows: 0,
           successCount: 0,
           skipCount: 0,
-          errors: ['未提供文件数据'],
+          errors: [AppLocale.tr('未提供文件数据')],
         );
       }
       final excel = Excel.decodeBytes(bytes);
@@ -289,7 +290,7 @@ class ImportService {
           totalRows: 0,
           successCount: 0,
           skipCount: 0,
-          errors: ['Excel 文件没有工作表'],
+          errors: [AppLocale.tr('Excel 文件没有工作表')],
         );
       }
 
@@ -302,7 +303,7 @@ class ImportService {
         totalRows: 0,
         successCount: 0,
         skipCount: 0,
-        errors: ['不支持的文件格式: .$ext'],
+        errors: [AppLocale.trArgs('不支持的文件格式: .{0}', [ext])],
       );
     }
 
@@ -356,7 +357,7 @@ class ImportService {
 
       try {
         if (wordColumnIndex >= row.length) {
-          errors.add('行 $rowNum: 列索引超出范围');
+          errors.add(AppLocale.trArgs('行 {0}: 列索引超出范围', [rowNum]));
           skipCount++;
           continue;
         }
@@ -364,7 +365,7 @@ class ImportService {
         final german = _cleanString(row[wordColumnIndex]?.toString() ?? '');
 
         if (german.isEmpty) {
-          errors.add('行 $rowNum: 单词为空');
+          errors.add(AppLocale.trArgs('行 {0}: 单词为空', [rowNum]));
           skipCount++;
           continue;
         }
@@ -376,10 +377,14 @@ class ImportService {
         // 全局查重（含词书内）：已存在则跳过
         final existingDeck = existingByKey[key];
         if (existingDeck != null) {
+          final deckPart = existingDeck.isEmpty
+              ? ''
+              : AppLocale.trArgs('（已存在于词书「{0}」）', [existingDeck]);
           errors.add(
-            '行 $rowNum: 单词“${parsed.baseWord}”'
-            '${existingDeck.isEmpty ? '' : '（已存在于词书「$existingDeck」）'}'
-            '已存在，已跳过',
+            AppLocale.trArgs(
+              '行 {0}: 单词“{1}”{2}已存在，已跳过',
+              [rowNum, parsed.baseWord, deckPart],
+            ),
           );
           skipCount++;
           continue;
@@ -403,7 +408,7 @@ class ImportService {
 
         successCount++;
       } catch (e) {
-        errors.add('行 $rowNum: 导入失败 - $e');
+        errors.add(AppLocale.trArgs('行 {0}: 导入失败 - {1}', [rowNum, e]));
         skipCount++;
       }
     }
@@ -435,7 +440,7 @@ class ImportService {
           totalRows: 0,
           successCount: 0,
           skipCount: 0,
-          errors: ['文件不存在: $filePath'],
+          errors: [AppLocale.trArgs('文件不存在: {0}', [filePath])],
         );
       }
       content = await file.readAsString();
@@ -444,7 +449,7 @@ class ImportService {
         totalRows: 0,
         successCount: 0,
         skipCount: 0,
-        errors: ['未提供文件数据'],
+        errors: [AppLocale.tr('未提供文件数据')],
       );
     }
 
@@ -475,7 +480,7 @@ class ImportService {
           totalRows: 0,
           successCount: 0,
           skipCount: 0,
-          errors: ['文件不存在: $filePath'],
+          errors: [AppLocale.trArgs('文件不存在: {0}', [filePath])],
         );
       }
       bytes = await file.readAsBytes();
@@ -484,7 +489,7 @@ class ImportService {
         totalRows: 0,
         successCount: 0,
         skipCount: 0,
-        errors: ['未提供文件数据'],
+        errors: [AppLocale.tr('未提供文件数据')],
       );
     }
 
@@ -495,7 +500,7 @@ class ImportService {
         totalRows: 0,
         successCount: 0,
         skipCount: 0,
-        errors: ['Excel 文件没有工作表'],
+        errors: [AppLocale.tr('Excel 文件没有工作表')],
       );
     }
 
@@ -528,20 +533,20 @@ class ImportService {
     } else if (filePath != null) {
       final file = File(filePath);
       if (!await file.exists()) {
-        return const BackupImportResult(
+        return BackupImportResult(
           deckCount: 0,
           wordCount: 0,
           skipCount: 0,
-          errors: ['文件不存在'],
+          errors: [AppLocale.tr('文件不存在')],
         );
       }
       content = await file.readAsString();
     } else {
-      return const BackupImportResult(
+      return BackupImportResult(
         deckCount: 0,
         wordCount: 0,
         skipCount: 0,
-        errors: ['未提供文件数据'],
+        errors: [AppLocale.tr('未提供文件数据')],
       );
     }
 
@@ -556,26 +561,26 @@ class ImportService {
         deckCount: 0,
         wordCount: 0,
         skipCount: 0,
-        errors: ['备份文件解析失败: $e'],
+        errors: [AppLocale.trArgs('备份文件解析失败: {0}', [e])],
       );
     }
 
     if (data['type'] != 'wortapp-backup') {
-      return const BackupImportResult(
+      return BackupImportResult(
         deckCount: 0,
         wordCount: 0,
         skipCount: 0,
-        errors: ['不是有效的 WortApp 备份文件'],
+        errors: [AppLocale.tr('不是有效的 WortApp 备份文件')],
       );
     }
 
     final decks = data['decks'];
     if (decks is! List) {
-      return const BackupImportResult(
+      return BackupImportResult(
         deckCount: 0,
         wordCount: 0,
         skipCount: 0,
-        errors: ['备份文件中缺少词书数据'],
+        errors: [AppLocale.tr('备份文件中缺少词书数据')],
       );
     }
 
@@ -598,7 +603,7 @@ class ImportService {
           deckCount: 0,
           wordCount: 0,
           skipCount: 0,
-          errors: ['清空现有数据失败: $e'],
+          errors: [AppLocale.trArgs('清空现有数据失败: {0}', [e])],
         );
       }
     }
@@ -615,7 +620,7 @@ class ImportService {
       try {
         final deckName = deckJson['name']?.toString().trim() ?? '';
         if (deckName.isEmpty) {
-          errors.add('跳过：备份中存在无名称的词书');
+          errors.add(AppLocale.tr('跳过：备份中存在无名称的词书'));
           continue;
         }
 
@@ -630,16 +635,20 @@ class ImportService {
 
         final wordsJson = deckJson['words'];
         if (wordsJson is List) {
+          // 词书内规范化查重索引：构建一次 O(n)，避免逐词全表扫描的 O(n²)
+          final canonicalIndex =
+              await _db.wordDao.canonicalKeyIndexInDeck(deckId);
           for (final wordJson in wordsJson) {
             if (wordJson is! Map<String, dynamic>) continue;
-            final result = await _importBackupWord(deckId, wordJson);
+            final result =
+                await _importBackupWord(deckId, wordJson, canonicalIndex);
             wordCount += result.$1;
             skipCount += result.$2;
             if (result.$3 != null) errors.add(result.$3!);
           }
         }
       } catch (e) {
-        errors.add('词书导入失败: $e');
+        errors.add(AppLocale.trArgs('词书导入失败: {0}', [e]));
       }
     }
 
@@ -658,40 +667,13 @@ class ImportService {
             engine: entry['engine']?.toString() ?? 'ai',
           );
         } catch (e) {
-          errors.add('AI 缓存恢复失败: $e');
+          errors.add(AppLocale.trArgs('AI 缓存恢复失败: {0}', [e]));
         }
       }
     }
 
-    // 恢复 AI 请求状态记录（v3 备份才包含，旧备份跳过）
-    final aiStatus = data['aiStatus'];
-    if (aiStatus is List) {
-      for (final entry in aiStatus) {
-        if (entry is! Map<String, dynamic>) continue;
-        final word = entry['word']?.toString() ?? '';
-        final status = entry['status']?.toString() ?? '';
-        if (word.isEmpty ||
-            (status != 'success' && status != 'failed')) {
-          continue;
-        }
-        try {
-          final engine = entry['engine']?.toString() ?? 'ai';
-          await _db.aiStatusDao.deleteStatus(word, engine: engine);
-          await _db.into(_db.aiRequestStatus).insert(
-                AiRequestStatusCompanion.insert(
-                  word: word,
-                  engine: drift.Value(engine),
-                  status: status,
-                  errorMessage: drift.Value(entry['errorMessage']?.toString()),
-                  lastRequestAt:
-                      _parseDate(entry['lastRequestAt']) ?? DateTime.now(),
-                ),
-              );
-        } catch (e) {
-          errors.add('AI 状态恢复失败: $e');
-        }
-      }
-    }
+    // 说明：备份不再包含 AI 请求状态（aiStatus，设备本地日志），
+    // 这里不做恢复；旧备份即使带有该字段也会被忽略。
 
     // 恢复应用设置（v1 旧备份无此字段时跳过）
     final settings = data['settings'];
@@ -704,7 +686,7 @@ class ImportService {
         try {
           await _db.setSetting(key, value);
         } catch (e) {
-          errors.add('设置恢复失败: $e');
+          errors.add(AppLocale.trArgs('设置恢复失败: {0}', [e]));
         }
       }
     }
@@ -761,9 +743,13 @@ class ImportService {
   /// 导入备份中的单个单词（含 SM-2 状态与变位缓存），返回 (成功数, 跳过数, 错误信息)
   ///
   /// 不做全局查重：同一单词允许在不同词书中同时存在（共享 AI 查词缓存）。
+  ///
+  /// [canonicalIndex] 是调用方按词书一次性构建的「规范化词形 → 单词」索引，
+  /// 用于词书内查重；新建的词会补进索引，避免逐词全表扫描的 O(n²)。
   Future<(int, int, String?)> _importBackupWord(
     int deckId,
     Map<String, dynamic> w,
+    Map<String, Word> canonicalIndex,
   ) async {
     try {
       final german = _cleanString(w['german']?.toString() ?? '');
@@ -772,10 +758,7 @@ class ImportService {
       // 词书内规范化查重：同一词书内不允许重复（`der Hund` 与 `Hund`
       // 归为同一词）；备份恢复不做全局去重，忠实还原跨词书内容
       final key = GermanParser.canonicalKey(german);
-      final existing = await _db.wordDao.findWordByCanonicalKeyInDeck(
-        deckId,
-        key,
-      );
+      final existing = key.isEmpty ? null : canonicalIndex[key];
       if (existing != null) return (0, 1, null);
 
       final now = DateTime.now();
@@ -804,6 +787,9 @@ class ImportService {
           updatedAt: drift.Value(_parseDate(w['updatedAt']) ?? now),
         ),
       );
+      // 新词补进索引，供同批次后续单词查重命中，避免重复入库
+      final created = await _db.wordDao.getWordById(wordId);
+      if (created != null && key.isNotEmpty) canonicalIndex[key] = created;
 
       // 恢复每日错误统计（v4 备份才包含，旧备份跳过）
       final stats = w['stats'];
@@ -882,7 +868,7 @@ class ImportService {
 
       return (1, 0, null);
     } catch (e) {
-      return (0, 0, '单词导入失败: $e');
+      return (0, 0, AppLocale.trArgs('单词导入失败: {0}', [e]));
     }
   }
 
@@ -909,7 +895,9 @@ class ImportService {
 
       try {
         if (row.length < 2) {
-          errors.add('行 $rowNum: 列数不足，至少需要德语和中文两列');
+          errors.add(
+            AppLocale.trArgs('行 {0}: 列数不足，至少需要德语和中文两列', [rowNum]),
+          );
           skipCount++;
           continue;
         }
@@ -918,7 +906,7 @@ class ImportService {
         final chinese = _cleanString(row[1]?.toString() ?? '');
 
         if (german.isEmpty || chinese.isEmpty) {
-          errors.add('行 $rowNum: 德语或中文为空');
+          errors.add(AppLocale.trArgs('行 {0}: 德语或中文为空', [rowNum]));
           skipCount++;
           continue;
         }
@@ -930,10 +918,14 @@ class ImportService {
         // 全局查重（含词书内）：已存在则跳过
         final existingDeck = existingByKey[key];
         if (existingDeck != null) {
+          final deckPart = existingDeck.isEmpty
+              ? ''
+              : AppLocale.trArgs('（已存在于词书「{0}」）', [existingDeck]);
           errors.add(
-            '行 $rowNum: 单词“${parsed.baseWord}”'
-            '${existingDeck.isEmpty ? '' : '（已存在于词书「$existingDeck」）'}'
-            '已存在，已跳过',
+            AppLocale.trArgs(
+              '行 {0}: 单词“{1}”{2}已存在，已跳过',
+              [rowNum, parsed.baseWord, deckPart],
+            ),
           );
           skipCount++;
           continue;
@@ -967,7 +959,7 @@ class ImportService {
 
         successCount++;
       } catch (e) {
-        errors.add('行 $rowNum: 导入失败 - $e');
+        errors.add(AppLocale.trArgs('行 {0}: 导入失败 - {1}', [rowNum, e]));
         skipCount++;
       }
     }

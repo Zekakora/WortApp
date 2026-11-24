@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// 词性标签组件
 class WordTypeChip extends StatelessWidget {
@@ -63,7 +64,7 @@ class WordTypeChip extends StatelessWidget {
           if (showLabel) ...[
             const SizedBox(width: 4),
             Text(
-              WordTypeColors.getWordTypeDescription(wordType),
+              context.tr(WordTypeColors.getWordTypeDescription(wordType)),
               style: TextStyle(
                 fontSize: 11,
                 color: color.withValues(alpha: 0.8),
@@ -112,6 +113,7 @@ class NounTypeChip extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+    description = context.tr(description);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../providers/batch_update_provider.dart';
 
 /// 后台AI任务进度按钮（带任务数角标）
@@ -55,7 +56,9 @@ class BatchTaskProgressButton extends ConsumerWidget {
             ),
         ],
       ),
-      tooltip: hasActiveTask ? 'AI 任务进行中' : 'AI 任务记录',
+      tooltip: hasActiveTask
+          ? context.tr('AI 任务进行中')
+          : context.tr('AI 任务记录'),
       onPressed: () {
         showDialog(
           context: context,
@@ -96,7 +99,7 @@ class BatchTaskListDialog extends ConsumerWidget {
     return AlertDialog(
       title: Row(
         children: [
-          const Expanded(child: Text('AI 任务列表')),
+          Expanded(child: Text(context.tr('AI 任务列表'))),
           if (state.tasks.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -111,13 +114,13 @@ class BatchTaskListDialog extends ConsumerWidget {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'clear_completed',
-                  child: Text('清除已完成'),
+                  child: Text(context.tr('清除已完成')),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'clear_all',
-                  child: Text('清除全部'),
+                  child: Text(context.tr('清除全部')),
                 ),
               ],
             ),
@@ -126,10 +129,10 @@ class BatchTaskListDialog extends ConsumerWidget {
       content: SizedBox(
         width: double.maxFinite,
         child: state.tasks.isEmpty
-            ? const Center(
+            ? Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Text('暂无任务记录'),
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(context.tr('暂无任务记录')),
                 ),
               )
             : ListView.builder(
@@ -147,7 +150,7 @@ class BatchTaskListDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(context.tr('关闭')),
         ),
       ],
     );
@@ -179,7 +182,7 @@ class _TaskTile extends StatelessWidget {
             ? IconButton(
                 icon: const Icon(Icons.close, size: 18),
                 onPressed: onRemove,
-                tooltip: '移除',
+                tooltip: context.tr('移除'),
               )
             : null,
       ),
@@ -225,17 +228,23 @@ class _TaskTile extends StatelessWidget {
       );
     } else if (task.isComplete) {
       final duration = task.completedAt?.difference(task.createdAt);
+      final durationText = duration != null
+          ? ' ${context.trArgs('（{0} 秒）', [duration.inSeconds])}'
+          : '';
       return Text(
-        '完成: ${task.completed} 成功, ${task.failed} 失败${duration != null ? ' (${duration.inSeconds}秒)' : ''}',
+        context.trArgs(
+          '完成: {0} 成功, {1} 失败{2}',
+          [task.completed, task.failed, durationText],
+        ),
         style: TextStyle(
           fontSize: 12,
           color: task.failed > 0 ? Colors.red : Colors.grey,
         ),
       );
     } else if (task.isQueued) {
-      return const Text(
-        '排队中...',
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+      return Text(
+        context.tr('排队中...'),
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
       );
     }
     return null;

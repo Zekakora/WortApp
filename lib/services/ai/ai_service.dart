@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/i18n/app_localizations.dart';
 
 /// AI 服务抽象接口
 abstract class AIService {
@@ -67,7 +68,7 @@ class ConfigurableAIService implements AIService {
       debugPrint('AI Error Response: ${e.response?.data}');
 
       throw AIServiceException(
-        message: 'AI 请求失败: ${_getErrorMessage(e)}',
+        message: AppLocale.trArgs('AI 请求失败: {0}', [_getErrorMessage(e)]),
         statusCode: e.response?.statusCode,
       );
     }
@@ -84,7 +85,7 @@ class ConfigurableAIService implements AIService {
         return error.toString();
       }
     }
-    return e.message ?? '未知错误';
+    return e.message ?? AppLocale.tr('未知错误');
   }
 }
 

@@ -58,7 +58,7 @@ WortApp/
 │   ├── algorithms/                        # 算法层
 │   │   ├── sm2_algorithm.dart             # SM-2 核心算法
 │   │   ├── review_scheduler.dart          # 复习队列调度
-│   │   └── distractor_generator.dart      # 干扰项生成器
+│   │   └── check_in.dart                  # 连续打卡天数计算
 │   │
 │   ├── services/                          # 服务层
 │   │   ├── ai/
@@ -391,6 +391,8 @@ C:\flutter\bin\flutter build apk --release
 
 ## 📚 参考资源
 
+- [学习算法说明](ALGORITHM.md)（SM-2 / 每日调度 / 抓词模式 / 打卡）
+- [学习使用指引](USER_GUIDE.md)（评分怎么选 / 学习设置）
 - [Flutter 官方文档](https://docs.flutter.dev)
 - [drift 文档](https://drift.simonbinder.eu/docs/getting-started/)
 - [Riverpod 文档](https://riverpod.dev/docs/introduction/getting_started)

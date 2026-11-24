@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
@@ -66,7 +67,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('联网查词'),
+        title: Text(context.tr('联网查词')),
         actions: const [
           // 后台 AI 任务进度按钮（查词后自动加入词书的任务也在此查看）
           BatchTaskProgressButton(),
@@ -83,7 +84,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: '输入德语单词...',
+                    hintText: context.tr('输入德语单词...'),
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -167,7 +168,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onPressed: () => _showAddToDeckDialog(
                   context, searchResult.result!),
               icon: const Icon(Icons.add),
-              label: const Text('加入词书'),
+              label: Text(context.tr('加入词书')),
             )
           : null,
     );
@@ -185,7 +186,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '输入德语单词开始查词',
+            context.tr('输入德语单词开始查词'),
             style: TextStyle(
               color: colorScheme.onSurfaceVariant,
               fontSize: 16,
@@ -275,7 +276,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   if (result.plural != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      '复数: ${result.plural}',
+                      context.trArgs('复数: {0}', [result.plural]),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -283,15 +284,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ],
                   if (result.partOfSpeech != null) ...[
                     const SizedBox(height: 4),
-                    Row(
+                    // 用 Wrap 而非 Row：英文/德文界面文案更长，
+                    // 窄屏下（含两个标签）会溢出，换行比截断更可读
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          '词性: ${result.partOfSpeech}',
+                          context.trArgs('词性: {0}', [result.partOfSpeech]),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
                         ),
-                        const SizedBox(width: 8),
                         // 词性彩色标签
                         WordTypeChip(
                           wordType: result.partOfSpeech,
@@ -300,19 +305,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           showLabel: false,
                         ),
                         // 名词可数/不可数标签
-                        if (result.nounType != null) ...[
-                          const SizedBox(width: 8),
+                        if (result.nounType != null)
                           NounTypeChip(
                             nounType: result.nounType,
                           ),
-                        ],
                       ],
                     ),
                   ],
                   if (result.separablePrefix != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '可分前缀: ${result.separablePrefix}',
+                      context.trArgs('可分前缀: {0}', [result.separablePrefix]),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -321,7 +324,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   if (result.baseVerb != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      '基础动词: ${result.baseVerb}',
+                      context.trArgs('基础动词: {0}', [result.baseVerb]),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -341,7 +344,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '释义',
+                      context.tr('释义'),
                       style:
                           Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -374,7 +377,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         Icon(Icons.link, color: colorScheme.primary, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          '动词搭配',
+                          context.tr('动词搭配'),
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -414,7 +417,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      isDative ? '三格' : '四格',
+                                      isDative
+                                          ? context.tr('三格')
+                                          : context.tr('四格'),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -447,29 +452,48 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       }).toList(),
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    // 图例同样用 Wrap：窄屏 + 长语种文案时不至于溢出
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.3),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.tr('三格 (Dativ)'),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        const Text('三格 (Dativ)', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 16),
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.purple.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withValues(alpha: 0.3),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.tr('四格 (Akkusativ)'),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        const Text('四格 (Akkusativ)', style: TextStyle(fontSize: 12)),
                       ],
                     ),
                   ],
@@ -485,7 +509,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '例句',
+                      context.tr('例句'),
                       style:
                           Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -520,7 +544,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             color: colorScheme.primary, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'AI 深度解析',
+                          context.tr('AI 深度解析'),
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -555,10 +579,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final isVerb = inflection['type'] == 'verb';
     final isNoun = inflection['type'] == 'noun';
     final (title, icon) = isVerb
-        ? ('动词变位', Icons.auto_fix_high)
+        ? (context.tr('动词变位'), Icons.auto_fix_high)
         : isNoun
-            ? ('名词变格', Icons.category)
-            : ('形容词变级', Icons.trending_up);
+            ? (context.tr('名词变格'), Icons.category)
+            : (context.tr('形容词变级'), Icons.trending_up);
 
     return Card(
       child: Padding(
@@ -592,11 +616,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// 动词：三个时态的 6 人称变位
   List<Widget> _buildVerbInflection(BuildContext context,
       Map<String, dynamic> inflection, ColorScheme colorScheme) {
-    const tenseMeta = [
-      ('praesens', '现在时', 'Präsens'),
-      ('praeteritum', '过去时', 'Präteritum'),
-      ('perfekt', '完成时', 'Perfekt'),
-      ('passiv', '被动态', 'Passiv'),
+    final tenseMeta = [
+      ('praesens', context.tr('现在时'), 'Präsens'),
+      ('praeteritum', context.tr('过去时'), 'Präteritum'),
+      ('perfekt', context.tr('完成时'), 'Perfekt'),
+      ('passiv', context.tr('被动态'), 'Passiv'),
     ];
     final tenses = Inflection.verbTenses(inflection);
     if (tenses == null) return const [SizedBox.shrink()];
@@ -625,8 +649,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final noun = Inflection.nounParts(inflection);
     return [
       if (noun.genitiv != null)
-        InflectionRow(label: '第二格', value: noun.genitiv!),
-      if (noun.plural != null) InflectionRow(label: '复数', value: noun.plural!),
+        InflectionRow(label: context.tr('第二格'), value: noun.genitiv!),
+      if (noun.plural != null)
+        InflectionRow(label: context.tr('复数'), value: noun.plural!),
       if (noun.genitiv == null && noun.plural == null)
         const SizedBox.shrink(),
     ];
@@ -638,9 +663,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final adj = Inflection.adjParts(inflection);
     return [
       if (adj.komparativ != null)
-        InflectionRow(label: '比较级', value: adj.komparativ!),
+        InflectionRow(label: context.tr('比较级'), value: adj.komparativ!),
       if (adj.superlativ != null)
-        InflectionRow(label: '最高级', value: adj.superlativ!),
+        InflectionRow(label: context.tr('最高级'), value: adj.superlativ!),
       if (adj.komparativ == null && adj.superlativ == null)
         const SizedBox.shrink(),
     ];
@@ -673,10 +698,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     final statusText = !enabled
-        ? '查词后自动加入词书'
+        ? context.tr('查词后自动加入词书')
         : targetDeck != null
-            ? '自动加入：${targetDeck.name}'
-            : '自动加入：请选择词书';
+            ? context.trArgs('自动加入：{0}', [targetDeck.name])
+            : context.tr('自动加入：请选择词书');
 
     return Material(
       color: enabled
@@ -740,7 +765,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              '可点击右上角任务按钮查看进度，任务完成后自动加入词书',
+              context.tr('可点击右上角任务按钮查看进度，任务完成后自动加入词书'),
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.onSurfaceVariant,
@@ -768,7 +793,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final deckId = settings.autoAddToDeckId;
     if (deckId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先设置自动加入的词书')),
+        SnackBar(content: Text(context.tr('请先设置自动加入的词书'))),
       );
       return;
     }
@@ -777,7 +802,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final decks = ref.read(allDecksProvider).value ?? const <Deck>[];
     if (!decks.any((d) => d.id == deckId)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('目标词书不存在，请重新选择')),
+        SnackBar(content: Text(context.tr('目标词书不存在，请重新选择'))),
       );
       return;
     }
@@ -787,7 +812,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final aiEngine = ref.read(aiDictionaryEngineProvider);
     if (db == null || aiEngine == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI 引擎未就绪，请检查设置')),
+        SnackBar(content: Text(context.tr('AI 引擎未就绪，请检查设置'))),
       );
       return;
     }
@@ -799,7 +824,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     };
 
     final notifier = ref.read(batchUpdateProvider.notifier);
-    final taskId = notifier.addTask('查词入库: $word', 1, words: [word]);
+    final taskId = notifier.addTask(
+        context.trArgs('查词入库: {0}', [word]), 1, words: [word]);
 
     // 串行执行：前一个查词任务完成后才开始下一个，避免并发请求过多
     _autoAddQueue = _autoAddQueue.then((_) async {
@@ -817,7 +843,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     // 显示后台任务提示（不阻塞界面，结果返回后自动入库）
     ref.read(searchProvider.notifier).showNotice(
-      '「$word」已加入后台查询队列，完成后自动加入词书',
+      context.trArgs('「{0}」已加入后台查询队列，完成后自动加入词书', [word]),
     );
   }
 
@@ -858,46 +884,65 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  void _showAddToDeckDialog(
-      BuildContext context, DictionaryResult result) {
+  void _showAddToDeckDialog(BuildContext context, DictionaryResult result) {
+    // 提示条宿主提前取出：底部弹窗关闭后它依然有效，
+    // 避免在已卸载的 context 上取 ScaffoldMessenger 而丢提示
+    final messenger = ScaffoldMessenger.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return _DeckSelectionSheet(
           result: result,
-          onAddToDeck: (deckId) => _addToDeck(context, deckId, result),
-          onCreateDeck: () => _createAndAdd(context, result),
+          onAddToDeck: (deckId) => _addToDeck(deckId, result, messenger),
+          onCreateDeck: (name) => _createDeckAndAdd(name, result, messenger),
         );
       },
     );
   }
 
-  void _addToDeck(
-      BuildContext context, int deckId, DictionaryResult result) async {
+  /// 全局规范化查重：同一词不允许在任何词书中重复
+  /// （`der Hund` 与 `Hund` 归为同一词），命中时返回已存在的单词与所在词书
+  Future<({Word word, Deck? deck})?> _findExistingWord(
+      DictionaryResult result) async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return null;
+    final key = GermanParser.canonicalKey(result.word);
+    final existing = await db.wordDao.findWordByCanonicalKey(key);
+    if (existing == null) return null;
+    return (word: existing, deck: await db.deckDao.getDeckById(existing.deckId));
+  }
+
+  /// 把查词结果写入指定词书。
+  ///
+  /// 只负责入库与提示，**不**关闭任何弹窗：弹窗由各自的面板关闭，
+  /// 否则多余的 `Navigator.pop` 会把根页面一起弹掉（首页只有一个路由，一旦被
+  /// pop 就只剩黑屏）。
+  Future<void> _addToDeck(
+    int deckId,
+    DictionaryResult result,
+    ScaffoldMessengerState messenger,
+  ) async {
     final db = ref.read(databaseProvider);
     if (db == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('数据库未就绪')),
-        );
-      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.tr('数据库未就绪'))),
+      );
       return;
     }
 
-    // 全局规范化查重：同一词不允许在任何词书中重复（`der Hund` 与 `Hund` 归为同一词）
-    final key = GermanParser.canonicalKey(result.word);
-    final existing = await db.wordDao.findWordByCanonicalKey(key);
+    final existing = await _findExistingWord(result);
     if (existing != null) {
-      final existingDeck = await db.deckDao.getDeckById(existing.deckId);
-      if (!context.mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
-            existingDeck == null
-                ? '该单词已存在，未重复添加'
-                : '该单词已存在于词书「${existingDeck.name}」，未重复添加',
+            existing.deck == null
+                ? context.tr('该单词已存在，未重复添加')
+                : context.trArgs(
+                    '该单词已存在于词书「{0}」，未重复添加',
+                    [existing.deck!.name],
+                  ),
           ),
         ),
       );
@@ -918,12 +963,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           updatedAt: drift.Value(now),
         ),
       );
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已添加到词书')),
-        );
-      }
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.tr('已添加到词书'))),
+      );
       return;
     }
 
@@ -1009,63 +1052,80 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     }
 
-    if (context.mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加到词书')),
-      );
-    }
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(context.tr('已添加到词书'))),
+    );
   }
 
-  void _createAndAdd(BuildContext context, DictionaryResult result) {
-    final nameController = TextEditingController();
+  /// 新建词书并立即把当前查词结果加入其中。
+  ///
+  /// 返回 `true` 表示已处理完毕（面板据此关闭），`false` 表示失败（面板保持展开，
+  /// 用户可直接重试，不需要重新走一遍流程）。
+  Future<bool> _createDeckAndAdd(
+    String rawName,
+    DictionaryResult result,
+    ScaffoldMessengerState messenger,
+  ) async {
+    final name = rawName.trim();
+    if (name.isEmpty) return false;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建词书'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: '词书名称',
-            hintText: '例如：生词本',
+    final db = ref.read(databaseProvider);
+    if (db == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.tr('数据库未就绪'))),
+      );
+      return false;
+    }
+
+    try {
+      // 先查重：单词已存在时不新建一本空词书
+      final existing = await _findExistingWord(result);
+      if (!mounted) return false;
+      if (existing != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              existing.deck == null
+                  ? context.tr('该单词已存在，未重复添加')
+                  : context.trArgs(
+                      '该单词已存在于词书「{0}」，未重复添加',
+                      [existing.deck!.name],
+                    ),
+            ),
           ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              if (name.isEmpty) return;
+        );
+        return true;
+      }
 
-              final db = ref.read(databaseProvider);
-              if (db == null) return;
+      // 已存在同名词书时直接复用，避免出现两本同名书
+      final decks = await db.deckDao.getAllDecks();
+      int? reusedDeckId;
+      for (final deck in decks) {
+        if (deck.name.trim() == name) {
+          reusedDeckId = deck.id;
+          break;
+        }
+      }
 
-              final now = DateTime.now();
-
-              final deckId = await db.deckDao.createDeck(
-                DecksCompanion(
-                  name: drift.Value(name),
-                  createdAt: drift.Value(now),
-                  updatedAt: drift.Value(now),
-                ),
-              );
-
-              if (context.mounted) {
-                Navigator.pop(context); // 关闭对话框
-                Navigator.pop(context); // 关闭底部弹窗
-                _addToDeck(context, deckId, result);
-              }
-            },
-            child: const Text('创建并添加'),
-          ),
-        ],
-      ),
-    ).whenComplete(() => nameController.dispose());
+      final now = DateTime.now();
+      final deckId = reusedDeckId ??
+          await db.deckDao.createDeck(
+            DecksCompanion(
+              name: drift.Value(name),
+              createdAt: drift.Value(now),
+              updatedAt: drift.Value(now),
+            ),
+          );
+      await _addToDeck(deckId, result, messenger);
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.trArgs('创建词书失败: {0}', [e]))),
+      );
+      return false;
+    }
   }
 }
 
@@ -1128,7 +1188,7 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '查词后自动加入词书',
+                          context.tr('查词后自动加入词书'),
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge
@@ -1136,7 +1196,8 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '开启后查词不再等待，自动挂到后台任务，完成后加入所选词书，可继续查下一个单词',
+                          context.tr(
+                              '开启后查词不再等待，自动挂到后台任务，完成后加入所选词书，可继续查下一个单词'),
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.onSurfaceVariant,
@@ -1162,14 +1223,14 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    '选择词书',
+                    context.tr('选择词书'),
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const Spacer(),
                   TextButton.icon(
                     onPressed: () => _createDeckForAutoAdd(context, ref),
                     icon: const Icon(Icons.add),
-                    label: const Text('新建词书'),
+                    label: Text(context.tr('新建词书')),
                   ),
                 ],
               ),
@@ -1181,7 +1242,7 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
                   if (decks.isEmpty) {
                     return Center(
                       child: Text(
-                        '还没有词书，请先创建一个',
+                        context.tr('还没有词书，请先创建一个'),
                         style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                     );
@@ -1208,7 +1269,7 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
                             : null,
                         trailing: isSelected
                             ? Text(
-                                '当前目标',
+                                context.tr('当前目标'),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: colorScheme.primary,
@@ -1227,7 +1288,7 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('错误: $e')),
+                error: (e, _) => Center(child: Text(context.trArgs('错误: {0}', [e]))),
               ),
             ),
           ],
@@ -1243,24 +1304,24 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('新建词书'),
+        title: Text(context.tr('新建词书')),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: '词书名称',
-            hintText: '例如：生词本',
+          decoration: InputDecoration(
+            labelText: context.tr('词书名称'),
+            hintText: context.tr('例如：生词本'),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(context, nameController.text.trim()),
-            child: const Text('创建'),
+            child: Text(context.tr('创建')),
           ),
         ],
       ),
@@ -1292,10 +1353,13 @@ class _AutoAddSettingsSheet extends ConsumerWidget {
 }
 
 /// 词书选择底部弹窗
-class _DeckSelectionSheet extends ConsumerWidget {
+class _DeckSelectionSheet extends ConsumerStatefulWidget {
   final DictionaryResult result;
-  final Function(int deckId) onAddToDeck;
-  final VoidCallback onCreateDeck;
+  final void Function(int deckId) onAddToDeck;
+
+  /// 新建词书并入库；返回 `true` 表示处理完成（面板随后关闭），
+  /// `false` 表示失败（面板保持展开，便于原地重试）
+  final Future<bool> Function(String name) onCreateDeck;
 
   const _DeckSelectionSheet({
     required this.result,
@@ -1304,87 +1368,241 @@ class _DeckSelectionSheet extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DeckSelectionSheet> createState() =>
+      _DeckSelectionSheetState();
+}
+
+class _DeckSelectionSheetState extends ConsumerState<_DeckSelectionSheet> {
+  final TextEditingController _nameController = TextEditingController();
+  bool _creating = false;
+  bool _submitting = false;
+  String? _nameError;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _toggleCreating() {
+    setState(() {
+      _creating = !_creating;
+      _nameError = null;
+      if (!_creating) _nameController.clear();
+    });
+  }
+
+  Future<void> _submitNewDeck() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = context.tr('请填写词书名称'));
+      return;
+    }
+
+    // 提前取出 Navigator：await 之后自身 context 可能已失效
+    final navigator = Navigator.of(context);
+    setState(() {
+      _submitting = true;
+      _nameError = null;
+    });
+
+    final done = await widget.onCreateDeck(name);
+    if (!mounted) return;
+
+    if (done) {
+      navigator.pop();
+    } else {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final decksAsync = ref.watch(allDecksProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.5,
       minChildSize: 0.3,
-      maxChildSize: 0.8,
+      maxChildSize: 0.85,
       expand: false,
       builder: (context, scrollController) {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '选择词书',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('选择词书'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          context.trArgs('把「{0}」加入词书', [widget.result.word]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   TextButton.icon(
-                    onPressed: onCreateDeck,
-                    icon: const Icon(Icons.add),
-                    label: const Text('新建词书'),
+                    onPressed: _submitting ? null : _toggleCreating,
+                    icon: Icon(_creating ? Icons.close : Icons.add),
+                    label: Text(context.tr(_creating ? '取消' : '新建词书')),
                   ),
                 ],
               ),
             ),
-            const Divider(),
+            if (_creating) _buildCreateForm(colorScheme),
+            const Divider(height: 1),
             Expanded(
               child: decksAsync.when(
                 data: (decks) {
-                  if (decks.isEmpty) {
-                    return Center(
-                      child: Text(
-                        '还没有词书，请先创建一个',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
-                        ),
-                      ),
-                    );
+                  if (decks.isEmpty && !_creating) {
+                    return _buildEmptyState(colorScheme);
                   }
 
                   return ListView.builder(
                     controller: scrollController,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewPaddingOf(context).bottom + 12,
+                    ),
                     itemCount: decks.length,
                     itemBuilder: (context, index) {
                       final deck = decks[index];
                       return ListTile(
+                        enabled: !_submitting,
                         leading: Icon(
                           deck.isActive
                               ? Icons.check_circle
-                              : Icons.circle_outlined,
+                              : Icons.book_outlined,
                           color: deck.isActive
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
                         ),
-                        title: Text(deck.name),
+                        title: Text(
+                          deck.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         subtitle: deck.description != null
-                            ? Text(deck.description!)
+                            ? Text(
+                                deck.description!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              )
                             : null,
-                        onTap: () => onAddToDeck(deck.id),
+                        trailing: Icon(
+                          Icons.add_circle_outline,
+                          color: colorScheme.primary,
+                        ),
+                        onTap: () {
+                          // 面板负责关闭自己，业务回调只做入库与提示，
+                          // 避免多余的 pop 把页面一起弹掉
+                          Navigator.of(context).pop();
+                          widget.onAddToDeck(deck.id);
+                        },
                       );
                     },
                   );
                 },
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('错误: $e')),
+                error: (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(context.trArgs('错误: {0}', [e])),
+                  ),
+                ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// 内联「新建词书」表单：直接在本面板输入名称，不再叠第二层对话框
+  Widget _buildCreateForm(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _nameController,
+            enabled: !_submitting,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submitNewDeck(),
+            decoration: InputDecoration(
+              labelText: context.tr('词书名称'),
+              hintText: context.tr('例如：生词本'),
+              errorText: _nameError,
+              prefixIcon: const Icon(Icons.drive_file_rename_outline),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _submitting ? null : _submitNewDeck,
+            icon: _submitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check),
+            label: Text(
+              _submitting ? context.tr('创建中...') : context.tr('创建并添加'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.library_books_outlined,
+              size: 48,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.tr('还没有词书，请先创建一个'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => setState(() => _creating = true),
+              icon: const Icon(Icons.add),
+              label: Text(context.tr('新建词书')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

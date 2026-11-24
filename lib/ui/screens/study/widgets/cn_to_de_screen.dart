@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../algorithms/sm2_algorithm.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
+import '../../../../data/database/app_database.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
+import '../../../../ui/widgets/noun_article_selector.dart';
 import '../../../../ui/widgets/study_split_layout.dart';
+import '../../../../ui/widgets/study_rating_help.dart';
 import '../../../../ui/widgets/swipe_down_detail_route.dart';
 import 'distractor_pool_mixin.dart';
 
@@ -25,6 +29,10 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
   List<String> _options = [];
   int _correctIndex = 0;
   int _lastWordId = -1;
+  /// 名词作答：用户选择的定冠词（der/die/das）
+  String? _selectedArticle;
+  /// 记录词性作答对应的单词 id，切换单词时自动失效
+  int? _articleWordId;
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
   /// 平板分屏：控制右侧单词详情面板的模糊层
@@ -80,6 +88,41 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
     }
   }
 
+  /// 是否已答对该名词的定冠词
+  bool _articleAnswered(Word word) =>
+      NounArticle.isAnswered(word, _selectedArticle, _articleWordId);
+
+  /// 点击定冠词：答错提示重试，答对后正确选项显示对应颜色
+  void _onArticleSelected(Word word, String article) {
+    final correct = NounArticle.normalizedArticle(word);
+    setState(() {
+      _selectedArticle = article;
+      _articleWordId = word.id;
+    });
+    if (article != correct) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(context.tr('词性选择错误，请重试')),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+    }
+  }
+
+  /// 名词未选对词性前不允许作答，给出提示
+  void _showArticleGateHint() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(context.tr('请先选择正确的词性')),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(studySessionProvider);
@@ -98,14 +141,14 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
 
     if (session.isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('看中文选德语')),
+        appBar: AppBar(title: Text(context.tr('看中文选德语'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (session.error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('看中文选德语')),
+        appBar: AppBar(title: Text(context.tr('看中文选德语'))),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -116,7 +159,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('返回'),
+                child: Text(context.tr('返回')),
               ),
             ],
           ),
@@ -131,8 +174,8 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
     final word = session.currentWord;
     if (word == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('看中文选德语')),
-        body: const Center(child: Text('没有单词')),
+        appBar: AppBar(title: Text(context.tr('看中文选德语'))),
+        body: Center(child: Text(context.tr('没有单词'))),
       );
     }
 
@@ -140,10 +183,14 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
       _generateOptions();
     }
 
+    // 名词：需先选对词性才能作答
+    final isNoun = NounArticle.isNounWithArticle(word);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '看中文选德语 (${session.progressTitle})'),
+            context.trArgs('看中文选德语 ({0})', [session.progressTitle])),
+        actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
@@ -171,13 +218,24 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                           ),
                       textAlign: TextAlign.center,
                     ),
+                    // 名词：先选对词性（答对后正确选项显示对应颜色）
+                    if (isNoun) ...[
+                      const SizedBox(height: 24),
+                      NounArticleSelector(
+                        selectedArticle: _articleWordId == word.id
+                            ? _selectedArticle
+                            : null,
+                        answered: _articleAnswered(word),
+                        onSelect: (article) => _onArticleSelected(word, article),
+                      ),
+                    ],
                     const SizedBox(height: 48),
                     Expanded(
                       child: ListView.separated(
                         itemCount: _options.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          return _buildOptionCard(index, colorScheme);
+                          return _buildOptionCard(index, colorScheme, word);
                         },
                       ),
                     ),
@@ -194,7 +252,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
     );
   }
 
-  Widget _buildOptionCard(int index, ColorScheme colorScheme) {
+  Widget _buildOptionCard(int index, ColorScheme colorScheme, Word word) {
     final isSelected = _selectedAnswer == index;
     final isCorrect = index == _correctIndex;
 
@@ -209,12 +267,27 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
       bgColor = colorScheme.primaryContainer;
     }
 
+    // 名词答对后，正确选项的德语单词显示对应冠词颜色
+    Color? answerColor;
+    if (_answered &&
+        isCorrect &&
+        NounArticle.isNounWithArticle(word) &&
+        _articleAnswered(word)) {
+      answerColor = GenderColors.forArticle(word.article);
+    }
+
     return Card(
       color: bgColor,
       child: InkWell(
         onTap: _answered
             ? null
             : () {
+                // 名词必须先选对词性才能作答
+                if (NounArticle.isNounWithArticle(word) &&
+                    !_articleAnswered(word)) {
+                  _showArticleGateHint();
+                  return;
+                }
                 setState(() {
                   _selectedAnswer = index;
                   // 回答后自动确认：选中即确认，无需再点击确认按钮
@@ -235,6 +308,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                 child: Text(
                   _options[index],
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: answerColor,
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
@@ -264,7 +338,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
             // 回答正确时自动显示右侧单词详情
             _maybeRevealDetail();
           },
-          child: const Text('确认答案'),
+          child: Text(context.tr('确认答案')),
         ),
       ),
     );
@@ -292,7 +366,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
               width: double.infinity,
               child: TextButton.icon(
                 icon: const Icon(Icons.info_outline, size: 18),
-                label: const Text('查看单词详情'),
+                label: Text(context.tr('查看单词详情')),
                 onPressed: _openWordDetail,
               ),
             ),
@@ -301,7 +375,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
             children: [
               Expanded(
                 child: _FeedbackButton(
-                  label: '忘记',
+                  label: context.tr('忘记'),
                   color: ScoreColors.forgot,
                   onPressed: () => _onFeedback(FeedbackLevel.forgot),
                 ),
@@ -309,7 +383,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: _FeedbackButton(
-                  label: '模糊',
+                  label: context.tr('模糊'),
                   color: ScoreColors.hard,
                   onPressed: () => _onFeedback(FeedbackLevel.hard),
                 ),
@@ -317,7 +391,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: _FeedbackButton(
-                  label: '熟悉',
+                  label: context.tr('熟悉'),
                   color: ScoreColors.good,
                   onPressed: () => _onFeedback(FeedbackLevel.good),
                 ),
@@ -325,7 +399,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: _FeedbackButton(
-                  label: '简单',
+                  label: context.tr('简单'),
                   color: ScoreColors.easy,
                   onPressed: () => _onFeedback(FeedbackLevel.easy),
                 ),
@@ -364,13 +438,15 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
       _answered = false;
       _lastWordId = -1;
       _options = []; // 清空旧题选项：避免下一帧先渲染上一题选项再被刷新（闪烁）
+      _selectedArticle = null;
+      _articleWordId = null;
     });
   }
 
   Widget _buildCompletedScreen(
       BuildContext context, ColorScheme colorScheme, StudySession session) {
     return Scaffold(
-      appBar: AppBar(title: const Text('学习完成')),
+      appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -378,19 +454,20 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
             Icon(Icons.celebration, size: 80, color: colorScheme.primary),
             const SizedBox(height: 24),
             Text(
-              '恭喜完成！',
+              context.tr('恭喜完成！'),
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 16),
             Text(
-              '本次学习 ${session.completedCount} 个单词',
+              context.trArgs('本次学习 {0} 个单词', [session.completedCount]),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              '正确率: ${(session.accuracy * 100).toStringAsFixed(0)}%',
+              context.trArgs(
+                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: colorScheme.primary,
                   ),
@@ -401,7 +478,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                 ref.read(studySessionProvider.notifier).reset();
                 Navigator.pop(context);
               },
-              child: const Text('返回'),
+              child: Text(context.tr('返回')),
             ),
           ],
         ),

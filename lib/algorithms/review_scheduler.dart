@@ -7,7 +7,7 @@ class ReviewScheduler {
 
   ReviewScheduler(this._db);
 
-  /// 获取今日待复习的单词
+  /// 获取今日待复习的单词（按 next_review 升序，最逾期的在前）
   Future<List<Word>> getDueReviewWords({
     required int deckId,
     int? limit,
@@ -16,7 +16,7 @@ class ReviewScheduler {
       deckId: deckId,
       limit: limit,
     );
-    return _db.wordDao.getWordsByIds(wordIds);
+    return _wordsInOrder(wordIds);
   }
 
   /// 获取新词（未学习过的单词）
@@ -25,7 +25,22 @@ class ReviewScheduler {
     int? limit,
   }) async {
     final wordIds = await _db.sm2Dao.getNewWordIds(deckId, limit: limit);
-    return _db.wordDao.getWordsByIds(wordIds);
+    return _wordsInOrder(wordIds);
+  }
+
+  /// 按 [ids] 给定顺序取单词。
+  ///
+  /// `wordDao.getWordsByIds` 是 `WHERE id IN (...)`，返回的是表顺序（顺序不保证），
+  /// 直接把结果交给调用方会丢掉 SQL 里 `ORDER BY next_review ASC` 的排序，
+  /// 导致「按每轮单词数截断」时截到的是任意词、而不是最逾期的词。
+  Future<List<Word>> _wordsInOrder(List<int> ids) async {
+    if (ids.isEmpty) return const [];
+    final words = await _db.wordDao.getWordsByIds(ids);
+    final byId = {for (final w in words) w.id: w};
+    return [
+      for (final id in ids)
+        if (byId[id] != null) byId[id]!,
+    ];
   }
 
   /// 获取今日学习计划

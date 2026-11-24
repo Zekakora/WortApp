@@ -7,10 +7,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../../algorithms/sm2_algorithm.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../data/database/app_database.dart';
 import '../../../../providers/settings_provider.dart';
 import '../../../../providers/study_provider.dart';
 import '../../../../ui/screens/deck/word_detail_screen.dart';
+import '../../../../ui/widgets/study_rating_help.dart';
 import '../../../../ui/widgets/swipe_down_detail_route.dart';
 
 /// 快闪卡模式
@@ -285,8 +287,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     final word = session.currentWord;
     if (word == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('快闪卡模式')),
-        body: const Center(child: Text('没有待学习的单词')),
+        appBar: AppBar(title: Text(context.tr('快闪卡模式'))),
+        body: Center(child: Text(context.tr('没有待学习的单词'))),
       );
     }
 
@@ -309,7 +311,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
       // 无熟练度标记：仅进度标题
       appBar: AppBar(
         title:
-            Text('快闪卡模式 (${session.progressTitle})'),
+            Text(context.trArgs('快闪卡模式 ({0})', [session.progressTitle])),
+        actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
@@ -347,8 +350,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                   children: [
                     Text(
                       _hardEligible
-                          ? '右划 = 模糊 · 左划 = 忘记 · 上滑 = 详情'
-                          : '右划 = 熟练 · 左划 = 忘记 · 上滑 = 详情',
+                          ? context.tr('右划 = 模糊 · 左划 = 忘记 · 上滑 = 详情')
+                          : context.tr('右划 = 熟练 · 左划 = 忘记 · 上滑 = 详情'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -356,7 +359,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                     const SizedBox(height: 4),
                     TextButton.icon(
                       icon: const Icon(Icons.info_outline, size: 18),
-                      label: const Text('查看单词详情'),
+                      label: Text(context.tr('查看单词详情')),
                       onPressed: _openWordDetail,
                     ),
                   ],
@@ -555,7 +558,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             ),
             child: Text(
               '${WordTypeColors.getWordTypeLabel(word.wordType)} · '
-              '${WordTypeColors.getWordTypeDescription(word.wordType)}',
+              '${context.tr(WordTypeColors.getWordTypeDescription(word.wordType))}',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -582,7 +585,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
               word.nounPlural!.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
-              '复数: ${word.nounPlural}',
+              context.trArgs('复数: {0}', [word.nounPlural!]),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -625,7 +628,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
   Widget _buildCompletedScreen(
       BuildContext context, ColorScheme colorScheme, StudySession session) {
     return Scaffold(
-      appBar: AppBar(title: const Text('学习完成')),
+      appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -633,19 +636,20 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             Icon(Icons.celebration, size: 80, color: colorScheme.primary),
             const SizedBox(height: 24),
             Text(
-              '恭喜完成！',
+              context.tr('恭喜完成！'),
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 16),
             Text(
-              '本次学习 ${session.completedCount} 个单词',
+              context.trArgs('本次学习 {0} 个单词', [session.completedCount]),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              '正确率: ${(session.accuracy * 100).toStringAsFixed(0)}%',
+              context.trArgs(
+                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: colorScheme.primary,
                   ),
@@ -656,7 +660,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                 ref.read(studySessionProvider.notifier).reset();
                 Navigator.pop(context);
               },
-              child: const Text('返回'),
+              child: Text(context.tr('返回')),
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/conjugation_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../widgets/study_split_layout.dart';
@@ -70,8 +71,8 @@ class _ConjugationDrillScreenState
     final question = state.currentQuestion;
     if (question == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('变位练习')),
-        body: const Center(child: Text('没有题目')),
+        appBar: AppBar(title: Text(context.tr('变位练习'))),
+        body: Center(child: Text(context.tr('没有题目'))),
       );
     }
 
@@ -83,7 +84,7 @@ class _ConjugationDrillScreenState
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '变位练习 (${state.answeredCount + 1}/${state.questions.length})'),
+            '${context.tr('变位练习')} (${state.answeredCount + 1}/${state.questions.length})'),
       ),
       body: StudySplitLayout(
         key: _splitKey,
@@ -118,7 +119,10 @@ class _ConjugationDrillScreenState
                     if (isVerb) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '请完整填写 ${question.mode.title} 的 6 个人称变位形态',
+                        context.trArgs(
+                          '请完整填写 {0} 的 6 个人称变位形态',
+                          [question.mode.title],
+                        ),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color:
                                   Theme.of(context).colorScheme.onSurfaceVariant,
@@ -133,15 +137,18 @@ class _ConjugationDrillScreenState
                     // 被动语态提示
                     if (isVerb && question.mode.id == 'verb_passiv') ...[
                       const SizedBox(height: 12),
-                      _buildHint(colorScheme,
-                          '提示：被动语态 = werden 的现在时变位 + 动词第二分词（Partizip II）'),
+                      _buildHint(
+                          colorScheme,
+                          context.tr(
+                              '提示：被动语态 = werden 的现在时变位 + 动词第二分词（Partizip II）')),
                     ],
                     // 形容词变级提示
                     if (question.mode.id == 'adj_steigerung') ...[
                       const SizedBox(height: 12),
                       _buildHint(
                           colorScheme,
-                          '提示：比较级一般加 -er，最高级一般用 am ...-sten（注意变音与词尾变化）'),
+                          context.tr(
+                              '提示：比较级一般加 -er，最高级一般用 am ...-sten（注意变音与词尾变化）')),
                     ],
                     const SizedBox(height: 20),
                     // 结果反馈
@@ -168,7 +175,7 @@ class _ConjugationDrillScreenState
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '${_categoryLabel(mode.category)} · ${mode.title} (${mode.subtitle})',
+        '${context.tr(_categoryLabel(mode.category))} · ${mode.title} (${mode.subtitle})',
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
@@ -249,7 +256,9 @@ class _ConjugationDrillScreenState
       } else {
         borderColor = Colors.red;
         fillColor = Colors.red.withValues(alpha: 0.05);
-        errorText = result.isBlank ? '未填写' : '正确: ${result.correctAnswer}';
+        errorText = result.isBlank
+            ? context.tr('未填写')
+            : context.trArgs('正确: {0}', [result.correctAnswer]);
       }
     }
 
@@ -268,7 +277,7 @@ class _ConjugationDrillScreenState
           SizedBox(
             width: 104,
             child: Text(
-              field.label,
+              context.tr(field.label),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -281,7 +290,9 @@ class _ConjugationDrillScreenState
               controller: controller,
               enabled: !_submitted,
               decoration: InputDecoration(
-                hintText: isVerb ? '请输入...' : '请输入 ${field.label}...',
+                hintText: isVerb
+                    ? context.tr('请输入...')
+                    : context.trArgs('请输入 {0}...', [context.tr(field.label)]),
                 hintStyle: const TextStyle(fontSize: 14),
                 filled: fillColor != null,
                 fillColor: fillColor,
@@ -319,7 +330,7 @@ class _ConjugationDrillScreenState
           SizedBox(
             width: 104,
             child: Text(
-              field.label,
+              context.tr(field.label),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -481,7 +492,9 @@ class _ConjugationDrillScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  allCorrect ? '全部正确！' : '有 ${total - correctCount} 处错误',
+                  allCorrect
+                      ? context.tr('全部正确！')
+                      : context.trArgs('有 {0} 处错误', [total - correctCount]),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -489,7 +502,7 @@ class _ConjugationDrillScreenState
                   ),
                 ),
                 Text(
-                  '正确 $correctCount / $total',
+                  context.trArgs('正确 {0} / {1}', [correctCount, total]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -519,7 +532,7 @@ class _ConjugationDrillScreenState
         width: double.infinity,
         child: FilledButton(
           onPressed: _submitted || _canSubmit() ? _submit : null,
-          child: Text(_submitted ? '下一题' : '检查答案'),
+          child: Text(_submitted ? context.tr('下一题') : context.tr('检查答案')),
         ),
       ),
     );
@@ -574,7 +587,7 @@ class _ConjugationDrillScreenState
   Widget _buildCompletedScreen(BuildContext context, ColorScheme colorScheme,
       ConjugationDrillState state) {
     return Scaffold(
-      appBar: AppBar(title: const Text('练习完成')),
+      appBar: AppBar(title: Text(context.tr('练习完成'))),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -588,7 +601,7 @@ class _ConjugationDrillScreenState
               ),
               const SizedBox(height: 24),
               Text(
-                '练习完成！',
+                context.tr('练习完成！'),
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -600,14 +613,18 @@ class _ConjugationDrillScreenState
                   child: Column(
                     children: [
                       _buildStatRow(
-                          context, '完成题目', '${state.questions.length} 道'),
-                      const Divider(height: 24),
-                      _buildStatRow(
-                          context, '全部正确', '${state.correctCount} 道'),
+                          context,
+                          context.tr('完成题目'),
+                          context.trArgs('{0} 道', [state.questions.length])),
                       const Divider(height: 24),
                       _buildStatRow(
                           context,
-                          '正确率',
+                          context.tr('全部正确'),
+                          context.trArgs('{0} 道', [state.correctCount])),
+                      const Divider(height: 24),
+                      _buildStatRow(
+                          context,
+                          context.tr('正确率'),
                           '${(state.accuracy * 100).toStringAsFixed(0)}%'),
                     ],
                   ),
@@ -619,7 +636,7 @@ class _ConjugationDrillScreenState
                   ref.read(conjugationDrillProvider.notifier).reset();
                   Navigator.pop(context);
                 },
-                child: const Text('返回'),
+                child: Text(context.tr('返回')),
               ),
             ],
           ),

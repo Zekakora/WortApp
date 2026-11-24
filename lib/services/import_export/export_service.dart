@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../data/database/app_database.dart';
 
 /// 导出格式
@@ -55,7 +56,10 @@ class ExportService {
     try {
       final deck = await _db.deckDao.getDeckById(deckId);
       if (deck == null) {
-        return const ExportResult(success: false, error: '词书不存在');
+        return ExportResult(
+          success: false,
+          error: AppLocale.tr('词书不存在'),
+        );
       }
 
       final words = await _db.wordDao.getWordsByDeck(deckId);
@@ -65,16 +69,16 @@ class ExportService {
 
       // 表头
       csvData.add([
-        '德语单词',
-        '中文释义',
-        '例句和拓展',
-        '标记',
-        '上次学习日期',
-        '熟练程度',
-        '重复次数',
-        '复习间隔(天)',
-        '简易度因子',
-        '下次复习日期',
+        AppLocale.tr('德语单词'),
+        AppLocale.tr('中文释义'),
+        AppLocale.tr('例句和拓展'),
+        AppLocale.tr('标记'),
+        AppLocale.tr('上次学习日期'),
+        AppLocale.tr('熟练程度'),
+        AppLocale.tr('重复次数'),
+        AppLocale.tr('复习间隔(天)'),
+        AppLocale.tr('简易度因子'),
+        AppLocale.tr('下次复习日期'),
       ]);
 
       // 数据行
@@ -109,7 +113,10 @@ class ExportService {
         ),
       );
     } catch (e) {
-      return ExportResult(success: false, error: '导出失败: $e');
+      return ExportResult(
+        success: false,
+        error: AppLocale.trArgs('导出失败: {0}', [e]),
+      );
     }
   }
 
@@ -121,7 +128,10 @@ class ExportService {
     try {
       final deck = await _db.deckDao.getDeckById(deckId);
       if (deck == null) {
-        return const ExportResult(success: false, error: '词书不存在');
+        return ExportResult(
+          success: false,
+          error: AppLocale.tr('词书不存在'),
+        );
       }
 
       final words = await _db.wordDao.getWordsByDeck(deckId);
@@ -132,16 +142,16 @@ class ExportService {
 
       // 表头
       sheet.appendRow([
-        TextCellValue('德语单词'),
-        TextCellValue('中文释义'),
-        TextCellValue('例句和拓展'),
-        TextCellValue('标记'),
-        TextCellValue('上次学习日期'),
-        TextCellValue('熟练程度'),
-        TextCellValue('重复次数'),
-        TextCellValue('复习间隔(天)'),
-        TextCellValue('简易度因子'),
-        TextCellValue('下次复习日期'),
+        TextCellValue(AppLocale.tr('德语单词')),
+        TextCellValue(AppLocale.tr('中文释义')),
+        TextCellValue(AppLocale.tr('例句和拓展')),
+        TextCellValue(AppLocale.tr('标记')),
+        TextCellValue(AppLocale.tr('上次学习日期')),
+        TextCellValue(AppLocale.tr('熟练程度')),
+        TextCellValue(AppLocale.tr('重复次数')),
+        TextCellValue(AppLocale.tr('复习间隔(天)')),
+        TextCellValue(AppLocale.tr('简易度因子')),
+        TextCellValue(AppLocale.tr('下次复习日期')),
       ]);
 
       // 数据行
@@ -165,7 +175,10 @@ class ExportService {
 
       final fileBytes = excel.save();
       if (fileBytes == null) {
-        return const ExportResult(success: false, error: '生成 Excel 文件失败');
+        return ExportResult(
+          success: false,
+          error: AppLocale.tr('生成 Excel 文件失败'),
+        );
       }
 
       final name =
@@ -180,7 +193,10 @@ class ExportService {
         ),
       );
     } catch (e) {
-      return ExportResult(success: false, error: '导出失败: $e');
+      return ExportResult(
+        success: false,
+        error: AppLocale.trArgs('导出失败: {0}', [e]),
+      );
     }
   }
 
@@ -215,16 +231,6 @@ class ExportService {
             'engine': c.engine,
             'createdAt': c.createdAt.toIso8601String(),
             'updatedAt': c.updatedAt.toIso8601String(),
-          }).toList();
-
-      // AI 请求状态记录（全表导出，数据管理页面据此显示请求成功/失败并可一键重试）
-      final aiStatusRows = await _db.select(_db.aiRequestStatus).get();
-      final aiStatusJson = aiStatusRows.map((s) => {
-            'word': s.word,
-            'engine': s.engine,
-            'status': s.status,
-            'errorMessage': s.errorMessage,
-            'lastRequestAt': s.lastRequestAt.toIso8601String(),
           }).toList();
 
       // 每日错误统计（全表导出，按单词分组后挂到对应单词下，恢复时以新 wordId 重建）
@@ -328,15 +334,17 @@ class ExportService {
         'deckCount': decksJson.length,
         'wordCount': wordCount,
         'aiCacheCount': aiCacheJson.length,
-        'aiStatusCount': aiStatusJson.length,
         'settingsCount': settingsJson.length,
         'deletionCount': deletionsJson.length,
         'decks': decksJson,
         'aiCache': aiCacheJson,
-        'aiStatus': aiStatusJson,
         'settings': settingsJson,
         'deletions': deletionsJson,
       };
+
+      // 说明：AI 请求状态（ai_request_status）是设备本地的请求日志，
+      // 不参与备份/同步，避免跨端传播失败记录与无谓差异。
+      // 备份恢复后由各设备自行在「数据管理」页重新请求。
 
       final jsonString = const JsonEncoder.withIndent('  ').convert(backup);
       final name = fileName ?? 'WortApp备份_${_formatDate(DateTime.now())}.json';
@@ -350,7 +358,10 @@ class ExportService {
         ),
       );
     } catch (e) {
-      return ExportResult(success: false, error: '导出失败: $e');
+      return ExportResult(
+        success: false,
+        error: AppLocale.trArgs('导出失败: {0}', [e]),
+      );
     }
   }
 

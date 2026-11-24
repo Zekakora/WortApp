@@ -1,5 +1,6 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../screens/deck/word_detail_screen.dart';
 
 /// 学习 / 变位练习答题界面的平板分屏容器
@@ -117,7 +118,7 @@ class StudySplitLayoutState extends State<StudySplitLayout> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              '点击查看单词详情',
+                              context.tr('点击查看单词详情'),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -125,7 +126,7 @@ class StudySplitLayoutState extends State<StudySplitLayout> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '回答正确后自动显示',
+                              context.tr('回答正确后自动显示'),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall

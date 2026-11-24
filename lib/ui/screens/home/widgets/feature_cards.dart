@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../study/study_screen.dart';
 import '../../conjugation/conjugation_screen.dart';
 import '../../search/search_screen.dart';
@@ -13,8 +14,8 @@ class FeatureCards extends StatelessWidget {
         // 开始背词
         _FeatureCard(
           icon: Icons.style,
-          title: '开始背词',
-          subtitle: '使用 SM-2 算法智能复习',
+          title: context.tr('开始背词'),
+          subtitle: context.tr('使用 SM-2 算法智能复习'),
           color: Theme.of(context).colorScheme.primaryContainer,
           iconColor: Theme.of(context).colorScheme.primary,
           onTap: () {
@@ -28,8 +29,8 @@ class FeatureCards extends StatelessWidget {
         // 变位练习
         _FeatureCard(
           icon: Icons.auto_fix_high,
-          title: '变位练习',
-          subtitle: '动词变位、名词变格、形容词比较级',
+          title: context.tr('变位练习'),
+          subtitle: context.tr('动词变位、名词变格、形容词比较级'),
           color: Theme.of(context).colorScheme.secondaryContainer,
           iconColor: Theme.of(context).colorScheme.secondary,
           onTap: () {
@@ -43,8 +44,8 @@ class FeatureCards extends StatelessWidget {
         // 联网查词
         _FeatureCard(
           icon: Icons.search,
-          title: '联网查词',
-          subtitle: '多引擎查词，一键加入词书',
+          title: context.tr('联网查词'),
+          subtitle: context.tr('多引擎查词，一键加入词书'),
           color: Theme.of(context).colorScheme.tertiaryContainer,
           iconColor: Theme.of(context).colorScheme.tertiary,
           onTap: () {

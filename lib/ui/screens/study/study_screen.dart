@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/settings_provider.dart';
@@ -11,6 +12,7 @@ import 'widgets/cn_to_de_screen.dart';
 import 'widgets/listen_mode_screen.dart';
 import 'widgets/spell_mode_screen.dart';
 import 'widgets/flash_card_screen.dart';
+import '../../widgets/study_rating_help.dart';
 
 /// 背词模式选择界面
 ///
@@ -27,6 +29,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   static const _countKey = 'studyRoundWordCount';
   static const _presetCounts = [10, 20, 50];
   static const _pickModeKey = 'studyPickMode';
+  static const _randomPickKey = 'studyRandomPick';
+  static const _reviewOnlyKey = 'studyReviewOnly';
 
   /// 每轮单词数
   int _roundCount = 20;
@@ -34,11 +38,19 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   /// 抓词模式（正常 / 收藏优先 / 只抓收藏）
   WordPickMode _pickMode = WordPickMode.normal;
 
+  /// 随机背词开关：开启后抓词打乱顺序，不按单词本顺序抽取
+  bool _randomPick = false;
+
+  /// 只复习开关：开启后不抽新词，只复习到期词与今日已学单词
+  bool _reviewOnly = false;
+
   @override
   void initState() {
     super.initState();
     _loadRoundCount();
     _loadPickMode();
+    _loadRandomPick();
+    _loadReviewOnly();
   }
 
   /// 从数据库加载每轮单词数设置
@@ -84,17 +96,57 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     }
   }
 
+  /// 从数据库加载随机背词开关
+  Future<void> _loadRandomPick() async {
+    final db = ref.read(databaseProvider);
+    final value = await db?.getSetting(_randomPickKey);
+    if (value != null && mounted) {
+      setState(() => _randomPick = value == 'true');
+    }
+  }
+
+  /// 保存随机背词开关
+  Future<void> _setRandomPick(bool enabled) async {
+    setState(() => _randomPick = enabled);
+    final db = ref.read(databaseProvider);
+    try {
+      await db?.setSetting(_randomPickKey, enabled.toString());
+    } catch (e) {
+      debugPrint('保存随机背词开关失败: $e');
+    }
+  }
+
+  /// 从数据库加载只复习开关
+  Future<void> _loadReviewOnly() async {
+    final db = ref.read(databaseProvider);
+    final value = await db?.getSetting(_reviewOnlyKey);
+    if (value != null && mounted) {
+      setState(() => _reviewOnly = value == 'true');
+    }
+  }
+
+  /// 保存只复习开关
+  Future<void> _setReviewOnly(bool enabled) async {
+    setState(() => _reviewOnly = enabled);
+    final db = ref.read(databaseProvider);
+    try {
+      await db?.setSetting(_reviewOnlyKey, enabled.toString());
+    } catch (e) {
+      debugPrint('保存只复习开关失败: $e');
+    }
+  }
+
   /// 抓词模式说明文字
   String get _pickModeHint {
     switch (_pickMode) {
       case WordPickMode.favoriteBoost:
-        return '今天该学的单词中，收藏词汇优先出现、被抓中概率更高';
+        return context.tr('今天该学的单词中，收藏词汇优先出现、被抓中概率更高');
       case WordPickMode.favoriteOnly:
-        return '只练习今天该学单词中已收藏的词汇';
+        return context.tr('只练习今天该学单词中已收藏的词汇');
       case WordPickMode.wrongTodayOnly:
-        return '只练习今天答错过（忘记/模糊）的词；答错会重新复习，连续 3 轮答对才移出';
+        return context.tr('只练习今天答错过（忘记/模糊）的词；答错会重新复习，连续 3 轮答对才移出');
       case WordPickMode.normal:
-        return '按每日新词/复习上限正常抓取';
+        return context.tr('按每日新词/复习上限正常抓取');
     }
   }
 
@@ -104,21 +156,21 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     final result = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('自定义每轮单词数'),
+        title: Text(context.tr('自定义每轮单词数')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '单词数量',
-            hintText: '请输入正整数',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: context.tr('单词数量'),
+            hintText: context.tr('请输入正整数'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
@@ -127,11 +179,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                 Navigator.pop(context, count);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('请输入有效的正整数')),
+                  SnackBar(content: Text(context.tr('请输入有效的正整数'))),
                 );
               }
             },
-            child: const Text('确定'),
+            child: Text(context.tr('确定')),
           ),
         ],
       ),
@@ -148,7 +200,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('选择学习模式'),
+        title: Text(context.tr('选择学习模式')),
+        actions: const [StudyRatingHelpButton()],
       ),
       body: activeDeck.when(
         data: (deck) {
@@ -164,14 +217,14 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '请先选择一个词书',
+                    context.tr('请先选择一个词书'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '在主页切换词书，或在词书管理中创建',
+                    context.tr('在主页切换词书，或在词书管理中创建'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -200,7 +253,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '当前词书',
+                              context.tr('当前词书'),
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
@@ -240,7 +293,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '练习参数',
+                            context.tr('练习参数'),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -250,7 +303,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '每轮单词数',
+                        context.tr('每轮单词数'),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 8),
@@ -259,11 +312,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           for (final count in _presetCounts)
                             ButtonSegment(
                               value: count,
-                              label: Text('$count 个'),
+                              label: Text(context.trArgs('{0} 个', [count])),
                             ),
-                          const ButtonSegment(
+                          ButtonSegment(
                             value: -1,
-                            label: Text('自定义'),
+                            label: Text(context.tr('自定义')),
                           ),
                         ],
                         selected: {
@@ -284,7 +337,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       if (!_presetCounts.contains(_roundCount)) ...[
                         const SizedBox(height: 8),
                         Text(
-                          '当前: $_roundCount 个',
+                          context.trArgs('当前: {0} 个', [_roundCount]),
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
@@ -297,9 +350,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       ],
                       const SizedBox(height: 8),
                       Text(
-                        '新词与复习受每日上限约束；上限用尽后进入循环复习：'
-                        '每次学习发放一批（每轮单词数），分批覆盖今天全部'
-                        '单词，覆盖完毕后自动开启下一大轮，轮数无上限',
+                        context.tr(
+                            '新词与复习受每日上限约束；每次学习发放一批（每轮单词数），分批覆盖今天全部单词，覆盖完毕后自动开启下一大轮，轮数无上限'),
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -311,27 +363,27 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '抓词模式',
+                        context.tr('抓词模式'),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 8),
                       SegmentedButton<WordPickMode>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: WordPickMode.normal,
-                            label: Text('正常抓词'),
+                            label: Text(context.tr('正常抓词')),
                           ),
                           ButtonSegment(
                             value: WordPickMode.favoriteBoost,
-                            label: Text('收藏优先'),
+                            label: Text(context.tr('收藏优先')),
                           ),
                           ButtonSegment(
                             value: WordPickMode.favoriteOnly,
-                            label: Text('只抓收藏'),
+                            label: Text(context.tr('只抓收藏')),
                           ),
                           ButtonSegment(
                             value: WordPickMode.wrongTodayOnly,
-                            label: Text('今日错词'),
+                            label: Text(context.tr('今日错词')),
                           ),
                         ],
                         selected: {_pickMode},
@@ -354,13 +406,58 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                                   .onSurfaceVariant,
                             ),
                       ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _reviewOnly,
+                        onChanged: (value) => _setReviewOnly(value),
+                        title: Text(
+                          context.tr('只复习'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        subtitle: Text(
+                          _reviewOnly
+                              ? context.tr('开启：不抽新词，只复习到期词与今日已学单词')
+                              : context.tr('关闭：按每日上限正常抽取新词与复习词'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _randomPick,
+                        onChanged: (value) => _setRandomPick(value),
+                        title: Text(
+                          context.tr('随机背词'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        subtitle: Text(
+                          _randomPick
+                              ? context.tr('开启：抽词打乱顺序，不按单词本顺序抽取')
+                              : context.tr('关闭：按单词本顺序依次抽取'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
-                '选择学习模式',
+                context.tr('选择学习模式'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -368,48 +465,48 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
               const SizedBox(height: 16),
               _StudyModeCard(
                 icon: Icons.flash_on,
-                title: '快闪卡模式',
-                subtitle: '全屏卡片，限时回忆，滑动评分',
+                title: context.tr('快闪卡模式'),
+                subtitle: context.tr('全屏卡片，限时回忆，滑动评分'),
                 color: Colors.amber.shade100,
                 onTap: () => _startStudy(context, deck.id, 'flash_card'),
               ),
               const SizedBox(height: 12),
               _StudyModeCard(
                 icon: Icons.flip_to_back,
-                title: '经典翻牌模式',
-                subtitle: '正面德语，背面释义，手动评分',
+                title: context.tr('经典翻牌模式'),
+                subtitle: context.tr('正面德语，背面释义，手动评分'),
                 color: Theme.of(context).colorScheme.primaryContainer,
                 onTap: () => _startStudy(context, deck.id, 'flip'),
               ),
               const SizedBox(height: 12),
               _StudyModeCard(
                 icon: Icons.translate,
-                title: '看德语选中文',
-                subtitle: '显示德语单词，选择正确中文释义',
+                title: context.tr('看德语选中文'),
+                subtitle: context.tr('显示德语单词，选择正确中文释义'),
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 onTap: () => _startStudy(context, deck.id, 'de_to_cn'),
               ),
               const SizedBox(height: 12),
               _StudyModeCard(
                 icon: Icons.g_translate,
-                title: '看中文选德语',
-                subtitle: '显示中文释义，选择正确德语单词',
+                title: context.tr('看中文选德语'),
+                subtitle: context.tr('显示中文释义，选择正确德语单词'),
                 color: Theme.of(context).colorScheme.tertiaryContainer,
                 onTap: () => _startStudy(context, deck.id, 'cn_to_de'),
               ),
               const SizedBox(height: 12),
               _StudyModeCard(
                 icon: Icons.hearing,
-                title: '听德语选单词',
-                subtitle: '播放 TTS 发音，选择对应单词',
+                title: context.tr('听德语选单词'),
+                subtitle: context.tr('播放 TTS 发音，选择对应单词'),
                 color: Theme.of(context).colorScheme.errorContainer,
                 onTap: () => _startStudy(context, deck.id, 'listen'),
               ),
               const SizedBox(height: 12),
               _StudyModeCard(
                 icon: Icons.keyboard,
-                title: '德语拼写模式',
-                subtitle: '输入德语单词拼写，支持特殊字符',
+                title: context.tr('德语拼写模式'),
+                subtitle: context.tr('输入德语单词拼写，支持特殊字符'),
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 onTap: () => _startStudy(context, deck.id, 'spell'),
               ),
@@ -421,8 +518,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                     Icons.bar_chart,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: const Text('错误统计排行榜'),
-                  subtitle: const Text('今日/历史的错误次数与错误率'),
+                  title: Text(context.tr('错误统计排行榜')),
+                  subtitle: Text(context.tr('今日/历史的错误次数与错误率')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
@@ -438,7 +535,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('错误: $e')),
+        error: (e, _) => Center(child: Text(context.trArgs('错误: {0}', [e]))),
       ),
     );
   }
@@ -454,6 +551,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       dailyReviewLimit: settings.dailyReviewLimit,
       roundLimit: _roundCount,
       pickMode: _pickMode,
+      randomPick: _randomPick,
+      reviewOnly: _reviewOnly,
     );
 
     final session = ref.read(studySessionProvider);
@@ -461,7 +560,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(session.error ?? '没有待学习的单词，请先导入词书'),
+            content: Text(session.error ?? context.tr('没有待学习的单词，请先导入词书')),
           ),
         );
       }

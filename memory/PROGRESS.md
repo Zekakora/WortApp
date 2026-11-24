@@ -252,6 +252,15 @@ C:\flutter\bin\flutter build apk --release -v > build\flutter_build.log 2>&1
 
 ## 📝 开发日志
 
+### 2026-10-11 (学习算法审查与修复)
+- [x] **熟练度死字段修复**：`words.proficiency`（熟练度 0-5）此前无任何写入方（星标恒不显示）；`submitStudyFeedback` 现按 `clamp(repetition_n, 0, 5)` 同步更新，`WordDao.updateProficiency` 重构为 `updateLearningProgress`（同时刷新 `lastStudyDate`，仍不更新 `updated_at` 以免同步误判为内容编辑）；新增 `test/proficiency_test.dart` 5 个用例
+- [x] **删除死代码**：`lib/algorithms/distractor_generator.dart`（`DistractorGenerator`/`ChoiceQuestion`）全项目无引用，四选一实际用 `DistractorPool`（既有去重与选项池），已移除并同步 PROJECT.md 结构
+- [x] **拼写模式防重入**：`spell_mode_screen._onFeedback` 改为 `await` + `_submitting` 守卫（与其余 5 个模式一致），避免极快双击重复提交与异常被吞
+- [x] **新增「只复习」开关**（学习页）：开启后不抽新词，只复习到期词；无到期词时循环复习今日已学单词。`StudySessionNotifier.startSession` 新增 `reviewOnly` 参数（新词额度置 0），并纳入非循环会话快照区分（与随机开关同口径）；新增 `test/review_only_test.dart` 4 个用例
+- [x] **新增 App 内「评分说明」入口**：通用 `StudyRatingHelpButton`（`lib/ui/widgets/study_rating_help.dart`）加到学习页与 6 个学习模式的 AppBar，弹窗讲解四个评分的含义、常见情况（含"知道词义但忘记冠词/词性"）与如实评分建议
+- [x] 新增 `memory/ALGORITHM.md`（学习算法说明）与 `memory/USER_GUIDE.md`（学习使用指引）
+- [x] 验证：`flutter analyze` 无 issue，测试全部通过
+
 ### 2026-08-07 (动效优化：页面转场去缩放 + 微动画非线性)
 - [x] **全局页面转场改为 FadeForwards**：`app_theme.dart` 亮/暗主题新增 `pageTransitionsTheme`，全部平台统一 `FadeForwardsPageTransitionsBuilder`，替代 Windows/Linux 默认 `ZoomPageTransitionsBuilder` 与 Android 默认 `PredictiveBackPageTransitionsBuilder`（二者均会让下层页面缩放/缩小，返回与滑动手势观感突兀）。现在导航为轻量淡入淡出。
 - [x] **线性微动画改非线性**：翻牌模式冠词选择 `AnimatedContainer`、变位练习选项 `AnimatedContainer` 补 `curve: Curves.easeOut`；分屏模糊层 `AnimatedSwitcher` 补 `switchInCurve: easeOut / switchOutCurve: easeIn`

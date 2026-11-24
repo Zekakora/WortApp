@@ -89,6 +89,8 @@ class AppSettings {
   final int? autoAddToDeckId;
   /// 主题模式：'system' 跟随系统 / 'light' 日间 / 'dark' 夜间
   final String themeMode;
+  /// 界面语言：'zh' 中文 / 'en' 英语 / 'de' 德语
+  final String languageCode;
   final bool isLoaded;
 
   const AppSettings({
@@ -103,6 +105,7 @@ class AppSettings {
     this.autoAddToDeckEnabled = false,
     this.autoAddToDeckId,
     this.themeMode = 'system',
+    this.languageCode = 'zh',
     this.isLoaded = false,
   });
 
@@ -118,6 +121,7 @@ class AppSettings {
     bool? autoAddToDeckEnabled,
     int? autoAddToDeckId,
     String? themeMode,
+    String? languageCode,
     bool? isLoaded,
   }) {
     return AppSettings(
@@ -132,6 +136,7 @@ class AppSettings {
       autoAddToDeckEnabled: autoAddToDeckEnabled ?? this.autoAddToDeckEnabled,
       autoAddToDeckId: autoAddToDeckId ?? this.autoAddToDeckId,
       themeMode: themeMode ?? this.themeMode,
+      languageCode: languageCode ?? this.languageCode,
       isLoaded: isLoaded ?? this.isLoaded,
     );
   }
@@ -150,6 +155,7 @@ class AppSettings {
         'autoAddToDeckEnabled': autoAddToDeckEnabled,
         'autoAddToDeckId': autoAddToDeckId,
         'themeMode': themeMode,
+        'languageCode': languageCode,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -166,6 +172,7 @@ class AppSettings {
         autoAddToDeckEnabled: json['autoAddToDeckEnabled'] ?? false,
         autoAddToDeckId: (json['autoAddToDeckId'] as num?)?.toInt(),
         themeMode: json['themeMode'] ?? 'system',
+        languageCode: json['languageCode'] ?? 'zh',
         isLoaded: true,
       );
 }
@@ -215,6 +222,8 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
           final autoAddToDeckId =
               int.tryParse(await _db.getSetting('autoAddToDeckId') ?? '');
           final themeMode = await _db.getSetting('themeMode') ?? 'system';
+          final languageCode =
+              await _db.getSetting('languageCode') ?? 'zh';
 
           state = AppSettings(
             aiConfig: aiConfig,
@@ -228,6 +237,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
             autoAddToDeckEnabled: autoAddToDeckEnabled,
             autoAddToDeckId: autoAddToDeckId,
             themeMode: themeMode,
+            languageCode: languageCode,
             isLoaded: true,
           );
 
@@ -364,6 +374,17 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
       await _db?.setSetting('themeMode', valid);
     } catch (e) {
       debugPrint('Failed to save themeMode: $e');
+    }
+  }
+
+  /// 更新界面语言（'zh' 中文 / 'en' 英语 / 'de' 德语）
+  Future<void> updateLanguageCode(String code) async {
+    final valid = const {'zh', 'en', 'de'}.contains(code) ? code : 'zh';
+    state = state.copyWith(languageCode: valid);
+    try {
+      await _db?.setSetting('languageCode', valid);
+    } catch (e) {
+      debugPrint('Failed to save languageCode: $e');
     }
   }
 }

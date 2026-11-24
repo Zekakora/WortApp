@@ -4,7 +4,6 @@ import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wortapp/data/database/app_database.dart';
-import 'package:wortapp/data/database/daos/ai_status_dao.dart';
 import 'package:wortapp/services/import_export/export_service.dart';
 import 'package:wortapp/services/import_export/import_service.dart';
 
@@ -142,18 +141,9 @@ void main() {
       expect(cacheEntry['resultJson'], contains('去，走'));
       expect(cacheEntry['engine'], 'ai');
 
-      // AI 请求状态记录（数据管理信息）
-      final aiStatus = json['aiStatus'] as List;
-      expect(aiStatus, hasLength(2));
-      expect(json['aiStatusCount'], 2);
-      final statusByWord = {
-        for (final s in aiStatus)
-          (s as Map<String, dynamic>)['word'] as String: s,
-      };
-      expect(statusByWord['gehen']!['status'], 'success');
-      expect(statusByWord['laufen']!['status'], 'failed');
-      expect(statusByWord['laufen']!['errorMessage'], 'API 超时');
-      expect(statusByWord['laufen']!['lastRequestAt'], isNotEmpty);
+      // AI 请求状态（设备本地日志）不再参与备份 / 同步
+      expect(json.containsKey('aiStatus'), isFalse);
+      expect(json.containsKey('aiStatusCount'), isFalse);
 
       final settings = json['settings'] as List;
       expect(settings, hasLength(2));
@@ -290,11 +280,8 @@ void main() {
       expect(aiCache, isNotNull);
       expect(aiCache!.resultJson, contains('狗'));
 
-      // AI 请求状态恢复：数据管理页面可看到上次请求失败
-      final status = await targetDb.aiStatusDao.getStatus('der Hund');
-      expect(status, isNotNull);
-      expect(status!.status, AiRequestStatusValue.failed);
-      expect(status.errorMessage, '连接失败');
+      // AI 请求状态是设备本地日志，不从备份恢复
+      expect(await targetDb.aiStatusDao.getStatus('der Hund'), isNull);
 
       // 设置恢复
       expect(await targetDb.getSetting('ttsSpeed'), '0.7');
@@ -433,11 +420,9 @@ void main() {
       final aiCache = await targetDb.aiCacheDao.getCachedResult('der Hund');
       expect(aiCache, isNotNull);
 
-      // 旧 AI 状态被清除，备份中的状态已恢复
+      // wipe 时旧 AI 状态被清除；备份已不含 AI 状态，恢复后仍为空
       expect(await targetDb.aiStatusDao.getStatus('alt'), isNull);
-      final status = await targetDb.aiStatusDao.getStatus('der Hund');
-      expect(status, isNotNull);
-      expect(status!.status, AiRequestStatusValue.failed);
+      expect(await targetDb.aiStatusDao.getStatus('der Hund'), isNull);
     });
 
     test('非法备份文件返回错误', () async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../providers/deck_provider.dart';
 import '../../../../providers/study_provider.dart';
 
@@ -31,7 +32,7 @@ class ProgressCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '今日学习',
+                  context.tr('今日学习'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -48,7 +49,16 @@ class ProgressCard extends ConsumerWidget {
                               color: colorScheme.primary,
                             ),
                   ),
-                  loading: () => const CircularProgressIndicator(),
+                  // 用固定尺寸 + 左对齐的转圈：裸 CircularProgressIndicator 会在
+                  // 自适应的 Column 里被拉成整行宽，数据到达时高度突变（观感跳动）
+                  loading: () => const Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
                   error: (e, s) => Text(
                     '0 / 0',
                     style: Theme.of(context).textTheme.headlineMedium
@@ -59,7 +69,7 @@ class ProgressCard extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  '今日已学（新词 / 复习）',
+                  context.tr('今日已学（新词 / 复习）'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -75,60 +85,60 @@ class ProgressCard extends ConsumerWidget {
                 checkInStreak.when(
                   data: (days) => _StatItem(
                     icon: Icons.local_fire_department,
-                    label: '连续打卡',
-                    value: '$days 天',
+                    label: context.tr('连续打卡'),
+                    value: context.trArgs('{0} 天', [days]),
                     color: Colors.orange,
                   ),
                   loading: () => _StatItem(
                     icon: Icons.local_fire_department,
-                    label: '连续打卡',
+                    label: context.tr('连续打卡'),
                     value: '...',
                     color: Colors.orange,
                   ),
                   error: (e, s) => _StatItem(
                     icon: Icons.local_fire_department,
-                    label: '连续打卡',
-                    value: '0 天',
+                    label: context.tr('连续打卡'),
+                    value: context.trArgs('{0} 天', [0]),
                     color: Colors.orange,
                   ),
                 ),
                 wordCount.when(
                   data: (count) => _StatItem(
                     icon: Icons.school_outlined,
-                    label: '总词汇',
-                    value: '$count 词',
+                    label: context.tr('总词汇'),
+                    value: context.trArgs('{0} 词', [count]),
                     color: Colors.green,
                   ),
                   loading: () => _StatItem(
                     icon: Icons.school_outlined,
-                    label: '总词汇',
+                    label: context.tr('总词汇'),
                     value: '...',
                     color: Colors.green,
                   ),
                   error: (e, s) => _StatItem(
                     icon: Icons.school_outlined,
-                    label: '总词汇',
-                    value: '0 词',
+                    label: context.tr('总词汇'),
+                    value: context.trArgs('{0} 词', [0]),
                     color: Colors.green,
                   ),
                 ),
                 studyPlan.when(
                   data: (plan) => _StatItem(
                     icon: Icons.schedule,
-                    label: '待复习',
-                    value: '${plan?.dueReviewCount ?? 0} 词',
+                    label: context.tr('待复习'),
+                    value: context.trArgs('{0} 词', [plan?.dueReviewCount ?? 0]),
                     color: Colors.blue,
                   ),
                   loading: () => _StatItem(
                     icon: Icons.schedule,
-                    label: '待复习',
+                    label: context.tr('待复习'),
                     value: '...',
                     color: Colors.blue,
                   ),
                   error: (e, s) => _StatItem(
                     icon: Icons.schedule,
-                    label: '待复习',
-                    value: '0 词',
+                    label: context.tr('待复习'),
+                    value: context.trArgs('{0} 词', [0]),
                     color: Colors.blue,
                   ),
                 ),
@@ -153,14 +163,14 @@ class ProgressCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '请选择或创建一个词书',
+              context.tr('请选择或创建一个词书'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '在词书管理中创建词书并导入单词',
+              context.tr('在词书管理中创建词书并导入单词'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),

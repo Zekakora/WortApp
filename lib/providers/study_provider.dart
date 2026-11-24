@@ -198,6 +198,11 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   int? _sessionDeckId;
   /// 当前会话抓词模式（非循环会话进度快照持久化用）
   WordPickMode? _sessionPickMode;
+  /// 当前会话是否开启随机背词（抓词时打乱顺序，不按单词本顺序抽取；
+  /// 非循环会话进度快照按“模式+随机开关”区分，切换后重新抓词）
+  bool _sessionRandomPick = false;
+  /// 当前会话是否开启「只复习」（不抽新词；用于非循环会话快照区分）
+  bool _sessionReviewOnly = false;
 
   StudySessionNotifier(this._db)
       : super(const StudySession(words: []));
@@ -216,12 +221,18 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   /// - 收藏优先：非循环模式收藏词重复加入（概率翻倍）；循环模式
   ///   保证每词每轮至多一次，仅将收藏词排在轮内靠前位置优先出现
   /// - 只抓收藏：仅保留计划中收藏的单词
+  ///
+  /// [randomPick] 随机背词开关：为 true 时在按每轮单词数截断前打乱
+  /// 词池，使抽取与顺序都随机（不按单词本顺序）；false 时保持原顺序。
+  /// 仅影响非循环会话；循环模式本身即按伪随机顺序覆盖计划单词。
   Future<void> startSession({
     required int deckId,
     int dailyNewLimit = 20,
     int dailyReviewLimit = 100,
     int? roundLimit,
     WordPickMode pickMode = WordPickMode.normal,
+    bool randomPick = false,
+    bool reviewOnly = false,
   }) async {
     if (_db == null) {
       state = const StudySession(words: [], error: '数据库未就绪');
@@ -233,11 +244,15 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     try {
       _sessionDeckId = deckId;
       _sessionPickMode = pickMode;
+      _sessionRandomPick = randomPick;
+      _sessionReviewOnly = reviewOnly;
       final today = _dateKey(DateTime.now());
       final scheduler = ReviewScheduler(_db);
+      // 只复习：把新词额度置 0，只抽取到期复习词；无到期词且今日已学非空时
+      // 进入循环复习今日已学单词（不会抽取任何新词）
       final plan = await scheduler.getTodayPlan(
         deckId: deckId,
-        dailyNewLimit: dailyNewLimit,
+        dailyNewLimit: reviewOnly ? 0 : dailyNewLimit,
         dailyReviewLimit: dailyReviewLimit,
       );
 
@@ -275,6 +290,8 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
         final resumed = await _tryResumeSession(
           deckId: deckId,
           pickMode: pickMode,
+          randomPick: randomPick,
+          reviewOnly: reviewOnly,
           today: today,
         );
         if (resumed != null) {
@@ -338,6 +355,12 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
               break;
             case WordPickMode.normal:
               break;
+          }
+
+          // 随机背词：在按每轮单词数截断前打乱词池，使“抽取哪些词”
+          // 与出现顺序都随机，而非只把单词本顺序的前 N 个换序
+          if (randomPick) {
+            words.shuffle();
           }
         }
       }
@@ -663,7 +686,8 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
           _sessionDeckId!,
           _SessionSnapshot(
             date: _dateKey(DateTime.now()),
-            pickMode: _sessionPickMode!.name,
+            pickMode: _snapshotModeKey(
+                _sessionPickMode!, _sessionRandomPick, _sessionReviewOnly),
             wordIds: state.words.map((w) => w.id).toList(),
             currentIndex: state.currentIndex,
             redoQueue: state.redoQueue,
@@ -735,6 +759,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     }
     _sessionDeckId = null;
     _sessionPickMode = null;
+    _sessionReviewOnly = false;
     state = const StudySession(words: []);
   }
 
@@ -795,20 +820,22 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   static String _loopProgressKey(int deckId, WordPickMode mode) =>
       'loop_progress_${mode.name}_$deckId';
 
-  /// 尝试恢复同一词书、同抓词模式、同一天被中断的非循环学习会话。
+  /// 尝试恢复同一词书、同抓词模式、同随机背词开关、同一天被中断的非循环学习会话。
   ///
   /// 快照保存了完整词表 + 游标 + 错词重考队列。重进后从上次位置续学，
   /// 不重复已学单词。返回 null 表示没有可恢复的会话（由调用方重新抓词）。
   Future<_ResumedSession?> _tryResumeSession({
     required int deckId,
     required WordPickMode pickMode,
+    required bool randomPick,
+    required bool reviewOnly,
     required String today,
   }) async {
     if (_db == null) return null;
     final snap = await _readSessionSnapshot(deckId);
     if (snap == null ||
         snap.date != today ||
-        snap.pickMode != pickMode.name ||
+        snap.pickMode != _snapshotModeKey(pickMode, randomPick, reviewOnly) ||
         snap.wordIds.isEmpty) {
       return null;
     }
@@ -930,6 +957,16 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   }
 
   static String _sessionProgressKey(int deckId) => 'session_progress_$deckId';
+
+  /// 非循环会话快照的模式标识：抓词模式 / 随机背词 / 只复习任一不同
+  /// 视为不同会话（切换开关后不恢复旧快照，重新抓词）
+  static String _snapshotModeKey(
+    WordPickMode mode,
+    bool randomPick,
+    bool reviewOnly,
+  ) =>
+      '${mode.name}${randomPick ? ':random' : ''}'
+      '${reviewOnly ? ':reviewOnly' : ''}';
 }
 
 /// 非循环学习会话恢复结果

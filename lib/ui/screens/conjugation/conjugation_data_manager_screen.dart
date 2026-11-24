@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../data/database/app_database.dart';
 import '../../../providers/batch_update_provider.dart';
 import '../../../providers/conjugation_provider.dart';
@@ -90,7 +91,7 @@ class _ConjugationDataManagerScreenState
     if (service == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先在设置中配置 AI API Key')),
+          SnackBar(content: Text(context.tr('请先在设置中配置 AI API Key'))),
         );
       }
       return;
@@ -99,19 +100,22 @@ class _ConjugationDataManagerScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('AI 更新变位数据'),
+        title: Text(context.tr('AI 更新变位数据')),
         content: Text(
-          '确定要使用 AI 重新生成选中的 ${words.length} 个单词的变位数据吗？\n\n'
-          '将覆盖已有的变位数据，未配置过变位数据的单词将自动补全。',
+          context.trArgs(
+            '确定要使用 AI 重新生成选中的 {0} 个单词的变位数据吗？\n\n'
+            '将覆盖已有的变位数据，未配置过变位数据的单词将自动补全。',
+            [words.length],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
+            child: Text(context.tr('确定')),
           ),
         ],
       ),
@@ -141,7 +145,10 @@ class _ConjugationDataManagerScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          failed > 0 ? '更新完成：成功 $success 个，失败 $failed 个' : '变位数据更新完成（$success 个）',
+          failed > 0
+              ? context.trArgs('更新完成：成功 {0} 个，失败 {1} 个',
+                  [success, failed])
+              : context.trArgs('变位数据更新完成（{0} 个）', [success]),
         ),
       ),
     );
@@ -158,23 +165,26 @@ class _ConjugationDataManagerScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除变位数据'),
+        title: Text(context.tr('删除变位数据')),
         content: Text(
-          '确定要删除选中的 ${words.length} 个单词的变位数据吗？\n\n'
-          '删除后：动词时态练习将不再出现这些单词（可重新生成恢复）；\n'
-          '名词变格 / 形容词变级将回退使用单词表中的基础字段。',
+          context.trArgs(
+            '确定要删除选中的 {0} 个单词的变位数据吗？\n\n'
+            '删除后：动词时态练习将不再出现这些单词（可重新生成恢复）；\n'
+            '名词变格 / 形容词变级将回退使用单词表中的基础字段。',
+            [words.length],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(context.tr('删除')),
           ),
         ],
       ),
@@ -188,7 +198,9 @@ class _ConjugationDataManagerScreenState
     if (!mounted) return;
     ref.invalidate(deckConjugationCacheProvider(widget.deckId));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已删除 $count 个单词的变位数据')),
+      SnackBar(
+        content: Text(context.trArgs('已删除 {0} 个单词的变位数据', [count])),
+      ),
     );
   }
 
@@ -207,7 +219,11 @@ class _ConjugationDataManagerScreenState
       if (saved == true && mounted) {
         ref.invalidate(deckConjugationCacheProvider(widget.deckId));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已保存 ${word.german} 的变位数据')),
+          SnackBar(
+            content: Text(
+              context.trArgs('已保存 {0} 的变位数据', [word.german]),
+            ),
+          ),
         );
       }
     });
@@ -224,13 +240,15 @@ class _ConjugationDataManagerScreenState
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isMultiSelectMode ? '已选择 ${_selectedWordIds.length} 项' : '变位数据管理',
+          _isMultiSelectMode
+              ? context.trArgs('已选择 {0} 项', [_selectedWordIds.length])
+              : context.tr('变位数据管理'),
         ),
         leading: _isMultiSelectMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: _exitMultiSelectMode,
-                tooltip: '退出多选',
+                tooltip: context.tr('退出多选'),
               )
             : null,
         actions: [
@@ -242,12 +260,12 @@ class _ConjugationDataManagerScreenState
               onPressed: () {
                 wordsAsync.whenData((words) => _selectAll(words));
               },
-              tooltip: '全选',
+              tooltip: context.tr('全选'),
             )
           else ...[
             PopupMenuButton<String>(
               icon: const Icon(Icons.filter_list),
-              tooltip: '筛选词性',
+              tooltip: context.tr('筛选词性'),
               onSelected: (value) {
                 setState(() => _wordTypeFilter = value == 'all' ? null : value);
               },
@@ -255,7 +273,7 @@ class _ConjugationDataManagerScreenState
                 PopupMenuItem(
                   value: 'all',
                   child: Text(
-                    '全部词性',
+                    context.tr('全部词性'),
                     style: TextStyle(
                       fontWeight: _wordTypeFilter == null
                           ? FontWeight.bold
@@ -266,7 +284,7 @@ class _ConjugationDataManagerScreenState
                 PopupMenuItem(
                   value: 'verb',
                   child: Text(
-                    '动词',
+                    context.tr('动词'),
                     style: TextStyle(
                       fontWeight: _wordTypeFilter == 'verb'
                           ? FontWeight.bold
@@ -277,7 +295,7 @@ class _ConjugationDataManagerScreenState
                 PopupMenuItem(
                   value: 'noun',
                   child: Text(
-                    '名词',
+                    context.tr('名词'),
                     style: TextStyle(
                       fontWeight: _wordTypeFilter == 'noun'
                           ? FontWeight.bold
@@ -288,7 +306,7 @@ class _ConjugationDataManagerScreenState
                 PopupMenuItem(
                   value: 'adjective',
                   child: Text(
-                    '形容词',
+                    context.tr('形容词'),
                     style: TextStyle(
                       fontWeight: _wordTypeFilter == 'adjective'
                           ? FontWeight.bold
@@ -301,7 +319,7 @@ class _ConjugationDataManagerScreenState
             IconButton(
               icon: const Icon(Icons.checklist),
               onPressed: _enterMultiSelectMode,
-              tooltip: '多选',
+              tooltip: context.tr('多选'),
             ),
           ],
         ],
@@ -329,7 +347,7 @@ class _ConjugationDataManagerScreenState
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '词书中没有可管理的单词',
+                        context.tr('词书中没有可管理的单词'),
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Theme.of(context)
@@ -365,11 +383,13 @@ class _ConjugationDataManagerScreenState
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('错误: $e')),
+            error: (e, _) =>
+                Center(child: Text(context.trArgs('错误: {0}', [e]))),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('错误: $e')),
+        error: (e, _) =>
+            Center(child: Text(context.trArgs('错误: {0}', [e]))),
       ),
       bottomNavigationBar: _isMultiSelectMode
           ? SafeArea(
@@ -386,7 +406,7 @@ class _ConjugationDataManagerScreenState
                                 _deleteSelectedWords(words);
                               },
                         icon: const Icon(Icons.delete_outline),
-                        label: const Text('删除选中'),
+                        label: Text(context.tr('删除选中')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor:
                               Theme.of(context).colorScheme.error,
@@ -403,7 +423,7 @@ class _ConjugationDataManagerScreenState
                                 _updateSelectedWords(words);
                               },
                         icon: const Icon(Icons.auto_awesome),
-                        label: const Text('AI 更新选中'),
+                        label: Text(context.tr('AI 更新选中')),
                       ),
                     ),
                   ],
@@ -488,12 +508,15 @@ class _WordDataTile extends StatelessWidget {
 
     final status = hasCache
         ? Text(
-            '已缓存 · ${cache!.source == 'manual' ? '手动' : 'AI'} · 更新于 ${_formatTime(cache!.updatedAt)}',
+            context.trArgs('已缓存 · {0} · 更新于 {1}', [
+              cache!.source == 'manual' ? context.tr('手动') : 'AI',
+              _formatTime(cache!.updatedAt),
+            ]),
             style: TextStyle(fontSize: 12, color: scheme.primary),
           )
-        : const Text(
-            '无变位数据',
-            style: TextStyle(
+        : Text(
+            context.tr('无变位数据'),
+            style: const TextStyle(
               fontSize: 12,
               color: Colors.grey,
               fontStyle: FontStyle.italic,
@@ -529,19 +552,19 @@ class _WordDataTile extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   color: hasCache ? scheme.primary : Colors.grey.shade400,
-                  tooltip: '编辑变位数据',
+                  tooltip: context.tr('编辑变位数据'),
                   onPressed: onEdit,
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: scheme.primary,
-                  tooltip: 'AI 更新变位数据',
+                  tooltip: context.tr('AI 更新变位数据'),
                   onPressed: onUpdate,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
                   color: hasCache ? scheme.error : Colors.grey.shade400,
-                  tooltip: '删除变位数据',
+                  tooltip: context.tr('删除变位数据'),
                   onPressed: onDelete,
                 ),
               ],
@@ -593,7 +616,10 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
   Future<void> _start() async {
     // 创建后台任务记录（携带单词列表，供其它界面检测进行中的任务）
     final taskId = widget.notifier.addTask(
-      'AI 更新变位数据 ${widget.words.length} 个单词',
+      AppLocale.trArgs(
+        'AI 更新变位数据 {0} 个单词',
+        [widget.words.length],
+      ),
       widget.words.length,
       words: widget.words.map((w) => w.german).toList(),
     );
@@ -647,7 +673,9 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isComplete ? '更新完成' : 'AI 更新变位数据'),
+      title: Text(
+        _isComplete ? context.tr('更新完成') : context.tr('AI 更新变位数据'),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -660,20 +688,23 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
             if (_currentWord != null) ...[
               const SizedBox(height: 8),
               Text(
-                '正在处理: $_currentWord',
+                context.trArgs('正在处理: {0}', [_currentWord]),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
             const SizedBox(height: 8),
             Text(
-              '关闭窗口可后台运行',
+              context.tr('关闭窗口可后台运行'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
           ] else ...[
             const Icon(Icons.check_circle, size: 48, color: Colors.green),
             const SizedBox(height: 16),
             Text(
-              '成功 $_completed 个${_failed > 0 ? '，失败 $_failed 个' : ''}',
+              context.trArgs('成功 {0} 个', [_completed]) +
+                  (_failed > 0
+                      ? context.trArgs('，失败 {0} 个', [_failed])
+                      : ''),
             ),
           ],
         ],
@@ -682,12 +713,12 @@ class _UpdateProgressDialogState extends State<_UpdateProgressDialog> {
         if (_isComplete)
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('完成'),
+            child: Text(context.tr('完成')),
           )
         else
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('后台运行'),
+            child: Text(context.tr('后台运行')),
           ),
       ],
     );
@@ -751,14 +782,14 @@ class _EditConjugationDialogState
         _error = null;
       });
     } catch (_) {
-      setState(() => _error = 'JSON 格式无效，无法格式化');
+      setState(() => _error = context.tr('JSON 格式无效，无法格式化'));
     }
   }
 
   Future<void> _save() async {
     final text = _controller.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = '变位数据不能为空');
+      setState(() => _error = context.tr('变位数据不能为空'));
       return;
     }
 
@@ -766,11 +797,13 @@ class _EditConjugationDialogState
     try {
       decoded = jsonDecode(text);
     } catch (e) {
-      setState(() => _error = 'JSON 格式无效：${_shortError(e)}');
+      setState(
+        () => _error = context.trArgs('JSON 格式无效：{0}', [_shortError(e)]),
+      );
       return;
     }
     if (decoded is! Map<String, dynamic>) {
-      setState(() => _error = '变位数据必须是 JSON 对象（{...}）');
+      setState(() => _error = context.tr('变位数据必须是 JSON 对象（{...}）'));
       return;
     }
 
@@ -788,7 +821,7 @@ class _EditConjugationDialogState
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = '保存失败：${_shortError(e)}';
+          _error = context.trArgs('保存失败：{0}', [_shortError(e)]);
         });
       }
     }
@@ -803,7 +836,7 @@ class _EditConjugationDialogState
   String get _structureHint {
     switch (widget.word.wordType) {
       case 'verb':
-        return '{"type":"verb","praesens":{"ich":"","du":"","er_sie_es":"","wir":"","ihr":"","sie_Sie":""},"praeteritum":{...},"perfekt":{"auxiliary":"haben/sein","partizip":"","ich":""},"passiv":{6人称}}';
+        return '{"type":"verb","praesens":{"ich":"","du":"","er_sie_es":"","wir":"","ihr":"","sie_Sie":""},"praeteritum":{...},"perfekt":{"auxiliary":"haben/sein","partizip":"","ich":""},"passiv":{${context.tr('6人称')}}}';
       case 'noun':
         return '{"type":"noun","article":"der/die/das","genitiv":"","plural":""}';
       case 'adjective':
@@ -820,7 +853,7 @@ class _EditConjugationDialogState
     final wordLabel = word.article != null ? '${word.article} ${word.german}' : word.german;
 
     return AlertDialog(
-      title: Text('编辑变位数据 - $wordLabel'),
+      title: Text(context.trArgs('编辑变位数据 - {0}', [wordLabel])),
       content: SizedBox(
         width: 560,
         height: 480,
@@ -828,13 +861,16 @@ class _EditConjugationDialogState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '词性：${WordTypeColors.getWordTypeLabel(word.wordType)} · 结构参考：$_structureHint',
+              context.trArgs('词性：{0} · 结构参考：{1}', [
+                WordTypeColors.getWordTypeLabel(word.wordType),
+                _structureHint,
+              ]),
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
             if (widget.initialJson == null) ...[
               const SizedBox(height: 4),
               Text(
-                '该单词暂无变位数据，保存后将新建并标记为手动',
+                context.tr('该单词暂无变位数据，保存后将新建并标记为手动'),
                 style: TextStyle(fontSize: 12, color: scheme.tertiary),
               ),
             ],
@@ -871,13 +907,13 @@ class _EditConjugationDialogState
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _format,
                   icon: const Icon(Icons.auto_fix_high, size: 18),
-                  label: const Text('格式化'),
+                  label: Text(context.tr('格式化')),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed:
                       _saving ? null : () => Navigator.pop(context, false),
-                  child: const Text('取消'),
+                  child: Text(context.tr('取消')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -888,7 +924,7 @@ class _EditConjugationDialogState
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('保存'),
+                      : Text(context.tr('保存')),
                 ),
               ],
             ),

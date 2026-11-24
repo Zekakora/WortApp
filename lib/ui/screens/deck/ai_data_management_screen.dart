@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/database/daos/ai_status_dao.dart';
 import '../../../providers/batch_update_provider.dart';
@@ -211,7 +212,7 @@ class _AiDataManagementScreenState
     if (db == null || aiEngine == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先在设置中配置 AI API Key')),
+          SnackBar(content: Text(context.tr('请先在设置中配置 AI API Key'))),
         );
       }
       return;
@@ -220,19 +221,20 @@ class _AiDataManagementScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重试 AI 释义'),
-        content: Text(
-          '确定要对选中的 ${selected.length} 个单词重新请求 AI 释义吗？\n\n'
+        title: Text(context.tr('重试 AI 释义')),
+        content: Text(context.trArgs(
+          '确定要对选中的 {0} 个单词重新请求 AI 释义吗？\n\n'
           '将覆盖这些单词已有的中文释义，已成功获取 AI 释义的单词不会被影响。',
-        ),
+          [selected.length],
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
+            child: Text(context.tr('确定')),
           ),
         ],
       ),
@@ -255,7 +257,8 @@ class _AiDataManagementScreenState
         notifier: notifier,
         wordIds: selected.map((e) => e.word.id).toList(),
         words: selected.map((e) => e.word.german).toList(),
-        taskName: 'AI 重试释义 ${selected.length} 个单词',
+        taskName:
+            context.trArgs('AI 重试释义 {0} 个单词', [selected.length]),
       ),
     );
   }
@@ -280,19 +283,19 @@ class _AiDataManagementScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('数据管理'),
+        title: Text(context.tr('数据管理')),
         actions: [
           const BatchTaskProgressButton(),
           IconButton(
             icon: Icon(
               _allFilteredSelected ? Icons.deselect : Icons.select_all,
             ),
-            tooltip: '全选当前页面单词',
+            tooltip: context.tr('全选当前页面单词'),
             onPressed: _filteredEntries.isEmpty ? null : _toggleSelectAllFiltered,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: context.tr('刷新'),
             onPressed: _load,
           ),
         ],
@@ -321,7 +324,8 @@ class _AiDataManagementScreenState
                       children: [
                         for (final f in _AiStatusFilter.values) ...[
                           FilterChip(
-                            label: Text('${f.label}(${_countFor(f)})'),
+                            label: Text(
+                                '${context.tr(f.label)}(${_countFor(f)})'),
                             selected: _filter == f,
                             onSelected: (_) => setState(() => _filter = f),
                           ),
@@ -349,7 +353,8 @@ class _AiDataManagementScreenState
                   children: [
                     if (_selectedIds.isEmpty)
                       Text(
-                        '勾选需要处理的单词，点击下方按钮一键 AI 更新（无 AI 释义、请求失败或释义为英文的单词）',
+                        context.tr(
+                            '勾选需要处理的单词，点击下方按钮一键 AI 更新（无 AI 释义、请求失败或释义为英文的单词）'),
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -357,7 +362,9 @@ class _AiDataManagementScreenState
                       )
                     else
                       Text(
-                        '已选择 $_selectedIdsCount 个单词（AI 更新将覆盖其当前释义）',
+                        context.trArgs(
+                            '已选择 {0} 个单词（AI 更新将覆盖其当前释义）',
+                            [_selectedIdsCount]),
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -371,7 +378,8 @@ class _AiDataManagementScreenState
                             ? null
                             : () => _startRetry(_selectedEntries()),
                         icon: const Icon(Icons.auto_awesome),
-                        label: Text('重试选中 (${_selectedIds.length})'),
+                        label: Text(context.trArgs(
+                            '重试选中 ({0})', [_selectedIds.length])),
                       ),
                     ),
                   ],
@@ -411,7 +419,8 @@ class _AiDataManagementScreenState
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text('加载失败: $_error'));
+      return Center(
+          child: Text(context.trArgs('加载失败: {0}', [_error])));
     }
     if (_entries.isEmpty) {
       return Center(
@@ -425,7 +434,7 @@ class _AiDataManagementScreenState
             ),
             const SizedBox(height: 16),
             Text(
-              '词书中还没有单词',
+              context.tr('词书中还没有单词'),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -437,7 +446,7 @@ class _AiDataManagementScreenState
     if (filtered.isEmpty) {
       return Center(
         child: Text(
-          '当前筛选条件下没有单词',
+          context.tr('当前筛选条件下没有单词'),
           style: TextStyle(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -506,10 +515,10 @@ class _SummaryCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            item(scheme.onSurface, '总单词', total),
-            item(Colors.green, '已有AI释义', hasDefinition),
-            item(Colors.red, '请求失败', failed),
-            item(Colors.orange.shade700, '无AI释义', none),
+            item(scheme.onSurface, context.tr('总单词'), total),
+            item(Colors.green, context.tr('已有AI释义'), hasDefinition),
+            item(Colors.red, context.tr('请求失败'), failed),
+            item(Colors.orange.shade700, context.tr('无AI释义'), none),
           ],
         ),
       ),
@@ -537,13 +546,13 @@ class _AiStatusTile extends StatelessWidget {
   (Color, String) _statusStyle(BuildContext context) {
     switch (entry.status) {
       case AiWordStatus.hasDefinition:
-        return (Colors.green, '已有AI释义');
+        return (Colors.green, context.tr('已有AI释义'));
       case AiWordStatus.requestSuccess:
-        return (Colors.blue, 'AI请求成功');
+        return (Colors.blue, context.tr('AI请求成功'));
       case AiWordStatus.requestFailed:
-        return (Colors.red, '释义请求失败');
+        return (Colors.red, context.tr('释义请求失败'));
       case AiWordStatus.none:
-        return (Colors.orange.shade700, '无AI释义');
+        return (Colors.orange.shade700, context.tr('无AI释义'));
     }
   }
 
@@ -595,7 +604,8 @@ class _AiStatusTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '上次请求: ${_formatTime(lastStatus.lastRequestAt)}',
+                    context.trArgs(
+                        '上次请求: {0}', [_formatTime(lastStatus.lastRequestAt)]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

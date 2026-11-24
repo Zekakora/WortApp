@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import '../core/i18n/app_localizations.dart';
 import '../data/database/app_database.dart';
 
 /// 数据库初始化状态
@@ -45,7 +46,7 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
       await database.customSelect('SELECT 1').getSingle().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw Exception('数据库初始化超时');
+          throw Exception(AppLocale.tr('数据库初始化超时'));
         },
       );
 
@@ -66,7 +67,7 @@ class DatabaseNotifier extends StateNotifier<DatabaseState> {
       if (mounted) {
         state = DatabaseState(
           isLoading: false,
-          error: '数据库初始化失败: $e',
+          error: AppLocale.trArgs('数据库初始化失败: {0}', [e]),
         );
       }
     }

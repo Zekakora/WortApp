@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import '../core/i18n/app_localizations.dart';
+
 /// SM-2 算法核心实现
 ///
 /// 基于 SuperMemo 2 算法，用于间隔重复学习调度
@@ -59,6 +61,14 @@ class SM2Algorithm {
       }
     }
 
+    // 兜底：间隔不得小于 1 天。
+    // 若存在「interval_days = 0 且 repetition_n ≥ 2」的数据（导入/同步/历史
+    // 版本可能产生），上面乘法会得到 0 → next_review 落在今天 00:00 →
+    // 该词当天反复进入「到期复习」，且每次 ×EF 仍是 0，永远不再增长。
+    if (newInterval < 1) {
+      newInterval = 1;
+    }
+
     final now = DateTime.now();
     final nextReview = DateTime(now.year, now.month, now.day + newInterval.toInt());
 
@@ -89,13 +99,13 @@ class SM2Algorithm {
   static String feedbackLabel(FeedbackLevel feedback) {
     switch (feedback) {
       case FeedbackLevel.forgot:
-        return '忘记';
+        return AppLocale.tr('忘记');
       case FeedbackLevel.hard:
-        return '模糊';
+        return AppLocale.tr('模糊');
       case FeedbackLevel.good:
-        return '熟悉';
+        return AppLocale.tr('熟悉');
       case FeedbackLevel.easy:
-        return '简单';
+        return AppLocale.tr('简单');
     }
   }
 
@@ -103,13 +113,22 @@ class SM2Algorithm {
   static String feedbackDescription(FeedbackLevel feedback, SM2Result result) {
     switch (feedback) {
       case FeedbackLevel.forgot:
-        return '1 天后复习';
+        return AppLocale.tr('1 天后复习');
       case FeedbackLevel.hard:
-        return '${result.intervalDays.toInt()} 天后复习';
+        return AppLocale.trArgs(
+          '{0} 天后复习',
+          [result.intervalDays.toInt()],
+        );
       case FeedbackLevel.good:
-        return '${result.intervalDays.toInt()} 天后复习';
+        return AppLocale.trArgs(
+          '{0} 天后复习',
+          [result.intervalDays.toInt()],
+        );
       case FeedbackLevel.easy:
-        return '${result.intervalDays.toInt()} 天后复习';
+        return AppLocale.trArgs(
+          '{0} 天后复习',
+          [result.intervalDays.toInt()],
+        );
     }
   }
 }

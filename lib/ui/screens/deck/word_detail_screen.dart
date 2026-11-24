@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
@@ -214,13 +215,13 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
 
     // 单词已在后台批量查询队列中时跳过，避免重复消耗 token
     if (ref.read(batchUpdateProvider.notifier).isWordPending(word.german)) {
-      _showSnack('该单词已在后台 AI 查询队列中，请稍候');
+      _showSnack(context.tr('该单词已在后台 AI 查询队列中，请稍候'));
       return;
     }
 
     final engine = ref.read(aiDictionaryEngineProvider);
     if (engine == null) {
-      _showSnack('请先在设置中配置 AI API Key');
+      _showSnack(context.tr('请先在设置中配置 AI API Key'));
       return;
     }
 
@@ -239,12 +240,13 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
         });
         // AI 结果写回 words 表，保证详情页与单词列表同步显示
         await _persistAiResultToWord(result);
-        _showSnack('AI 词义已更新');
+        if (!mounted) return;
+        _showSnack(context.tr('AI 词义已更新'));
       } else {
         setState(() {
           _isLoadingAi = false;
         });
-        _showSnack('AI 更新失败，请稍后重试');
+        _showSnack(context.tr('AI 更新失败，请稍后重试'));
       }
     } catch (e) {
       debugPrint('AI 更新词义失败: $e');
@@ -252,7 +254,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
         setState(() {
           _isLoadingAi = false;
         });
-        _showSnack('AI 更新失败: $e');
+        _showSnack(context.trArgs('AI 更新失败: {0}', [e]));
       }
     }
   }
@@ -393,15 +395,15 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('单词详情')),
+        appBar: AppBar(title: Text(context.tr('单词详情'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_word == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('单词详情')),
-        body: const Center(child: Text('单词不存在')),
+        appBar: AppBar(title: Text(context.tr('单词详情'))),
+        body: Center(child: Text(context.tr('单词不存在'))),
       );
     }
 
@@ -416,7 +418,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('单词详情'),
+        title: Text(context.tr('单词详情')),
         actions: [
           // 收藏按钮（只读分屏场景也保留，方便随时收藏/取消收藏）
           IconButton(
@@ -424,12 +426,12 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
               word.isFavorite ? Icons.star : Icons.star_border,
               color: word.isFavorite ? Colors.amber : null,
             ),
-            tooltip: word.isFavorite ? '取消收藏' : '收藏',
+            tooltip: word.isFavorite ? context.tr('取消收藏') : context.tr('收藏'),
             onPressed: _toggleFavorite,
           ),
           // 更多选项（编辑/删除仅在非只读模式显示，分屏防误触）
           PopupMenuButton<String>(
-            tooltip: '更多选项',
+            tooltip: context.tr('更多选项'),
             onSelected: (value) {
               switch (value) {
                 case 'ai':
@@ -449,29 +451,30 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                     Icon(Icons.auto_awesome,
                         size: 20, color: colorScheme.primary),
                     const SizedBox(width: 12),
-                    const Text('AI 更新词义'),
+                    Text(context.tr('AI 更新词义')),
                   ],
                 ),
               ),
               if (!widget.readOnly) ...[
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
                   child: Row(
                     children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 12),
-                      Text('编辑'),
+                      const Icon(Icons.edit, size: 20),
+                      const SizedBox(width: 12),
+                      Text(context.tr('编辑')),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline,
+                      const Icon(Icons.delete_outline,
                           size: 20, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('删除', style: TextStyle(color: Colors.red)),
+                      const SizedBox(width: 12),
+                      Text(context.tr('删除'),
+                          style: const TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
@@ -516,18 +519,18 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             ],
             // AI 加载中提示
             if (_isLoadingAi)
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      SizedBox(width: 12),
-                      Text('AI 深度解析加载中...'),
+                      const SizedBox(width: 12),
+                      Text(context.tr('AI 深度解析加载中...')),
                     ],
                   ),
                 ),
@@ -535,15 +538,16 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             if (_isLoadingAi) const SizedBox(height: 16),
             // 单词已在后台AI查询队列中的提示（任务完成后自动刷新）
             if (_isWaitingForBatch)
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Icon(Icons.auto_awesome, color: Colors.amber),
-                      SizedBox(width: 12),
+                      const Icon(Icons.auto_awesome, color: Colors.amber),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text('该单词已在后台 AI 查询队列中，完成后将自动显示结果'),
+                        child: Text(context.tr(
+                            '该单词已在后台 AI 查询队列中，完成后将自动显示结果')),
                       ),
                     ],
                   ),
@@ -614,7 +618,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             if (word.nounPlural != null) ...[
               const SizedBox(height: 8),
               Text(
-                '复数: ${word.nounPlural}',
+                context.trArgs('复数: {0}', [word.nounPlural]),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -626,7 +630,10 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
               Row(
                 children: [
                   Text(
-                    '词性: ${WordTypeColors.getWordTypeDescription(word.wordType)}',
+                    context.trArgs('词性: {0}', [
+                      context.tr(
+                          WordTypeColors.getWordTypeDescription(word.wordType)),
+                    ]),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -650,7 +657,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             if (_aiResult?.separablePrefix != null) ...[
               const SizedBox(height: 4),
               Text(
-                '可分前缀: ${_aiResult!.separablePrefix}',
+                context.trArgs('可分前缀: {0}', [_aiResult!.separablePrefix]),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -660,7 +667,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             if (_aiResult?.baseVerb != null) ...[
               const SizedBox(height: 4),
               Text(
-                '基础动词: ${_aiResult!.baseVerb}',
+                context.trArgs('基础动词: {0}', [_aiResult!.baseVerb]),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -683,7 +690,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '释义',
+              context.tr('释义'),
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -716,7 +723,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '例句',
+              context.tr('例句'),
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -757,7 +764,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                 Icon(Icons.link, color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  '动词搭配',
+                  context.tr('动词搭配'),
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -796,7 +803,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              isDative ? '三格' : '四格',
+                              context.tr(isDative ? '三格' : '四格'),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -839,7 +846,8 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Text('三格 (Dativ)', style: TextStyle(fontSize: 12)),
+                Text(context.tr('三格 (Dativ)'),
+                    style: const TextStyle(fontSize: 12)),
                 const SizedBox(width: 16),
                 Container(
                   width: 12,
@@ -850,8 +858,8 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Text('四格 (Akkusativ)',
-                    style: TextStyle(fontSize: 12)),
+                Text(context.tr('四格 (Akkusativ)'),
+                    style: const TextStyle(fontSize: 12)),
               ],
             ),
           ],
@@ -875,7 +883,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
                     color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'AI 深度解析',
+                  context.tr('AI 深度解析'),
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -907,7 +915,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     };
     return _buildSection(
       context,
-      title: title,
+      title: context.tr(title),
       icon: icon,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -932,7 +940,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
         final persons = tenses[key];
         if (persons == null) continue;
         widgets.add(InflectionTenseBlock(
-          zhLabel: zh,
+          zhLabel: context.tr(zh),
           deLabel: de,
           header: key == 'perfekt' && (perfektParts.auxiliary != null ||
                   perfektParts.partizip != null)
@@ -947,11 +955,11 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     // 回退 words 表单值字段（与查词界面展示一致）
     return [
       if (word.verbPresent != null)
-        InflectionRow(label: '现在时', value: word.verbPresent!),
+        InflectionRow(label: context.tr('现在时'), value: word.verbPresent!),
       if (word.verbPast != null)
-        InflectionRow(label: '过去时', value: word.verbPast!),
+        InflectionRow(label: context.tr('过去时'), value: word.verbPast!),
       if (word.verbPerfect != null)
-        InflectionRow(label: '完成时', value: word.verbPerfect!),
+        InflectionRow(label: context.tr('完成时'), value: word.verbPerfect!),
       if (word.verbPresent == null &&
           word.verbPast == null &&
           word.verbPerfect == null)
@@ -965,8 +973,10 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     final genitiv = noun.genitiv ?? word.nounGenitive;
     final plural = noun.plural ?? word.nounPlural;
     return [
-      if (genitiv != null) InflectionRow(label: '第二格', value: genitiv),
-      if (plural != null) InflectionRow(label: '复数', value: plural),
+      if (genitiv != null)
+        InflectionRow(label: context.tr('第二格'), value: genitiv),
+      if (plural != null)
+        InflectionRow(label: context.tr('复数'), value: plural),
       if (genitiv == null && plural == null) _buildNoInflectionHint(),
     ];
   }
@@ -978,9 +988,9 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     final superlative = adj.superlativ ?? word.adjSuperlative;
     return [
       if (comparative != null)
-        InflectionRow(label: '比较级', value: comparative),
+        InflectionRow(label: context.tr('比较级'), value: comparative),
       if (superlative != null)
-        InflectionRow(label: '最高级', value: superlative),
+        InflectionRow(label: context.tr('最高级'), value: superlative),
       if (comparative == null && superlative == null)
         _buildNoInflectionHint(),
     ];
@@ -989,7 +999,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
   /// 无变格数据时的提示
   Widget _buildNoInflectionHint() {
     return Text(
-      '暂无变格数据（可在 AI 查词中获取）',
+      context.tr('暂无变格数据（可在 AI 查词中获取）'),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -1004,7 +1014,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
 
     return _buildSection(
       context,
-      title: '学习状态',
+      title: context.tr('学习状态'),
       icon: Icons.school,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1012,13 +1022,13 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
           Row(
             children: [
               _StatusChip(
-                label: '复习次数',
+                label: context.tr('复习次数'),
                 value: '${sm2?.totalReviews ?? 0}',
                 color: Colors.blue,
               ),
               const SizedBox(width: 8),
               _StatusChip(
-                label: '连续正确',
+                label: context.tr('连续正确'),
                 value: '${sm2?.correctStreak ?? 0}',
                 color: Colors.green,
               ),
@@ -1027,18 +1037,23 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
           const SizedBox(height: 8),
           if (sm2 != null) ...[
             Text(
-              '简易度: ${sm2.easeFactor.toStringAsFixed(2)}',
+              context.trArgs(
+                  '简易度: {0}', [sm2.easeFactor.toStringAsFixed(2)]),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              '复习间隔: ${sm2.intervalDays.toStringAsFixed(0)} 天',
+              context.trArgs(
+                  '复习间隔: {0} 天', [sm2.intervalDays.toStringAsFixed(0)]),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
           if (nextReview != null) ...[
             const SizedBox(height: 4),
             Text(
-              isDue ? '已到期，需要复习' : '下次复习: ${_formatDate(nextReview)}',
+              isDue
+                  ? context.tr('已到期，需要复习')
+                  : context.trArgs(
+                      '下次复习: {0}', [_formatDate(nextReview)]),
               style: TextStyle(
                 color: isDue ? Colors.red : Colors.grey,
                 fontWeight:
@@ -1056,7 +1071,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
 
     return _buildSection(
       context,
-      title: '标签',
+      title: context.tr('标签'),
       icon: Icons.label,
       child: Wrap(
         spacing: 8,
@@ -1134,12 +1149,12 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除单词'),
-        content: Text('确定要删除 "${_word!.german}" 吗？'),
+        title: Text(context.tr('删除单词')),
+        content: Text(context.trArgs('确定要删除 "{0}" 吗？', [_word!.german])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () async {
@@ -1156,7 +1171,7 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(context.tr('删除')),
           ),
         ],
       ),
@@ -1255,7 +1270,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('编辑单词'),
+      title: Text(context.tr('编辑单词')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1264,17 +1279,17 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 德语
             TextField(
               controller: _germanController,
-              decoration: const InputDecoration(
-                labelText: '德语',
-                hintText: '例如: das Haus',
+              decoration: InputDecoration(
+                labelText: context.tr('德语'),
+                hintText: context.tr('例如: das Haus'),
               ),
             ),
             const SizedBox(height: 12),
             // 冠词
             TextField(
               controller: _articleController,
-              decoration: const InputDecoration(
-                labelText: '冠词',
+              decoration: InputDecoration(
+                labelText: context.tr('冠词'),
                 hintText: 'der/die/das',
               ),
             ),
@@ -1282,9 +1297,9 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 中文释义
             TextField(
               controller: _chineseController,
-              decoration: const InputDecoration(
-                labelText: '中文释义',
-                hintText: '例如: 房子',
+              decoration: InputDecoration(
+                labelText: context.tr('中文释义'),
+                hintText: context.tr('例如: 房子'),
               ),
               maxLines: 4,
             ),
@@ -1292,17 +1307,24 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 词性选择
             DropdownButtonFormField<String>(
               initialValue: _selectedWordType,
-              decoration: const InputDecoration(labelText: '词性'),
-              items: const [
-                DropdownMenuItem(value: 'noun', child: Text('名词')),
-                DropdownMenuItem(value: 'verb', child: Text('动词')),
+              decoration: InputDecoration(labelText: context.tr('词性')),
+              items: [
                 DropdownMenuItem(
-                    value: 'adjective', child: Text('形容词')),
-                DropdownMenuItem(value: 'adverb', child: Text('副词')),
-                DropdownMenuItem(value: 'preposition', child: Text('介词')),
-                DropdownMenuItem(value: 'pronoun', child: Text('代词')),
-                DropdownMenuItem(value: 'conjunction', child: Text('连词')),
-                DropdownMenuItem(value: 'other', child: Text('其他')),
+                    value: 'noun', child: Text(context.tr('名词'))),
+                DropdownMenuItem(
+                    value: 'verb', child: Text(context.tr('动词'))),
+                DropdownMenuItem(
+                    value: 'adjective', child: Text(context.tr('形容词'))),
+                DropdownMenuItem(
+                    value: 'adverb', child: Text(context.tr('副词'))),
+                DropdownMenuItem(
+                    value: 'preposition', child: Text(context.tr('介词'))),
+                DropdownMenuItem(
+                    value: 'pronoun', child: Text(context.tr('代词'))),
+                DropdownMenuItem(
+                    value: 'conjunction', child: Text(context.tr('连词'))),
+                DropdownMenuItem(
+                    value: 'other', child: Text(context.tr('其他'))),
               ],
               onChanged: (value) {
                 setState(() {
@@ -1315,14 +1337,18 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             if (_selectedWordType == 'noun')
               DropdownButtonFormField<String>(
                 initialValue: _selectedNounType,
-                decoration: const InputDecoration(labelText: '名词类型'),
-                items: const [
+                decoration:
+                    InputDecoration(labelText: context.tr('名词类型')),
+                items: [
                   DropdownMenuItem(
-                      value: 'countable', child: Text('可数 (C)')),
+                      value: 'countable',
+                      child: Text(context.tr('可数 (C)'))),
                   DropdownMenuItem(
-                      value: 'uncountable', child: Text('不可数 (U)')),
+                      value: 'uncountable',
+                      child: Text(context.tr('不可数 (U)'))),
                   DropdownMenuItem(
-                      value: 'both', child: Text('可数/不可数 (C/U)')),
+                      value: 'both',
+                      child: Text(context.tr('可数/不可数 (C/U)'))),
                 ],
                 onChanged: (value) {
                   setState(() {
@@ -1334,9 +1360,9 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 例句
             TextField(
               controller: _exampleController,
-              decoration: const InputDecoration(
-                labelText: '例句',
-                hintText: '例如: Das Haus ist groß.',
+              decoration: InputDecoration(
+                labelText: context.tr('例句'),
+                hintText: context.tr('例如: Das Haus ist groß.'),
               ),
               maxLines: 4,
             ),
@@ -1344,9 +1370,9 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             // 标签
             TextField(
               controller: _tagsController,
-              decoration: const InputDecoration(
-                labelText: '标签',
-                hintText: '多个标签用逗号分隔',
+              decoration: InputDecoration(
+                labelText: context.tr('标签'),
+                hintText: context.tr('多个标签用逗号分隔'),
               ),
             ),
           ],
@@ -1355,7 +1381,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.tr('取消')),
         ),
         FilledButton(
           onPressed: _isSaving ? null : _save,
@@ -1365,7 +1391,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存'),
+              : Text(context.tr('保存')),
         ),
       ],
     );
@@ -1389,7 +1415,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
     if (german.isEmpty || chinese.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('德语和中文不能为空')),
+          SnackBar(content: Text(context.tr('德语和中文不能为空'))),
         );
       }
       setState(() {
@@ -1412,8 +1438,9 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
             SnackBar(
               content: Text(
                 dupDeck == null
-                    ? '该单词已存在，未重复添加'
-                    : '该单词已存在于词书「${dupDeck.name}」',
+                    ? context.tr('该单词已存在，未重复添加')
+                    : context.trArgs(
+                        '该单词已存在于词书「{0}」', [dupDeck.name]),
               ),
             ),
           );
@@ -1430,6 +1457,14 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
       final baseForm = german.contains(' ')
           ? german.split(' ').last
           : german;
+
+      // 改德语词形时记录旧词形墓碑（跨端传播改名，避免对端同步把旧词形带回来）
+      if (german != widget.word.german) {
+        final deck = await db.deckDao.getDeckById(widget.word.deckId);
+        if (deck != null) {
+          await db.logDeletion(deck.name, widget.word.german);
+        }
+      }
 
       await db.wordDao.updateWord(
         WordsCompanion(
@@ -1503,7 +1538,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存成功')),
+          SnackBar(content: Text(context.tr('保存成功'))),
         );
       }
     } catch (e) {
@@ -1512,7 +1547,7 @@ class _EditWordDialogState extends ConsumerState<_EditWordDialog> {
           _isSaving = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
+          SnackBar(content: Text(context.trArgs('保存失败: {0}', [e]))),
         );
       }
     }

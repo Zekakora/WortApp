@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../services/dictionary/dictionary_engine.dart';
 
 /// 变格卡片：单个时态分组（标题 + 6 人称变位）
@@ -37,7 +38,7 @@ class InflectionTenseBlock extends StatelessWidget {
           if (header != null && header!.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
-              '助动词: $header',
+              context.trArgs('助动词: {0}', [header]),
               style: theme.textTheme.bodySmall?.copyWith(color: muted),
             ),
           ],

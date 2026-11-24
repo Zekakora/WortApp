@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../ai/ai_service.dart';
 import 'dictionary_engine.dart';
 
@@ -57,6 +58,7 @@ class AIDictionaryEngine implements DictionaryEngine {
       }
 
       final systemPrompt = '''你是德语词典专家。严格返回纯JSON，无代码块无解释。释义最多3个，例句最多2个，分析最多50字，输出保持紧凑避免截断：
+${_languageDirective()}
 {
   "word": "原形",
   "definitions": ["释义1","释义2"],
@@ -96,7 +98,8 @@ class AIDictionaryEngine implements DictionaryEngine {
       } catch (e) {
         debugPrint('AI 请求失败，尝试简化请求: $e');
         response = await _aiService.chat(
-          systemPrompt: '德语词典。返回纯JSON。释义最多2个，例句1个，分析30字内。',
+          systemPrompt:
+              '德语词典。返回纯JSON。释义最多2个，例句1个，分析30字内。${_languageDirective()}',
           userMessage: '解析: $word',
           temperature: 0.3,
           maxTokens: 4096,
@@ -111,7 +114,8 @@ class AIDictionaryEngine implements DictionaryEngine {
       } catch (e) {
         debugPrint('JSON 解析失败，尝试简化请求: $e');
         final retryResponse = await _aiService.chat(
-          systemPrompt: '德语词典。严格只返回一个JSON对象。释义2个，例句1个，分析30字内。不要多余文字。',
+          systemPrompt:
+              '德语词典。严格只返回一个JSON对象。释义2个，例句1个，分析30字内。不要多余文字。${_languageDirective()}',
           userMessage: '解析: $word',
           temperature: 0.1,
           maxTokens: 4096,
@@ -149,6 +153,18 @@ class AIDictionaryEngine implements DictionaryEngine {
       await statusCallback?.call(word, success, error);
     } catch (e) {
       debugPrint('记录AI请求状态失败: $e');
+    }
+  }
+
+  /// 释义 / 例句翻译 / 分析 的输出语言指令，跟随界面语言设置。
+  String _languageDirective() {
+    switch (AppLocale.code) {
+      case AppLocale.en:
+        return 'IMPORTANT: Output the "definitions", the translations inside "examples" and the "analysis" in English.';
+      case AppLocale.de:
+        return 'WICHTIG: Gib die "definitions", die Übersetzungen in "examples" und die "analysis" auf Deutsch aus.';
+      default:
+        return '重要：definitions 释义、examples 中的翻译与 analysis 分析必须使用简体中文。';
     }
   }
 

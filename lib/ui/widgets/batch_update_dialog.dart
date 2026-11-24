@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../providers/batch_update_provider.dart';
 import '../../services/ai/batch_ai_service.dart';
 
@@ -118,14 +119,15 @@ class _BatchUpdateDialogState extends State<BatchUpdateDialog> {
     final progress = _progress;
 
     return AlertDialog(
-      title: Text(progress?.isComplete == true ? '更新完成' : 'AI 更新词意'),
+      title: Text(context.tr(
+          progress?.isComplete == true ? '更新完成' : 'AI 更新词意')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (progress == null || !_isStarted) ...[
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            const Text('准备中...'),
+            Text(context.tr('准备中...')),
           ] else if (!progress.isComplete) ...[
             LinearProgressIndicator(value: progress.progress),
             const SizedBox(height: 16),
@@ -133,21 +135,22 @@ class _BatchUpdateDialogState extends State<BatchUpdateDialog> {
             if (progress.currentWord != null) ...[
               const SizedBox(height: 8),
               Text(
-                '正在处理: ${progress.currentWord}',
+                context.trArgs('正在处理: {0}', [progress.currentWord]),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
             const SizedBox(height: 8),
             Text(
-              '关闭窗口可后台运行',
+              context.tr('关闭窗口可后台运行'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
           ] else ...[
             const Icon(Icons.check_circle, size: 48, color: Colors.green),
             const SizedBox(height: 16),
-            Text('成功更新: ${progress.completed} 个单词'),
+            Text(context.trArgs(
+                '成功更新: {0} 个单词', [progress.completed])),
             if (progress.failed > 0)
-              Text('失败: ${progress.failed} 个单词',
+              Text(context.trArgs('失败: {0} 个单词', [progress.failed]),
                   style: const TextStyle(color: Colors.red)),
           ],
         ],
@@ -156,12 +159,12 @@ class _BatchUpdateDialogState extends State<BatchUpdateDialog> {
         if (progress?.isComplete == true || !_isStarted)
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('完成'),
+            child: Text(context.tr('完成')),
           )
         else
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('后台运行'),
+            child: Text(context.tr('后台运行')),
           ),
       ],
     );

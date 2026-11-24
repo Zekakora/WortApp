@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../data/database/daos/study_stat_dao.dart';
 import '../../../providers/database_provider.dart';
 import '../deck/word_detail_screen.dart';
@@ -84,7 +85,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
     final isEmpty = _entries != null && entries.isEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('错误统计')),
+      appBar: AppBar(title: Text(context.tr('错误统计'))),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -95,14 +96,14 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                 // 范围切换：今日 / 历史
                 Expanded(
                   child: SegmentedButton<StatRange>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: StatRange.today,
-                        label: Text('今天'),
+                        label: Text(context.tr('今天')),
                       ),
                       ButtonSegment(
                         value: StatRange.history,
-                        label: Text('历史'),
+                        label: Text(context.tr('历史')),
                       ),
                     ],
                     selected: {_range},
@@ -120,14 +121,14 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                 // 指标切换：错误次数 / 错误率
                 Expanded(
                   child: SegmentedButton<StatMetric>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: StatMetric.errors,
-                        label: Text('错误次数'),
+                        label: Text(context.tr('错误次数')),
                       ),
                       ButtonSegment(
                         value: StatMetric.errorRate,
-                        label: Text('错误率'),
+                        label: Text(context.tr('错误率')),
                       ),
                     ],
                     selected: {_metric},
@@ -146,7 +147,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Text(
-              '每次练习记录出现与错误次数，忘记/模糊计为错误',
+              context.tr('每次练习记录出现与错误次数，忘记/模糊计为错误'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -159,8 +160,8 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                     ? Center(
                         child: Text(
                           _range == StatRange.today
-                              ? '今天还没有练习记录'
-                              : '暂无历史统计记录',
+                              ? context.tr('今天还没有练习记录')
+                              : context.tr('暂无历史统计记录'),
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
@@ -267,15 +268,17 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
               children: [
                 Text(
                   _metric == StatMetric.errors
-                      ? '错误 ${entry.errors} 次'
-                      : '错误率 ${(entry.errorRate * 100).toStringAsFixed(0)}%',
+                      ? context.trArgs('错误 {0} 次', [entry.errors])
+                      : context.trArgs(
+                          '错误率 {0}%',
+                          [(entry.errorRate * 100).toStringAsFixed(0)]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: entry.errors > 0 ? Colors.red : null,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
                 Text(
-                  '出现 ${entry.appearances} 次',
+                  context.trArgs('出现 {0} 次', [entry.appearances]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -291,7 +294,9 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                 size: 20,
                 color: entry.isFavorite ? Colors.amber : null,
               ),
-              tooltip: entry.isFavorite ? '取消收藏' : '收藏',
+              tooltip: entry.isFavorite
+                  ? context.tr('取消收藏')
+                  : context.tr('收藏'),
               onPressed: () => _toggleFavorite(entry),
             ),
           ],

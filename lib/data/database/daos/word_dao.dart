@@ -94,12 +94,20 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
     return count.data['cnt'] as int;
   }
 
-  /// 更新单词熟练程度
-  Future<void> updateProficiency(int wordId, int proficiency) {
+  /// 更新单词学习进度（熟练度 + 上次学习日期）
+  ///
+  /// 熟练度（proficiency，0-5）由 SM-2 重复次数映射而来，供单词列表星标展示。
+  /// 注意：与 [updateLastStudyDate] 一样**不更新 updatedAt**——复习活动属于学习
+  /// 通道（由 sm2.updatedAt 记录），不视为内容编辑，避免同步时把“复习”误判为
+  /// “词义修改”而触发冲突。
+  Future<void> updateLearningProgress({
+    required int wordId,
+    required int proficiency,
+  }) {
     return (update(words)..where((t) => t.id.equals(wordId))).write(
       WordsCompanion(
         proficiency: Value(proficiency),
-        updatedAt: Value(DateTime.now()),
+        lastStudyDate: Value(DateTime.now()),
       ),
     );
   }
@@ -138,11 +146,16 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
   }
 
   /// 根据德国原词查找单词（用于词书内查重）
+  ///
+  /// words.german 无唯一约束，词书内可能存在多条同名词（尤其批量 AI
+  /// 规范化后）。此处仅需返回任意一条命中记录，必须 limit(1)，
+  /// 否则 getSingleOrNull() 在结果 >1 时会抛 StateError: Too many elements。
   Future<Word?> findWordByGerman(int deckId, String german) {
     return (select(words)
           ..where((t) =>
               t.deckId.equals(deckId) &
-              t.german.lower().equals(german.toLowerCase())))
+              t.german.lower().equals(german.toLowerCase()))
+          ..limit(1))
         .getSingleOrNull();
   }
 
@@ -161,6 +174,10 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
   /// 词书内查重：返回词书内规范化词形与 [key] 相同的单词
   ///
   /// 与 [findWordByGerman] 的区别：`der Hund` / `Hund` 等带冠词变体会被归为同一词。
+  ///
+  /// ⚠️ 每次调用都会查询并线性扫描整本词书（O(n)）。**不要在循环里逐词调用**
+  /// （会让批量操作退化为 O(n²)，数千词可达分钟级）；批量写入请先用
+  /// [canonicalKeyIndexInDeck] 建一次索引，循环内直接查表。
   Future<Word?> findWordByCanonicalKeyInDeck(int deckId, String key) async {
     if (key.isEmpty) return null;
     final inDeck = await (select(words)..where((t) => t.deckId.equals(deckId)))
@@ -169,5 +186,43 @@ class WordDao extends DatabaseAccessor<AppDatabase> with _$WordDaoMixin {
       if (GermanParser.canonicalKey(w.german) == key) return w;
     }
     return null;
+  }
+
+  /// 一次性构建词书内「规范化词形 → 单词」索引，供批量写入复用。
+  ///
+  /// 同步合并（[BackupMerger.applyToDatabase]）与备份导入（[ImportService.importBackup]）
+  /// 都需要对每个单词做“词书内规范化查重”。若逐词调用
+  /// [findWordByCanonicalKeyInDeck]，每次都会把整本词书重新查出来线性扫描，
+  /// 整体退化为 O(n²)（实测约 2500 词≈118 秒，是同步缓慢的主因）。
+  /// 这里一次性构建索引为 O(n)，调用方在循环内直接查表即可。
+  ///
+  /// 同一规范化词形对应多条记录时保留数据库顺序中最先出现的一条，
+  /// 与 [findWordByCanonicalKeyInDeck] 的语义一致。新增单词后请把新词补进
+  /// 返回的索引（调用方持有可变 Map）。
+  Future<Map<String, Word>> canonicalKeyIndexInDeck(int deckId) async {
+    final inDeck = await getWordsByDeck(deckId);
+    final index = <String, Word>{};
+    for (final w in inDeck) {
+      final key = GermanParser.canonicalKey(w.german);
+      if (key.isEmpty) continue;
+      index.putIfAbsent(key, () => w);
+    }
+    return index;
+  }
+
+  /// 一次性构建词书内「德语原词（小写）→ 单词」索引（不做规范化处理）。
+  ///
+  /// 删除墓碑按「德语原词精确匹配」传播：词书内规范化去重会删掉与保留词
+  /// 规范化词形相同的重复条，若墓碑用规范化 key 匹配，会把保留词一并误删，
+  /// 因此墓碑匹配必须精确到原词。
+  Future<Map<String, Word>> germanIndexInDeck(int deckId) async {
+    final inDeck = await getWordsByDeck(deckId);
+    final index = <String, Word>{};
+    for (final w in inDeck) {
+      final key = w.german.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      index.putIfAbsent(key, () => w);
+    }
+    return index;
   }
 }

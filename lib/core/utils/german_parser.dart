@@ -1,3 +1,5 @@
+import '../i18n/app_localizations.dart';
+
 /// 德语词形解析工具
 ///
 /// 自动识别德语单词中的冠词、词性、动词三态等信息
@@ -156,8 +158,8 @@ class GermanParser {
         correct: false,
         needsCapitalize: targetFirst == targetFirst.toUpperCase(),
         message: targetFirst == targetFirst.toUpperCase()
-            ? '名词首字母需要大写'
-            : '首字母应小写',
+            ? AppLocale.tr('名词首字母需要大写')
+            : AppLocale.tr('首字母应小写'),
       );
     }
 

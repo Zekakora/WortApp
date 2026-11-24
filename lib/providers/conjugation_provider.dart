@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/app_localizations.dart';
 import '../data/database/app_database.dart';
 import '../services/ai/ai_service.dart';
 import '../services/ai/conjugation_service.dart';
@@ -61,37 +62,37 @@ class PracticeMode {
   });
 
   // ── 动词变位 ──────────────────────────────
-  static const verbPraesens = PracticeMode(
+  static final verbPraesens = PracticeMode(
     id: 'verb_praesens',
     category: PracticeCategory.verb,
-    title: '现在时',
+    title: AppLocale.tr('现在时'),
     subtitle: 'Präsens',
     icon: Icons.schedule,
     requiredWordType: 'verb',
     isVerbTense: true,
   );
-  static const verbPraeteritum = PracticeMode(
+  static final verbPraeteritum = PracticeMode(
     id: 'verb_praeteritum',
     category: PracticeCategory.verb,
-    title: '过去时',
+    title: AppLocale.tr('过去时'),
     subtitle: 'Präteritum',
     icon: Icons.history,
     requiredWordType: 'verb',
     isVerbTense: true,
   );
-  static const verbPerfekt = PracticeMode(
+  static final verbPerfekt = PracticeMode(
     id: 'verb_perfekt',
     category: PracticeCategory.verb,
-    title: '现在完成时',
+    title: AppLocale.tr('现在完成时'),
     subtitle: 'Perfekt',
     icon: Icons.done_all,
     requiredWordType: 'verb',
     isVerbTense: true,
   );
-  static const verbPassiv = PracticeMode(
+  static final verbPassiv = PracticeMode(
     id: 'verb_passiv',
     category: PracticeCategory.verb,
-    title: '被动语态',
+    title: AppLocale.tr('被动语态'),
     subtitle: 'Passiv',
     icon: Icons.visibility,
     requiredWordType: 'verb',
@@ -99,26 +100,26 @@ class PracticeMode {
   );
 
   // ── 名词变格 ──────────────────────────────
-  static const nounArticle = PracticeMode(
+  static final nounArticle = PracticeMode(
     id: 'noun_article',
     category: PracticeCategory.noun,
-    title: '定冠词/性属',
+    title: AppLocale.tr('定冠词/性属'),
     subtitle: 'Artikel',
     icon: Icons.tag,
     requiredWordType: 'noun',
   );
-  static const nounGenitiv = PracticeMode(
+  static final nounGenitiv = PracticeMode(
     id: 'noun_genitiv',
     category: PracticeCategory.noun,
-    title: '第二格单数',
+    title: AppLocale.tr('第二格单数'),
     subtitle: 'Genitiv Singular',
     icon: Icons.format_list_numbered,
     requiredWordType: 'noun',
   );
-  static const nounPlural = PracticeMode(
+  static final nounPlural = PracticeMode(
     id: 'noun_plural',
     category: PracticeCategory.noun,
-    title: '复数形式',
+    title: AppLocale.tr('复数形式'),
     subtitle: 'Plural',
     icon: Icons.group,
     requiredWordType: 'noun',
@@ -126,19 +127,19 @@ class PracticeMode {
 
   // ── 形容词变级 ────────────────────────────
   /// 变级练习：无二级子项，一个页面同时填写比较级与最高级
-  static const adjSteigerung = PracticeMode(
+  static final adjSteigerung = PracticeMode(
     id: 'adj_steigerung',
     category: PracticeCategory.adjective,
-    title: '变级练习',
+    title: AppLocale.tr('变级练习'),
     subtitle: 'Komparativ & Superlativ',
     icon: Icons.trending_up,
     requiredWordType: 'adjective',
   );
 
-  static const allVerbModes = [verbPraesens, verbPraeteritum, verbPerfekt, verbPassiv];
-  static const allNounModes = [nounArticle, nounGenitiv, nounPlural];
-  static const allAdjModes = [adjSteigerung];
-  static const allModes = [...allVerbModes, ...allNounModes, ...allAdjModes];
+  static final allVerbModes = [verbPraesens, verbPraeteritum, verbPerfekt, verbPassiv];
+  static final allNounModes = [nounArticle, nounGenitiv, nounPlural];
+  static final allAdjModes = [adjSteigerung];
+  static final allModes = [...allVerbModes, ...allNounModes, ...allAdjModes];
 
   static PracticeMode? fromId(String id) {
     for (final mode in allModes) {
@@ -316,7 +317,10 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
           article: word.article,
           meaning: meaning,
           mode: mode,
-          prompt: '请填写 "${word.german}" 的${mode.title}全部人称变位',
+          prompt: AppLocale.trArgs(
+            '请填写 "{0}" 的{1}全部人称变位',
+            [word.german, mode.title],
+          ),
           fields: fields,
         );
 
@@ -331,7 +335,7 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
           article: null,
           meaning: meaning,
           mode: mode,
-          prompt: '请填写 "${word.german}" 的定冠词',
+          prompt: AppLocale.trArgs('请填写 "{0}" 的定冠词', [word.german]),
           fields: [PracticeField(label: '定冠词', correctAnswer: article.trim())],
         );
 
@@ -346,7 +350,10 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
           article: null,
           meaning: meaning,
           mode: mode,
-          prompt: '请填写 "${word.german}" 的第二格单数形式（Genitiv Singular）',
+          prompt: AppLocale.trArgs(
+            '请填写 "{0}" 的第二格单数形式（Genitiv Singular）',
+            [word.german],
+          ),
           fields: [
             PracticeField(label: '第二格单数', correctAnswer: genitiv),
           ],
@@ -363,7 +370,10 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
           article: null,
           meaning: meaning,
           mode: mode,
-          prompt: '请填写 "${word.german}" 的复数形式（Plural）',
+          prompt: AppLocale.trArgs(
+            '请填写 "{0}" 的复数形式（Plural）',
+            [word.german],
+          ),
           fields: [
             PracticeField(label: '复数形式', correctAnswer: plural),
           ],
@@ -384,7 +394,10 @@ class ConjugationDrillNotifier extends StateNotifier<ConjugationDrillState> {
           article: word.article,
           meaning: meaning,
           mode: mode,
-          prompt: '请填写 "${word.german}" 的比较级与最高级',
+          prompt: AppLocale.trArgs(
+            '请填写 "{0}" 的比较级与最高级',
+            [word.german],
+          ),
           fields: [
             PracticeField(label: '比较级', correctAnswer: comparative),
             PracticeField(label: '最高级', correctAnswer: superlative),

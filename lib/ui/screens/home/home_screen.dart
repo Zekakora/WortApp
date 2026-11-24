@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/onedrive_config.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/onedrive_provider.dart';
@@ -31,7 +32,7 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.swap_horiz),
             onPressed: () => _showDeckSwitcher(context, ref),
-            tooltip: '切换词书',
+            tooltip: context.tr('切换词书'),
           ),
         ],
       ),
@@ -57,7 +58,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 // 功能入口
                 Text(
-                  '学习功能',
+                  context.tr('学习功能'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -76,18 +77,21 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _refresh(BuildContext context, WidgetRef ref) async {
     // Web 平台或未配置 Azure：无云端同步能力，本地数据由数据库流实时更新
     if (kIsWeb || !OneDriveConfig.isConfigured) {
-      _showSnack(context, '数据已是最新');
+      _showSnack(context, context.tr('数据已是最新'));
       return;
     }
 
     if (!ref.read(onedriveSyncProvider).isConnected) {
-      _showSnack(context, '尚未连接 OneDrive，点击左上角云朵图标登录后即可同步');
+      _showSnack(
+        context,
+        context.tr('尚未连接 OneDrive，点击左上角云朵图标登录后即可同步'),
+      );
       return;
     }
 
     final result = await runOneDriveSync(context, ref);
     if (!context.mounted) return;
-    showOneDriveSyncResult(context, result, successMsg: '同步完成');
+    showOneDriveSyncResult(context, result, successMsg: context.tr('同步完成'));
   }
 
   void _showSnack(BuildContext context, String message) {
@@ -120,10 +124,10 @@ class _DeckSwitcherSheet extends ConsumerWidget {
     return decksAsync.when(
       data: (decks) {
         if (decks.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
+          return Padding(
+            padding: const EdgeInsets.all(24),
             child: Center(
-              child: Text('还没有词书，请先创建一个词书'),
+              child: Text(context.tr('还没有词书，请先创建一个词书')),
             ),
           );
         }
@@ -140,23 +144,36 @@ class _DeckSwitcherSheet extends ConsumerWidget {
                     ? Theme.of(context).colorScheme.primary
                     : null,
               ),
-              title: Text(deck.name),
+              title: Text(
+                deck.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: deck.description != null
-                  ? Text(deck.description!)
+                  ? Text(
+                      deck.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
                   : null,
-              onTap: () {
+              onTap: () async {
                 final db = ref.read(databaseProvider);
                 if (db != null) {
-                  db.deckDao.setActiveDeck(deck.id);
+                  // 等待落库完成再关闭面板，避免切换后首页仍显示旧词书
+                  await db.deckDao.setActiveDeck(deck.id);
                 }
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               },
             );
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('错误: $e')),
+      // 固定高度占位：直接放 Center 会撑满面板，数据到达后面板高度突降（跳动）
+      loading: () => const SizedBox(
+        height: 140,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Center(child: Text(context.trArgs('错误: {0}', [e]))),
     );
   }
 }

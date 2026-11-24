@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/search_provider.dart';
@@ -31,13 +32,13 @@ class DeckListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('词书管理'),
+        title: Text(context.tr('词书管理')),
         actions: [
           if (dbState.database != null)
             IconButton(
               icon: const Icon(Icons.file_download),
               onPressed: () => _importDeck(context, ref),
-              tooltip: '导入词书',
+              tooltip: context.tr('导入词书'),
             ),
         ],
       ),
@@ -62,7 +63,7 @@ class DeckListScreen extends ConsumerWidget {
                   heroTag: 'refreshDecksFab',
                   onPressed: () =>
                       _refreshDecks(context, ref, dbState.database!),
-                  tooltip: '刷新词书',
+                  tooltip: context.tr('刷新词书'),
                   child: const Icon(Icons.refresh),
                 ),
                 const SizedBox(height: 12),
@@ -70,7 +71,7 @@ class DeckListScreen extends ConsumerWidget {
                   heroTag: 'createDeckFab',
                   onPressed: () => _createDeck(context),
                   icon: const Icon(Icons.add),
-                  label: const Text('新建词书'),
+                  label: Text(context.tr('新建词书')),
                 ),
               ],
             )
@@ -81,13 +82,13 @@ class DeckListScreen extends ConsumerWidget {
   Widget _buildBody(BuildContext context, WidgetRef ref, DatabaseState dbState) {
     // 数据库加载中
     if (dbState.isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在初始化数据库...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(context.tr('正在初始化数据库...')),
           ],
         ),
       );
@@ -102,7 +103,7 @@ class DeckListScreen extends ConsumerWidget {
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(
-              '数据库初始化失败',
+              context.tr('数据库初始化失败'),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
@@ -116,7 +117,7 @@ class DeckListScreen extends ConsumerWidget {
               onPressed: dbState.isLoading
                   ? null
                   : () => ref.read(databaseStateProvider.notifier).retry(),
-              child: const Text('重试'),
+              child: Text(context.tr('重试')),
             ),
           ],
         ),
@@ -130,7 +131,7 @@ class DeckListScreen extends ConsumerWidget {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Text('加载失败: ${snapshot.error}'),
+            child: Text(context.trArgs('加载失败: {0}', [snapshot.error])),
           );
         }
 
@@ -161,7 +162,7 @@ class DeckListScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            '还没有词书',
+                            context.tr('还没有词书'),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -173,7 +174,7 @@ class DeckListScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '点击 + 创建词书，或导入 Excel/CSV 文件',
+                            context.tr('点击 + 创建词书，或导入 Excel/CSV 文件'),
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium
@@ -221,9 +222,9 @@ class DeckListScreen extends ConsumerWidget {
     await _refreshDeckData(ref, db);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('词书已刷新'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(context.tr('词书已刷新')),
+          duration: const Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -272,7 +273,7 @@ class DeckListScreen extends ConsumerWidget {
       final db = ref.read(databaseProvider);
       if (db == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('数据库未就绪')),
+          SnackBar(content: Text(context.tr('数据库未就绪'))),
         );
         return;
       }
@@ -282,7 +283,7 @@ class DeckListScreen extends ConsumerWidget {
       if (context.mounted) {
         if (decks.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先创建一个词书')),
+            SnackBar(content: Text(context.tr('请先创建一个词书'))),
           );
           return;
         }
@@ -330,7 +331,7 @@ class DeckListScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.pop(context); // 关闭加载对话框
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e')),
+          SnackBar(content: Text(context.trArgs('导入失败: {0}', [e]))),
         );
       }
       return;
@@ -343,28 +344,31 @@ class DeckListScreen extends ConsumerWidget {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(result.errors.isEmpty ? '备份导入成功' : '备份导入完成'),
+          title: Text(context.tr(
+              result.errors.isEmpty ? '备份导入成功' : '备份导入完成')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('导入词书: ${result.deckCount}'),
-              Text('导入单词: ${result.wordCount}'),
-              if (result.skipCount > 0) Text('跳过(重复): ${result.skipCount}'),
+              Text(context.trArgs('导入词书: {0}', [result.deckCount])),
+              Text(context.trArgs('导入单词: {0}', [result.wordCount])),
+              if (result.skipCount > 0)
+                Text(context.trArgs('跳过(重复): {0}', [result.skipCount])),
               if (result.hasErrors) ...[
                 const SizedBox(height: 8),
-                const Text('错误详情:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(context.tr('错误详情:'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 ...result.errors.take(5).map((e) => Text('• $e')),
                 if (result.errors.length > 5)
-                  Text('... 还有 ${result.errors.length - 5} 个错误'),
+                  Text(context.trArgs(
+                      '... 还有 {0} 个错误', [result.errors.length - 5])),
               ],
             ],
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('确定'),
+              child: Text(context.tr('确定')),
             ),
           ],
         ),
@@ -426,7 +430,7 @@ class DeckListScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.pop(context); // 关闭加载对话框
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e')),
+          SnackBar(content: Text(context.trArgs('导入失败: {0}', [e]))),
         );
       }
       return;
@@ -439,28 +443,31 @@ class DeckListScreen extends ConsumerWidget {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(result.isFullySuccessful ? '导入成功' : '导入完成'),
+          title: Text(context.tr(
+              result.isFullySuccessful ? '导入成功' : '导入完成')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('总行数: ${result.totalRows}'),
-              Text('成功导入: ${result.successCount}'),
-              if (result.skipCount > 0) Text('跳过: ${result.skipCount}'),
+              Text(context.trArgs('总行数: {0}', [result.totalRows])),
+              Text(context.trArgs('成功导入: {0}', [result.successCount])),
+              if (result.skipCount > 0)
+                Text(context.trArgs('跳过: {0}', [result.skipCount])),
               if (result.hasErrors) ...[
                 const SizedBox(height: 8),
-                const Text('错误详情:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(context.tr('错误详情:'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 ...result.errors.take(5).map((e) => Text('• $e')),
                 if (result.errors.length > 5)
-                  Text('... 还有 ${result.errors.length - 5} 个错误'),
+                  Text(context.trArgs(
+                      '... 还有 {0} 个错误', [result.errors.length - 5])),
               ],
             ],
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('确定'),
+              child: Text(context.tr('确定')),
             ),
           ],
         ),
@@ -473,16 +480,18 @@ class DeckListScreen extends ConsumerWidget {
         final shouldUpdate = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('AI 更新词意'),
-            content: Text('成功导入 ${result.successCount} 个单词。是否使用 AI 自动获取词意、词性等信息？'),
+            title: Text(context.tr('AI 更新词意')),
+            content: Text(context.trArgs(
+                '成功导入 {0} 个单词。是否使用 AI 自动获取词意、词性等信息？',
+                [result.successCount])),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('稍后再说'),
+                child: Text(context.tr('稍后再说')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('立即更新'),
+                child: Text(context.tr('立即更新')),
               ),
             ],
           ),
@@ -502,7 +511,7 @@ class DeckListScreen extends ConsumerWidget {
     if (db == null || aiEngine == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先在设置中配置 AI API Key')),
+          SnackBar(content: Text(context.tr('请先在设置中配置 AI API Key'))),
         );
       }
       return;
@@ -525,7 +534,7 @@ class DeckListScreen extends ConsumerWidget {
           deckId: deckId,
           overwrite: true,
           notifier: notifier,
-          taskName: 'AI 更新词书词意',
+          taskName: context.tr('AI 更新词书词意'),
         ),
       );
     }
@@ -604,7 +613,7 @@ class _DeckCard extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              '当前',
+                              context.tr('当前'),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -622,7 +631,7 @@ class _DeckCard extends ConsumerWidget {
                     wordCount != null
                         ? wordCount.when(
                             data: (count) => Text(
-                              '$count 个单词',
+                              context.trArgs('{0} 个单词', [count]),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -633,7 +642,8 @@ class _DeckCard extends ConsumerWidget {
                                   ),
                             ),
                             loading: () => const Text('...'),
-                            error: (_, _) => const Text('0 个单词'),
+                            error: (_, _) =>
+                                Text(context.trArgs('{0} 个单词', [0])),
                           )
                         : const Text('...'),
                   ],
@@ -643,25 +653,26 @@ class _DeckCard extends ConsumerWidget {
                 onSelected: (value) => _onMenuAction(context, ref, value),
                 itemBuilder: (context) => [
                   if (!deck.isActive)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'activate',
-                      child: Text('设为当前词书'),
+                      child: Text(context.tr('设为当前词书')),
                     ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'rename',
-                    child: Text('重命名'),
+                    child: Text(context.tr('重命名')),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'import',
-                    child: Text('导入单词'),
+                    child: Text(context.tr('导入单词')),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'export',
-                    child: Text('导出'),
+                    child: Text(context.tr('导出')),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
-                    child: Text('删除', style: TextStyle(color: Colors.red)),
+                    child: Text(context.tr('删除'),
+                        style: const TextStyle(color: Colors.red)),
                   ),
                 ],
               ),
@@ -735,7 +746,7 @@ class _DeckCard extends ConsumerWidget {
     if (!result.success || result.data == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.error ?? '导出失败')),
+          SnackBar(content: Text(result.error ?? context.tr('导出失败'))),
         );
       }
       return;
@@ -760,7 +771,7 @@ class _DeckCard extends ConsumerWidget {
             ),
           ],
           fileNameOverrides: [data.fileName],
-          text: 'WortApp 导出：${data.fileName}',
+          text: context.trArgs('WortApp 导出：{0}', [data.fileName]),
         );
       } else {
         // 原生平台：保存到文档目录
@@ -769,14 +780,18 @@ class _DeckCard extends ConsumerWidget {
         await File(filePath).writeAsBytes(data.bytes, flush: true);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已导出到: $filePath')),
+            SnackBar(
+                content:
+                    Text(context.trArgs('已导出到: {0}', [filePath]))),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存导出文件失败: $e')),
+          SnackBar(
+              content: Text(
+                  context.trArgs('保存导出文件失败: {0}', [e]))),
         );
       }
     }
@@ -788,18 +803,18 @@ class _DeckCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重命名词书'),
+        title: Text(context.tr('重命名词书')),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: '词书名称',
+          decoration: InputDecoration(
+            labelText: context.tr('词书名称'),
           ),
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
@@ -815,7 +830,7 @@ class _DeckCard extends ConsumerWidget {
               }
               Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(context.tr('保存')),
           ),
         ],
       ),
@@ -870,7 +885,7 @@ class _DeckCard extends ConsumerWidget {
         if (context.mounted) {
           Navigator.pop(context); // 关闭加载对话框
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('导入失败: $e')),
+            SnackBar(content: Text(context.trArgs('导入失败: {0}', [e]))),
           );
         }
         return;
@@ -881,9 +896,10 @@ class _DeckCard extends ConsumerWidget {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '导入完成: ${importResult.successCount}/${importResult.totalRows} 成功',
-            ),
+            content: Text(context.trArgs(
+              '导入完成: {0}/{1} 成功',
+              [importResult.successCount, importResult.totalRows],
+            )),
           ),
         );
       }
@@ -894,12 +910,14 @@ class _DeckCard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除词书'),
-        content: Text('确定要删除词书"${deck.name}"吗？\n\n此操作将删除词书中的所有单词和学习记录，且不可恢复。'),
+        title: Text(context.tr('删除词书')),
+        content: Text(context.trArgs(
+            '确定要删除词书"{0}"吗？\n\n此操作将删除词书中的所有单词和学习记录，且不可恢复。',
+            [deck.name])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () async {
@@ -914,7 +932,7 @@ class _DeckCard extends ConsumerWidget {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(context.tr('删除')),
           ),
         ],
       ),
@@ -960,24 +978,24 @@ class _CreateDeckDialogState extends ConsumerState<_CreateDeckDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('新建词书'),
+      title: Text(context.tr('新建词书')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '词书名称',
-              hintText: '例如：德语A1词汇',
+            decoration: InputDecoration(
+              labelText: context.tr('词书名称'),
+              hintText: context.tr('例如：德语A1词汇'),
             ),
             autofocus: true,
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _descController,
-            decoration: const InputDecoration(
-              labelText: '描述（可选）',
-              hintText: '例如：歌德学院 A1 级别核心词汇',
+            decoration: InputDecoration(
+              labelText: context.tr('描述（可选）'),
+              hintText: context.tr('例如：歌德学院 A1 级别核心词汇'),
             ),
           ),
         ],
@@ -985,11 +1003,11 @@ class _CreateDeckDialogState extends ConsumerState<_CreateDeckDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.tr('取消')),
         ),
         FilledButton(
           onPressed: _canCreate ? _createDeck : null,
-          child: const Text('创建'),
+          child: Text(context.tr('创建')),
         ),
       ],
     );
@@ -1024,7 +1042,7 @@ class _SelectDeckDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('选择导入目标词书'),
+      title: Text(context.tr('选择导入目标词书')),
       content: SizedBox(
         width: double.maxFinite,
         child: ListView.builder(
@@ -1059,13 +1077,13 @@ class _ExportDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('导出词书'),
+      title: Text(context.tr('导出词书')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '选择导出格式：',
+            context.tr('选择导出格式：'),
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -1075,21 +1093,22 @@ class _ExportDialog extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.table_chart),
             title: const Text('Excel (.xlsx)'),
-            subtitle: const Text('通用格式，可用 Excel/WPS 打开编辑'),
+            subtitle: Text(context.tr('通用格式，可用 Excel/WPS 打开编辑')),
             onTap: () => Navigator.pop(context, ExportFormat.excel),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.description),
             title: const Text('CSV (.csv)'),
-            subtitle: const Text('通用格式，文本编辑器或 Excel 可打开'),
+            subtitle: Text(context.tr('通用格式，文本编辑器或 Excel 可打开')),
             onTap: () => Navigator.pop(context, ExportFormat.csv),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.save_alt),
-            title: const Text('数据库备份 (.json)'),
-            subtitle: const Text('包含单词全部数据、复习记录和变位信息，可用于备份恢复'),
+            title: Text(context.tr('数据库备份 (.json)')),
+            subtitle: Text(
+                context.tr('包含单词全部数据、复习记录和变位信息，可用于备份恢复')),
             onTap: () => Navigator.pop(context, ExportFormat.backupJson),
           ),
         ],
@@ -1097,7 +1116,7 @@ class _ExportDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.tr('取消')),
         ),
       ],
     );
@@ -1128,7 +1147,7 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'AI 正在更新词意 ${state.progressText}',
+                  context.trArgs('AI 正在更新词意 {0}', [state.progressText]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),

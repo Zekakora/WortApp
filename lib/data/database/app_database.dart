@@ -105,11 +105,12 @@ class AppDatabase extends _$AppDatabase {
     await (delete(settings)..where((t) => t.key.equals(key))).go();
   }
 
-  /// 提交一次学习反馈：更新 SM-2 复习状态并刷新单词上次学习日期（事务）
+  /// 提交一次学习反馈：更新 SM-2 复习状态并刷新单词学习进度（事务）
   ///
   /// [quality] 0-5 评分（见 [SM2Algorithm.calculate]）。首次学习创建状态，
   /// 否则更新现有状态（重复次数 / 复习间隔 / 简易度 / 连续正确等），
-  /// 同时刷新 [words.lastStudyDate] 用于“今日已学”统计。
+  /// 同时刷新 [words.lastStudyDate] 用于“今日已学”统计，并把
+  /// [words.proficiency]（熟练度 0-5）更新为最新的 SM-2 重复次数。
   Future<void> submitStudyFeedback({
     required int wordId,
     required int quality,
@@ -118,8 +119,9 @@ class AppDatabase extends _$AppDatabase {
       final now = DateTime.now();
       final sm2State = await sm2Dao.getStateByWordId(wordId);
 
+      final SM2Result result;
       if (sm2State == null) {
-        final result = SM2Algorithm.calculate(
+        result = SM2Algorithm.calculate(
           quality: quality,
           currentN: 0,
           currentInterval: 0,
@@ -140,7 +142,7 @@ class AppDatabase extends _$AppDatabase {
           ),
         );
       } else {
-        final result = SM2Algorithm.calculate(
+        result = SM2Algorithm.calculate(
           quality: quality,
           currentN: sm2State.repetitionN,
           currentInterval: sm2State.intervalDays,
@@ -165,7 +167,11 @@ class AppDatabase extends _$AppDatabase {
         );
       }
 
-      await wordDao.updateLastStudyDate(wordId);
+      // 熟练度（0-5）随 SM-2 重复次数更新，供单词列表星标展示
+      await wordDao.updateLearningProgress(
+        wordId: wordId,
+        proficiency: result.repetitionN.clamp(0, 5),
+      );
     });
   }
 
@@ -275,6 +281,34 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// 修改单词的德语词形（AI 规范化 / 手动编辑），并为**旧词形**记录删除墓碑。
+  ///
+  /// 同步以「德语词形」作为单词身份，改名而不写墓碑时，对端仍保留旧词形，
+  /// 下次同步会把旧词形当作"云端独有词"重新并回来（表现为"改过的又回来了"）。
+  /// 因此这里在改名的同时为旧词形写一条墓碑，使改名跨端传播。
+  Future<void> renameWordGerman(int wordId, String newGerman) {
+    return transaction(() async {
+      final word = await wordDao.getWordById(wordId);
+      if (word == null) return;
+      final normalized = newGerman.trim();
+      if (normalized.isEmpty || normalized == word.german) return;
+
+      final deck = await deckDao.getDeckById(word.deckId);
+      if (deck != null) {
+        await logDeletion(deck.name, word.german);
+      }
+
+      await wordDao.updateWord(
+        WordsCompanion(
+          id: Value(wordId),
+          german: Value(normalized),
+          baseForm: Value(normalized),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    });
+  }
+
   /// 记录一条删除墓碑（跨端删除传播用）
   ///
   /// [german] 为空字符串表示整词书删除。
@@ -350,9 +384,13 @@ class AppDatabase extends _$AppDatabase {
     await wordDao.deleteWord(word.id);
 
     // 检查其他词书是否仍存在相同单词
+    // 注意：words.german 无唯一约束，可能存在多条同名词（尤其批量 AI 规范化后）。
+    // 这里只需判断"是否还有任意一条"，必须 limit(1)：
+    // getSingleOrNull() 在结果 >1 时会抛 StateError: Too many elements。
     final stillExists = await (select(words)
           ..where(
-              (t) => t.german.lower().equals(word.german.toLowerCase())))
+              (t) => t.german.lower().equals(word.german.toLowerCase()))
+          ..limit(1))
         .getSingleOrNull();
     if (stillExists == null) {
       // 无其他词书引用，释放共享的 AI 缓存与请求状态
@@ -396,6 +434,8 @@ class AppDatabase extends _$AppDatabase {
       if (keep == null) return const [];
 
       final removed = <int>[];
+      // 被删重复词的词书名（写删除墓碑用；同一组词同属一个词书）
+      final deck = await deckDao.getDeckById(keep.deckId);
       for (final removeId in removeWordIds) {
         if (removeId == keepWordId) continue;
         final dup = await wordDao.getWordById(removeId);
@@ -468,6 +508,16 @@ class AppDatabase extends _$AppDatabase {
           }
         }
 
+        // 为被删重复词写删除墓碑：词书内规范化去重同样需要跨端传播，
+        // 否则对端仍保留该条，下次同步会把它当作"云端独有词"并回来。
+        //
+        // 但仅当被删词与保留词的**精确拼写**不同时才写：同步以精确德语原词
+        // 作为身份，若两者拼写（忽略大小写）相同，墓碑会连保留词一起删掉。
+        if (deck != null &&
+            dup.german.trim().toLowerCase() !=
+                keep.german.trim().toLowerCase()) {
+          await logDeletion(deck.name, dup.german);
+        }
         await deleteWordInternal(dup);
         removed.add(dup.id);
       }

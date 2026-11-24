@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/batch_update_provider.dart';
 import '../../../providers/conjugation_provider.dart';
 import '../../../providers/database_provider.dart';
@@ -87,21 +88,21 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
     final result = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('自定义单次练习词量'),
+        title: Text(context.tr('自定义单次练习词量')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '单词数量',
-            hintText: '请输入正整数',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: context.tr('单词数量'),
+            hintText: context.tr('请输入正整数'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
@@ -110,11 +111,11 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                 Navigator.pop(context, count);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('请输入有效的正整数')),
+                  SnackBar(content: Text(context.tr('请输入有效的正整数'))),
                 );
               }
             },
-            child: const Text('确定'),
+            child: Text(context.tr('确定')),
           ),
         ],
       ),
@@ -130,7 +131,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
     final activeDeck = ref.read(activeDeckProvider).valueOrNull;
     if (activeDeck == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择一个词书')),
+        SnackBar(content: Text(context.tr('请先选择一个词书'))),
       );
       return;
     }
@@ -149,7 +150,9 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
       if (_pickMode == ConjugationPickMode.todayOnly) {
         // 只练今日单词：优先提示今日未学习，而非词书缺数据
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('今日还没有学习过的单词，请先在学习模式中学习')),
+          SnackBar(
+            content: Text(context.tr('今日还没有学习过的单词，请先在学习模式中学习')),
+          ),
         );
         return;
       }
@@ -157,10 +160,14 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
       final needsGeneratedData =
           mode.isVerbTense || mode.id == 'adj_steigerung';
       final hint = needsGeneratedData
-          ? '，请先在下方"变位数据管理"中生成变位数据'
+          ? context.tr('，请先在下方"变位数据管理"中生成变位数据')
           : '';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('词书中没有可练习的${mode.title}数据$hint')),
+        SnackBar(
+          content: Text(
+            context.trArgs('词书中没有可练习的{0}数据{1}', [mode.title, hint]),
+          ),
+        ),
       );
       return;
     }
@@ -177,7 +184,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('变位练习'),
+        title: Text(context.tr('变位练习')),
         actions: [
           // 后台 AI 任务入口
           const BatchTaskProgressButton(),
@@ -197,7 +204,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '请先选择一个词书',
+                    context.tr('请先选择一个词书'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -226,7 +233,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '当前词书',
+                              context.tr('当前词书'),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -267,7 +274,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '练习参数',
+                            context.tr('练习参数'),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -277,7 +284,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '单次练习词量',
+                        context.tr('单次练习词量'),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 8),
@@ -286,11 +293,11 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           for (final count in _presetCounts)
                             ButtonSegment(
                               value: count,
-                              label: Text('$count 个'),
+                              label: Text(context.trArgs('{0} 个', [count])),
                             ),
-                          const ButtonSegment(
+                          ButtonSegment(
                             value: -1,
-                            label: Text('自定义'),
+                            label: Text(context.tr('自定义')),
                           ),
                         ],
                         selected: {
@@ -311,7 +318,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       if (!_presetCounts.contains(_wordCount)) ...[
                         const SizedBox(height: 8),
                         Text(
-                          '当前: $_wordCount 个',
+                          context.trArgs('当前: {0} 个', [_wordCount]),
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
@@ -324,20 +331,20 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       ],
                       const SizedBox(height: 16),
                       Text(
-                        '练习范围',
+                        context.tr('练习范围'),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 8),
                       SegmentedButton<ConjugationPickMode>(
                         showSelectedIcon: false,
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: ConjugationPickMode.random,
-                            label: Text('随机练习'),
+                            label: Text(context.tr('随机练习')),
                           ),
                           ButtonSegment(
                             value: ConjugationPickMode.todayOnly,
-                            label: Text('只练今日单词'),
+                            label: Text(context.tr('只练今日单词')),
                           ),
                         ],
                         selected: {_pickMode},
@@ -348,8 +355,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       const SizedBox(height: 8),
                       Text(
                         _pickMode == ConjugationPickMode.todayOnly
-                            ? '仅从今天学习过的单词中抽取'
-                            : '从整个词书随机抽取',
+                            ? context.tr('仅从今天学习过的单词中抽取')
+                            : context.tr('从整个词书随机抽取'),
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -366,7 +373,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
               const SizedBox(height: 24),
               // 练习类型
               Text(
-                '选择练习类型',
+                context.tr('选择练习类型'),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -375,7 +382,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
               // 动词变位
               _CategorySection(
                 icon: Icons.directions_run,
-                title: '动词变位',
+                title: context.tr('动词变位'),
                 subtitle: 'Verb Konjugation',
                 color: Theme.of(context).colorScheme.primaryContainer,
                 iconColor: Theme.of(context).colorScheme.primary,
@@ -386,7 +393,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
               // 名词变格
               _CategorySection(
                 icon: Icons.category,
-                title: '名词变格',
+                title: context.tr('名词变格'),
                 subtitle: 'Nomen Deklination',
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 iconColor: Theme.of(context).colorScheme.secondary,
@@ -397,8 +404,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
               // 形容词变级（无二级子项，点击直接进入：比较级 + 最高级）
               _CategorySection(
                 icon: Icons.trending_up,
-                title: '形容词变级',
-                subtitle: 'Adjektiv Steigerung · 比较级 & 最高级',
+                title: context.tr('形容词变级'),
+                subtitle: context.tr('Adjektiv Steigerung · 比较级 & 最高级'),
                 color: Theme.of(context).colorScheme.tertiaryContainer,
                 iconColor: Theme.of(context).colorScheme.tertiary,
                 directMode: PracticeMode.adjSteigerung,
@@ -413,7 +420,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '变位数据管理',
+                        context.tr('变位数据管理'),
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -426,11 +433,13 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           Icons.manage_search,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        title: const Text(
-                          '管理变位数据',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                        title: Text(
+                          context.tr('管理变位数据'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: const Text('查看各单词变位数据状态，可多选更新 / 删除'),
+                        subtitle: Text(
+                          context.tr('查看各单词变位数据状态，可多选更新 / 删除'),
+                        ),
                         trailing: const Icon(
                           Icons.arrow_forward_ios,
                           size: 14,
@@ -442,11 +451,11 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       OutlinedButton.icon(
                         onPressed: () => _generateConjugationData(context),
                         icon: const Icon(Icons.auto_awesome),
-                        label: const Text('AI 批量生成变位数据'),
+                        label: Text(context.tr('AI 批量生成变位数据')),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '使用 AI 分析词书中的词汇，生成变位数据并缓存到本地',
+                        context.tr('使用 AI 分析词书中的词汇，生成变位数据并缓存到本地'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme
@@ -461,7 +470,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('错误: $e')),
+        error: (e, _) => Center(child: Text(context.trArgs('错误: {0}', [e]))),
       ),
     );
   }
@@ -483,7 +492,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
     if (conjugationService == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先在设置中配置 AI API Key')),
+          SnackBar(content: Text(context.tr('请先在设置中配置 AI API Key'))),
         );
       }
       return;
@@ -492,7 +501,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
     if (activeDeck == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先选择一个词书')),
+          SnackBar(content: Text(context.tr('请先选择一个词书'))),
         );
       }
       return;
@@ -577,7 +586,7 @@ class _GenerateProgressDialogState
 
     // 创建后台任务记录（携带单词列表，供其它界面检测进行中的任务）
     final taskId = widget.notifier.addTask(
-      'AI 生成变位数据（${uncached.length} 个单词）',
+      AppLocale.trArgs('AI 生成变位数据（{0} 个单词）', [uncached.length]),
       _total,
       words: uncached.map((w) => w.german).toList(),
     );
@@ -642,7 +651,11 @@ class _GenerateProgressDialogState
     final isEmpty = _isComplete && _total == 0;
     return AlertDialog(
       title: Text(
-        isEmpty ? '无需生成' : (_isComplete ? '生成完成' : 'AI 生成变位数据'),
+        isEmpty
+            ? context.tr('无需生成')
+            : (_isComplete
+                ? context.tr('生成完成')
+                : context.tr('AI 生成变位数据')),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -650,17 +663,17 @@ class _GenerateProgressDialogState
           if (!_isComplete) ...[
             const LinearProgressIndicator(),
             const SizedBox(height: 16),
-            Text('$_total 个单词需要生成'),
+            Text(context.trArgs('{0} 个单词需要生成', [_total])),
             const SizedBox(height: 8),
             if (_currentWord != null) ...[
               Text(
-                '正在处理: $_currentWord',
+                context.trArgs('正在处理: {0}', [_currentWord]),
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 8),
             ],
             Text(
-              '关闭窗口可后台运行',
+              context.tr('关闭窗口可后台运行'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
           ] else ...[
@@ -671,10 +684,13 @@ class _GenerateProgressDialogState
             ),
             const SizedBox(height: 16),
             if (isEmpty)
-              const Text('所有单词已有变位数据')
+              Text(context.tr('所有单词已有变位数据'))
             else
               Text(
-                '成功 $_completed 个${_failed > 0 ? '，失败 $_failed 个' : ''}',
+                context.trArgs('成功 {0} 个', [_completed]) +
+                    (_failed > 0
+                        ? context.trArgs('，失败 {0} 个', [_failed])
+                        : ''),
               ),
           ],
         ],
@@ -683,12 +699,12 @@ class _GenerateProgressDialogState
         if (_isComplete)
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('完成'),
+            child: Text(context.tr('完成')),
           )
         else
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('后台运行'),
+            child: Text(context.tr('后台运行')),
           ),
       ],
     );

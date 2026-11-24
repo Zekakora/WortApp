@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/i18n/app_localizations.dart';
 import '../services/ai/ai_service.dart';
 import '../services/dictionary/dictionary_engine.dart';
 import '../services/dictionary/ai_dictionary_engine.dart';
@@ -126,8 +127,8 @@ class SearchNotifier extends StateNotifier<SearchResult> {
         case DictionaryEngineType.ai:
           final engine = _ref.read(aiDictionaryEngineProvider);
           if (engine == null) {
-            state = const SearchResult(
-              error: '请先在设置中配置 AI API Key',
+            state = SearchResult(
+              error: AppLocale.tr('请先在设置中配置 AI API Key'),
             );
             return;
           }
@@ -146,12 +147,12 @@ class SearchNotifier extends StateNotifier<SearchResult> {
       if (result != null) {
         state = SearchResult(result: result);
       } else {
-        state = const SearchResult(
-          error: '未找到结果',
+        state = SearchResult(
+          error: AppLocale.tr('未找到结果'),
         );
       }
     } catch (e) {
-      state = SearchResult(error: '查词失败: $e');
+      state = SearchResult(error: AppLocale.trArgs('查词失败: {0}', [e]));
     }
   }
 

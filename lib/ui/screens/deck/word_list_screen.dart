@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
@@ -62,7 +63,8 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: _isMultiSelectMode
-            ? Text('已选择 ${_selectedWordIds.length} 项')
+            ? Text(context.trArgs(
+                '已选择 {0} 项', [_selectedWordIds.length]))
             : Text(widget.deckName),
         leading: _isMultiSelectMode
             ? IconButton(
@@ -75,12 +77,12 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
             IconButton(
               icon: const Icon(Icons.select_all),
               onPressed: _selectAll,
-              tooltip: '全选',
+              tooltip: context.tr('全选'),
             ),
             IconButton(
               icon: const Icon(Icons.auto_awesome),
               onPressed: _selectedWordIds.isNotEmpty ? _batchUpdateSelectedWords : null,
-              tooltip: 'AI 更新词意',
+              tooltip: context.tr('AI 更新词意'),
             ),
           ] else ...[
             // AI查询任务按钮（始终可见）
@@ -88,12 +90,12 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
             IconButton(
               icon: const Icon(Icons.checklist),
               onPressed: _enterMultiSelectMode,
-              tooltip: '多选',
+              tooltip: context.tr('多选'),
             ),
             IconButton(
               icon: const Icon(Icons.filter_list),
               onPressed: _showFilterDialog,
-              tooltip: '筛选',
+              tooltip: context.tr('筛选'),
             ),
           ],
         ],
@@ -105,7 +107,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: '搜索单词...',
+                      hintText: context.tr('搜索单词...'),
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -156,7 +158,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    _searchQuery.isEmpty ? '词书还没有单词' : '没有找到匹配的单词',
+                    _searchQuery.isEmpty
+                        ? context.tr('词书还没有单词')
+                        : context.tr('没有找到匹配的单词'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -190,7 +194,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('错误: $e')),
+        error: (e, _) => Center(child: Text(context.trArgs('错误: {0}', [e]))),
       ),
       // 多选模式下隐藏，避免遮挡操作
       floatingActionButton: !_isMultiSelectMode
@@ -203,22 +207,22 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                   actions: [
                     ExpandingFabAction(
                       icon: Icons.restart_alt,
-                      label: '重置学习进度',
+                      label: context.tr('重置学习进度'),
                       onPressed: _confirmResetLearningProgress,
                     ),
                     ExpandingFabAction(
                       icon: Icons.storage,
-                      label: '数据管理',
+                      label: context.tr('数据管理'),
                       onPressed: _openDataManagement,
                     ),
                     ExpandingFabAction(
                       icon: Icons.auto_fix_high,
-                      label: '批量 AI 规范化德语',
+                      label: context.tr('批量 AI 规范化德语'),
                       onPressed: _batchNormalizeGerman,
                     ),
                     ExpandingFabAction(
                       icon: Icons.filter_alt_off,
-                      label: '去重扫描',
+                      label: context.tr('去重扫描'),
                       onPressed: _openDedupScan,
                     ),
                   ],
@@ -229,7 +233,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
                   heroTag: 'addWordFab',
                   onPressed: _showAddWordDialog,
                   icon: const Icon(Icons.add),
-                  label: const Text('新建单词'),
+                  label: Text(context.tr('新建单词')),
                 ),
               ],
             )
@@ -245,16 +249,16 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('新建单词'),
+        title: Text(dialogContext.tr('新建单词')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: germanController,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: '德语单词 *',
-                hintText: '例如：der Apfel',
+              decoration: InputDecoration(
+                labelText: dialogContext.tr('德语单词 *'),
+                hintText: dialogContext.tr('例如：der Apfel'),
               ),
               onSubmitted: (_) =>
                   _createWord(dialogContext, germanController, chineseController),
@@ -262,9 +266,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: chineseController,
-              decoration: const InputDecoration(
-                labelText: '中文释义（可留空，稍后 AI 自动获取）',
-                hintText: '例如：苹果',
+              decoration: InputDecoration(
+                labelText: dialogContext.tr('中文释义（可留空，稍后 AI 自动获取）'),
+                hintText: dialogContext.tr('例如：苹果'),
               ),
             ),
           ],
@@ -272,12 +276,12 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(dialogContext.tr('取消')),
           ),
           FilledButton(
             onPressed: () =>
                 _createWord(dialogContext, germanController, chineseController),
-            child: const Text('添加'),
+            child: Text(dialogContext.tr('添加')),
           ),
         ],
       ),
@@ -309,8 +313,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
           SnackBar(
             content: Text(
               existingDeck == null
-                  ? '该单词已存在，未重复添加'
-                  : '该单词已存在于词书「${existingDeck.name}」，未重复添加',
+                  ? dialogContext.tr('该单词已存在，未重复添加')
+                  : dialogContext.trArgs(
+                      '该单词已存在于词书「{0}」，未重复添加', [existingDeck.name]),
             ),
           ),
         );
@@ -337,7 +342,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加 "$german"')),
+        SnackBar(content: Text(context.trArgs('已添加 "{0}"', [german]))),
       );
     }
   }
@@ -385,23 +390,25 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
           size: 40,
           color: Colors.amber,
         ),
-        title: const Text('重置学习进度'),
-        content: const Text(
-          '确定要将所有单词的学习进度全部归零吗？\n\n'
-          'SM-2 复习状态、熟练度与上次学习日期将被清除，'
-          '所有单词将变回新词状态。此操作不可恢复！',
+        title: Text(dialogContext.tr('重置学习进度')),
+        content: Text(
+          dialogContext.tr(
+            '确定要将所有单词的学习进度全部归零吗？\n\n'
+            'SM-2 复习状态、熟练度与上次学习日期将被清除，'
+            '所有单词将变回新词状态。此操作不可恢复！',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(dialogContext.tr('取消')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Colors.amber.shade700,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确认重置'),
+            child: Text(dialogContext.tr('确认重置')),
           ),
         ],
       ),
@@ -413,7 +420,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     ref.invalidate(studyPlanProvider);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已重置所有单词的学习进度')),
+        SnackBar(content: Text(context.tr('已重置所有单词的学习进度'))),
       );
     }
   }
@@ -477,8 +484,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     // 显示确认对话框并启动批量更新
     _startAiUpdateWithConfirm(
       wordIds: selectedIds,
-      message:
-          '确定要使用 AI 更新选中的 ${selectedIds.length} 个单词的词意吗？\n这将覆盖原有的中文释义。',
+      message: context.trArgs(
+          '确定要使用 AI 更新选中的 {0} 个单词的词意吗？\n这将覆盖原有的中文释义。',
+          [selectedIds.length]),
     );
   }
 
@@ -486,7 +494,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
   Future<void> _aiUpdateWord(Word word) {
     return _startAiUpdateWithConfirm(
       wordIds: [word.id],
-      message: '确定要使用 AI 更新 "${word.german}" 的词意吗？\n这将覆盖原有的中文释义。',
+      message: context.trArgs(
+          '确定要使用 AI 更新 "{0}" 的词意吗？\n这将覆盖原有的中文释义。',
+          [word.german]),
     );
   }
 
@@ -513,17 +523,11 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     }
   }
 
-  /// 将 AI 规范化词形写回 words.german 与 baseForm
+  /// 将 AI 规范化词形写回 words.german 与 baseForm，并为旧词形写删除墓碑
+  /// （使改名跨端传播，避免对端同步把旧词形带回来）
   Future<void> _applyAiNormalizedWord(AppDatabase db, Word word,
       String normalized) async {
-    await db.wordDao.updateWord(
-      WordsCompanion(
-        id: drift.Value(word.id),
-        german: drift.Value(normalized),
-        baseForm: drift.Value(normalized),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    await db.renameWordGerman(word.id, normalized);
   }
 
   /// 单词行三点菜单：AI 规范化德语词形（与编辑界面的德语保持一致）
@@ -535,7 +539,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     if (normalized == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该单词暂无 AI 查词结果，请先使用 AI 更新词义')),
+          SnackBar(
+              content:
+                  Text(context.tr('该单词暂无 AI 查词结果，请先使用 AI 更新词义'))),
         );
       }
       return;
@@ -544,7 +550,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     if (normalized == word.german.trim()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('德语已与 AI 词形一致')),
+          SnackBar(content: Text(context.tr('德语已与 AI 词形一致'))),
         );
       }
       return;
@@ -555,19 +561,20 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('AI 规范化德语'),
-        content: Text(
-          '将德语从「${word.german}」更新为 AI 规范化词形「$normalized」？\n\n'
+        title: Text(dialogContext.tr('AI 规范化德语')),
+        content: Text(dialogContext.trArgs(
+          '将德语从「{0}」更新为 AI 规范化词形「{1}」？\n\n'
           '此操作会同步单词本与编辑界面中的德语单词。',
-        ),
+          [word.german, normalized],
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(dialogContext.tr('取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定'),
+            child: Text(dialogContext.tr('确定')),
           ),
         ],
       ),
@@ -577,7 +584,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     await _applyAiNormalizedWord(db, word, normalized);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已将德语更新为 "$normalized"')),
+        SnackBar(content: Text(context.trArgs('已将德语更新为 "{0}"', [normalized]))),
       );
     }
   }
@@ -593,7 +600,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     if (words.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('词书还没有单词')),
+          SnackBar(content: Text(context.tr('词书还没有单词'))),
         );
       }
       return;
@@ -603,19 +610,20 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('批量 AI 规范化德语'),
-        content: Text(
-          '将批量扫描词书中 ${words.length} 个单词的 AI 查词结果，'
+        title: Text(dialogContext.tr('批量 AI 规范化德语')),
+        content: Text(dialogContext.trArgs(
+          '将批量扫描词书中 {0} 个单词的 AI 查词结果，'
           '把德语更新为 AI 规范化词形（无 AI 缓存的单词自动跳过）。',
-        ),
+          [words.length],
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(dialogContext.tr('取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定'),
+            child: Text(dialogContext.tr('确定')),
           ),
         ],
       ),
@@ -639,8 +647,9 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         SnackBar(
           content: Text(
             updated > 0
-                ? '已规范化 $updated 个单词的德语'
-                : '没有需要规范化的单词（$skipped 个暂无 AI 缓存）',
+                ? context.trArgs('已规范化 {0} 个单词的德语', [updated])
+                : context.trArgs(
+                    '没有需要规范化的单词（{0} 个暂无 AI 缓存）', [skipped]),
           ),
         ),
       );
@@ -658,7 +667,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     if (db == null || aiEngine == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先在设置中配置 AI API Key')),
+          SnackBar(content: Text(context.tr('请先在设置中配置 AI API Key'))),
         );
       }
       return;
@@ -668,16 +677,16 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final shouldUpdate = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('AI 更新词意'),
+        title: Text(context.tr('AI 更新词意')),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
+            child: Text(context.tr('确定')),
           ),
         ],
       ),
@@ -710,7 +719,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         wordIds: wordIds,
         words: selectedWords,
         notifier: notifier,
-        taskName: 'AI 更新 ${wordIds.length} 个单词',
+        taskName: context.trArgs('AI 更新 {0} 个单词', [wordIds.length]),
       ),
     );
   }
@@ -726,22 +735,23 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除单词'),
-        content: Text(
-          '确定要删除 "${word.german}" 吗？\n\n'
+        title: Text(dialogContext.tr('删除单词')),
+        content: Text(dialogContext.trArgs(
+          '确定要删除 "{0}" 吗？\n\n'
           '删除后不可恢复。若其他词书也不存在该单词，将同时释放其 AI 释义缓存。',
-        ),
+          [word.german],
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(dialogContext.tr('取消')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('删除'),
+            child: Text(dialogContext.tr('删除')),
           ),
         ],
       ),
@@ -753,7 +763,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     ref.invalidate(wordCountProvider);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除 "${word.german}"')),
+        SnackBar(content: Text(context.trArgs('已删除 "{0}"', [word.german]))),
       );
     }
   }
@@ -768,7 +778,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     if (targets.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有其他词书可复制，请先新建词书')),
+          SnackBar(content: Text(context.tr('没有其他词书可复制，请先新建词书'))),
         );
       }
       return;
@@ -778,7 +788,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
     final targetDeckId = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('复制到词书'),
+        title: Text(context.tr('复制到词书')),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -801,7 +811,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
         ],
       ),
@@ -813,7 +823,7 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
 
     if (newId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('该单词已在目标词书中')),
+        SnackBar(content: Text(context.tr('该单词已在目标词书中'))),
       );
       return;
     }
@@ -825,109 +835,47 @@ class _WordListScreenState extends ConsumerState<WordListScreen> {
         .firstWhere((d) => d.id == targetDeckId, orElse: () => targets.first)
         .name;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已复制到「$targetName」')),
+      SnackBar(content: Text(context.trArgs('已复制到「{0}」', [targetName]))),
     );
   }
 
   void _showFilterDialog() {
+    // 词性筛选项：value 为 null 表示「全部」
+    final options = <(String label, String? value, Color? color)>[
+      ('全部', null, null),
+      ('名词', 'noun', Colors.blue),
+      ('动词', 'verb', WordTypeColors.verbPrimary),
+      ('形容词', 'adjective', WordTypeColors.adjPrimary),
+      ('副词', 'adverb', WordTypeColors.advPrimary),
+      ('介词', 'preposition', WordTypeColors.prepPrimary),
+      ('代词', 'pronoun', WordTypeColors.pronPrimary),
+      ('连词', 'conjunction', WordTypeColors.conjPrimary),
+      ('其他', 'other', WordTypeColors.otherPrimary),
+    ];
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('筛选词性'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _FilterOption(
-                label: '全部',
-                value: null,
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-              ),
-              _FilterOption(
-                label: '名词',
-                value: 'noun',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: Colors.blue,
-              ),
-              _FilterOption(
-                label: '动词',
-                value: 'verb',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.verbPrimary,
-              ),
-              _FilterOption(
-                label: '形容词',
-                value: 'adjective',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.adjPrimary,
-              ),
-              _FilterOption(
-                label: '副词',
-                value: 'adverb',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.advPrimary,
-              ),
-              _FilterOption(
-                label: '介词',
-                value: 'preposition',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.prepPrimary,
-              ),
-              _FilterOption(
-                label: '代词',
-                value: 'pronoun',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.pronPrimary,
-              ),
-              _FilterOption(
-                label: '连词',
-                value: 'conjunction',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.conjPrimary,
-              ),
-              _FilterOption(
-                label: '其他',
-                value: 'other',
-                groupValue: _filterWordType,
-                onChanged: (value) {
-                  setState(() => _filterWordType = value);
-                  Navigator.pop(context);
-                },
-                color: WordTypeColors.otherPrimary,
-              ),
-            ],
+          title: Text(context.tr('筛选词性')),
+          // 9 个选项约 500dp 高，小屏上不加滚动会直接溢出
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (label, value, color) in options)
+                  _FilterOption(
+                    label: label,
+                    value: value,
+                    groupValue: _filterWordType,
+                    color: color,
+                    onChanged: (selected) {
+                      setState(() => _filterWordType = selected);
+                      Navigator.pop(context);
+                    },
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -1097,7 +1045,7 @@ class _WordTile extends ConsumerWidget {
                 // 三点菜单：AI 更新词义 / 复制到词书
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, size: 20),
-                  tooltip: '更多操作',
+                  tooltip: context.tr('更多操作'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onSelected: (value) {
@@ -1117,46 +1065,46 @@ class _WordTile extends ConsumerWidget {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'ai_update',
                       child: Row(
                         children: [
-                          Icon(Icons.auto_awesome, size: 18),
-                          SizedBox(width: 8),
-                          Text('AI更新词义'),
+                          const Icon(Icons.auto_awesome, size: 18),
+                          const SizedBox(width: 8),
+                          Text(context.tr('AI更新词义')),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'normalize_german',
                       child: Row(
                         children: [
-                          Icon(Icons.auto_fix_high, size: 18),
-                          SizedBox(width: 8),
-                          Text('AI规范化德语'),
+                          const Icon(Icons.auto_fix_high, size: 18),
+                          const SizedBox(width: 8),
+                          Text(context.tr('AI规范化德语')),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'copy_to_deck',
                       child: Row(
                         children: [
-                          Icon(Icons.content_copy, size: 18),
-                          SizedBox(width: 8),
-                          Text('复制到词书'),
+                          const Icon(Icons.content_copy, size: 18),
+                          const SizedBox(width: 8),
+                          Text(context.tr('复制到词书')),
                         ],
                       ),
                     ),
                     if (onDelete != null)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete_word',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline,
+                            const Icon(Icons.delete_outline,
                                 size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('删除单词',
-                                style: TextStyle(color: Colors.red)),
+                            const SizedBox(width: 8),
+                            Text(context.tr('删除单词'),
+                                style: const TextStyle(color: Colors.red)),
                           ],
                         ),
                       ),
@@ -1207,7 +1155,7 @@ class _FilterOption extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          Text(label),
+          Text(context.tr(label)),
         ],
       ),
       onTap: () => onChanged(value),

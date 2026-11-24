@@ -7,12 +7,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/database_provider.dart';
-import '../../../providers/deck_provider.dart';
+import '../../../providers/sync_refresh.dart';
 import '../../../services/import_export/export_service.dart';
 import '../../../services/import_export/import_service.dart';
 import 'onedrive_sync_section.dart';
+
+/// 当前应用版本号（与 pubspec.yaml 保持一致）
+const String _appVersion = '1.2.0';
 
 /// 设置页面
 class SettingsScreen extends ConsumerWidget {
@@ -25,32 +29,32 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置'),
+        title: Text(context.tr('设置')),
       ),
       body: ListView(
         children: [
           // 外观设置
-          _SectionHeader(title: '外观'),
+          _SectionHeader(title: context.tr('外观')),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SizedBox(
               width: double.infinity,
               child: SegmentedButton<String>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: 'system',
-                    label: Text('跟随系统'),
-                    icon: Icon(Icons.brightness_auto),
+                    label: Text(context.tr('跟随系统')),
+                    icon: const Icon(Icons.brightness_auto),
                   ),
                   ButtonSegment(
                     value: 'light',
-                    label: Text('日间'),
-                    icon: Icon(Icons.light_mode),
+                    label: Text(context.tr('日间')),
+                    icon: const Icon(Icons.light_mode),
                   ),
                   ButtonSegment(
                     value: 'dark',
-                    label: Text('夜间'),
-                    icon: Icon(Icons.dark_mode),
+                    label: Text(context.tr('夜间')),
+                    icon: const Icon(Icons.dark_mode),
                   ),
                 ],
                 selected: {settings.themeMode},
@@ -63,20 +67,43 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          // 界面语言（中文 / 英语 / 德语）
+          _SectionHeader(title: context.tr('语言')),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'zh', label: Text('中文')),
+                  ButtonSegment(value: 'en', label: Text('English')),
+                  ButtonSegment(value: 'de', label: Text('Deutsch')),
+                ],
+                selected: {settings.languageCode},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .updateLanguageCode(selection.first);
+                },
+              ),
+            ),
+          ),
           const Divider(),
 
           // AI 设置
-          _SectionHeader(title: 'AI 设置'),
+          _SectionHeader(title: context.tr('AI 设置')),
           ListTile(
             leading: Icon(
               Icons.smart_toy,
               color: aiConfig.isConfigured ? Colors.green : Colors.grey,
             ),
-            title: const Text('AI 配置'),
+            title: Text(context.tr('AI 配置')),
             subtitle: Text(
               aiConfig.isConfigured
                   ? '${_getProviderName(aiConfig.baseUrl)} - ${aiConfig.model}'
-                  : '未配置',
+                  : context.tr('未配置'),
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editAiConfig(context, ref),
@@ -84,7 +111,7 @@ class SettingsScreen extends ConsumerWidget {
           if (aiConfig.isConfigured)
             ListTile(
               leading: const Icon(Icons.key, size: 20),
-              title: const Text('API Key'),
+              title: Text(context.tr('API Key')),
               subtitle: Text(
                 '${aiConfig.apiKey.substring(0, aiConfig.apiKey.length.clamp(0, 8))}...',
               ),
@@ -96,7 +123,7 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 快速预设
-          _SectionHeader(title: 'AI 预设'),
+          _SectionHeader(title: context.tr('AI 预设')),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(
@@ -120,25 +147,25 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 学习设置
-          _SectionHeader(title: '学习设置'),
+          _SectionHeader(title: context.tr('学习设置')),
           ListTile(
             leading: const Icon(Icons.new_releases),
-            title: const Text('每日新词上限'),
-            subtitle: Text('${settings.dailyNewLimit} 个'),
+            title: Text(context.tr('每日新词上限')),
+            subtitle: Text('${settings.dailyNewLimit} ${context.tr('个')}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editDailyLimit(context, ref, isNew: true),
           ),
           ListTile(
             leading: const Icon(Icons.repeat),
-            title: const Text('每日复习上限'),
-            subtitle: Text('${settings.dailyReviewLimit} 个'),
+            title: Text(context.tr('每日复习上限')),
+            subtitle: Text('${settings.dailyReviewLimit} ${context.tr('个')}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editDailyLimit(context, ref, isNew: false),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.done_all),
-            title: const Text('回答后自动确认'),
-            subtitle: const Text('选择答案后自动确认，无需点击确认按钮'),
+            title: Text(context.tr('回答后自动确认')),
+            subtitle: Text(context.tr('选择答案后自动确认，无需点击确认按钮')),
             value: settings.autoConfirm,
             onChanged: (value) {
               ref.read(settingsProvider.notifier).updateAutoConfirm(value);
@@ -147,10 +174,10 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 语音设置
-          _SectionHeader(title: '语音设置'),
+          _SectionHeader(title: context.tr('语音设置')),
           ListTile(
             leading: const Icon(Icons.speed),
-            title: const Text('TTS 语速'),
+            title: Text(context.tr('TTS 语速')),
             subtitle: Slider(
               value: settings.ttsSpeed,
               min: 0.1,
@@ -164,8 +191,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.volume_up),
-            title: const Text('自动发音'),
-            subtitle: const Text('题目出现时自动播放德语发音（翻牌/看德语选中文/听德语选单词/拼写模式）'),
+            title: Text(context.tr('自动发音')),
+            subtitle: Text(context.tr('题目出现时自动播放德语发音（翻牌/看德语选中文/听德语选单词/拼写模式）')),
             value: settings.autoPlayTts,
             onChanged: (value) {
               ref.read(settingsProvider.notifier).updateAutoPlayTts(value);
@@ -174,11 +201,11 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 拼写设置
-          _SectionHeader(title: '拼写设置'),
+          _SectionHeader(title: context.tr('拼写设置')),
           SwitchListTile(
             secondary: const Icon(Icons.spellcheck),
-            title: const Text('宽容拼写'),
-            subtitle: const Text('ae→ä, oe→ö, ue→ü, ss→ß'),
+            title: Text(context.tr('宽容拼写')),
+            subtitle: Text(context.tr('支持宽容拼写: ae→ä, oe→ö, ue→ü, ss→ß')),
             value: settings.tolerantSpelling,
             onChanged: (value) {
               ref.read(settingsProvider.notifier).updateTolerantSpelling(value);
@@ -187,7 +214,7 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 数据备份
-          _SectionHeader(title: '数据备份'),
+          _SectionHeader(title: context.tr('数据备份')),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -196,7 +223,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: FilledButton.icon(
                     onPressed: () => _backupAllData(context, ref),
                     icon: const Icon(Icons.backup_outlined),
-                    label: const Text('软件数据备份'),
+                    label: Text(context.tr('软件数据备份')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -204,7 +231,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => _restoreAllData(context, ref),
                     icon: const Icon(Icons.restore),
-                    label: const Text('软件数据恢复'),
+                    label: Text(context.tr('软件数据恢复')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.amber.shade800,
                       side: BorderSide(color: Colors.amber.shade700),
@@ -218,7 +245,7 @@ class SettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              '备份包含所有词书、单词、学习记录与 AI 缓存；恢复将完全覆盖当前全部数据',
+              context.tr('备份包含所有词书、单词、学习记录与 AI 缓存；恢复将完全覆盖当前全部数据'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -230,22 +257,23 @@ class SettingsScreen extends ConsumerWidget {
           const OneDriveSyncSection(),
 
           // 关于
-          _SectionHeader(title: '关于'),
+          _SectionHeader(title: context.tr('关于')),
           ListTile(
             leading: const Icon(Icons.info_outline),
-            title: const Text('关于德语背单词'),
-            subtitle: const Text('版本 1.1.0\n© ZEKAKORA版权所有'),
+            title: Text(context.tr('关于德语背单词')),
+            subtitle: Text(
+              '${context.trArgs('版本 {0}', [_appVersion])}\n${context.tr('© ZEKAKORA 版权所有')}',
+            ),
             onTap: () {
               showAboutDialog(
                 context: context,
-                applicationName: '德语背单词',
-                applicationVersion: '1.1.0',
-                applicationLegalese: '德语背单词与语法助手',
+                applicationName: 'WortApp',
+                applicationVersion: _appVersion,
+                applicationLegalese: context.tr('德语背单词与语法助手'),
                 children: [
                   const SizedBox(height: 16),
-                  const Text('基于 SM-2 间隔重复算法，结合 AI 变位练习与联网查词。'
-                      '\nhttps://github.com/Zekakora/WortApp'
-                      '\n\n© ZEKAKORA All Right Reserved'),
+                  Text(context.tr(
+                      '基于 SM-2 间隔重复算法，结合 AI 变位练习与联网查词。\nhttps://github.com/Zekakora/WortApp\n\n© ZEKAKORA All Right Reserved')),
                 ],
               );
             },
@@ -264,7 +292,7 @@ class SettingsScreen extends ConsumerWidget {
     if (baseUrl.contains('generativelanguage')) return 'Gemini';
     if (baseUrl.contains('dashscope')) return '通义千问';
     if (baseUrl.contains('maas.aliyuncs.com')) return '阿里云';
-    return '自定义';
+    return AppLocale.tr('自定义');
   }
 
   void _editAiConfig(BuildContext context, WidgetRef ref) {
@@ -278,64 +306,80 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('AI 配置'),
+        title: Text(context.tr('AI 配置')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '支持 OpenAI 兼容格式的 API',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                context.tr('支持 OpenAI 兼容格式的 API'),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: apiKeyController,
-                decoration: const InputDecoration(
-                  labelText: 'API Key',
-                  hintText: '输入你的 API Key',
-                  prefixIcon: Icon(Icons.key),
+                decoration: InputDecoration(
+                  labelText: context.tr('API Key'),
+                  hintText: context.tr('输入你的 API Key'),
+                  prefixIcon: const Icon(Icons.key),
                 ),
                 obscureText: true,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: baseUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'API 地址',
-                  hintText: '例如: https://api.openai.com/v1',
-                  prefixIcon: Icon(Icons.link),
+                decoration: InputDecoration(
+                  labelText: context.tr('API 地址'),
+                  hintText: context.tr('例如: https://api.openai.com/v1'),
+                  prefixIcon: const Icon(Icons.link),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: modelController,
-                decoration: const InputDecoration(
-                  labelText: '模型名称',
-                  hintText: '例如: gpt-4o-mini',
-                  prefixIcon: Icon(Icons.smart_toy),
+                decoration: InputDecoration(
+                  labelText: context.tr('模型名称'),
+                  hintText: context.tr('例如: gpt-4o-mini'),
+                  prefixIcon: const Icon(Icons.smart_toy),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '常用配置:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                context.tr('常用配置:'),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              ...AiConfig.presets.entries.map((entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '${entry.key}: ${entry.value.baseUrl}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  )),
+              // 用可点击的预设标签替代一整列灰色网址：点一下即填入地址与模型
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AiConfig.presets.entries.map((entry) {
+                    return ActionChip(
+                      label: Text(entry.key),
+                      onPressed: () {
+                        baseUrlController.text = entry.value.baseUrl;
+                        modelController.text = entry.value.model;
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
@@ -347,7 +391,7 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(settingsProvider.notifier).updateAiConfig(config);
               Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(context.tr('保存')),
           ),
         ],
       ),
@@ -365,19 +409,19 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('修改 API Key'),
+        title: Text(context.tr('修改 API Key')),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'API Key',
-            hintText: '输入新的 API Key',
+          decoration: InputDecoration(
+            labelText: context.tr('API Key'),
+            hintText: context.tr('输入新的 API Key'),
           ),
           obscureText: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
@@ -387,7 +431,7 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(settingsProvider.notifier).updateAiConfig(config);
               Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(context.tr('保存')),
           ),
         ],
       ),
@@ -406,25 +450,25 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isNew ? '每日新词上限' : '每日复习上限'),
+        title: Text(context.tr(isNew ? '每日新词上限' : '每日复习上限')),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            suffixText: '个',
+          decoration: InputDecoration(
+            suffixText: context.tr('个'),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             onPressed: () {
               final value = int.tryParse(controller.text) ?? 0;
               if (value <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('请输入大于 0 的正整数')),
+                  SnackBar(content: Text(context.tr('请输入大于 0 的正整数'))),
                 );
                 return;
               }
@@ -439,7 +483,7 @@ class SettingsScreen extends ConsumerWidget {
               }
               Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(context.tr('保存')),
           ),
         ],
       ),
@@ -450,7 +494,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _backupAllData(BuildContext context, WidgetRef ref) async {
     final db = ref.read(databaseProvider);
     if (db == null) {
-      _showSnack(context, '数据库未就绪');
+      _showSnack(context, context.tr('数据库未就绪'));
       return;
     }
 
@@ -458,13 +502,13 @@ class SettingsScreen extends ConsumerWidget {
       final result = await ExportService(db).exportBackup();
       if (!context.mounted) return;
       if (!result.success || result.data == null) {
-        _showSnack(context, result.error ?? '备份失败');
+        _showSnack(context, result.error ?? context.tr('备份失败'));
         return;
       }
       await _saveBackupFile(context, result.data!);
     } catch (e) {
       if (!context.mounted) return;
-      _showSnack(context, '备份失败: $e');
+      _showSnack(context, context.trArgs('备份失败: {0}', [e]));
     }
   }
 
@@ -472,7 +516,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _restoreAllData(BuildContext context, WidgetRef ref) async {
     final db = ref.read(databaseProvider);
     if (db == null) {
-      _showSnack(context, '数据库未就绪');
+      _showSnack(context, context.tr('数据库未就绪'));
       return;
     }
 
@@ -504,18 +548,18 @@ class SettingsScreen extends ConsumerWidget {
           size: 48,
           color: Colors.amber.shade800,
         ),
-        title: const Text('恢复数据警告'),
-        content: const Text(
-          '恢复操作将完全覆盖当前所有数据：\n\n'
-          '• 删除当前全部词书、单词与学习记录\n'
-          '• 删除全部 AI 查词缓存与应用设置\n'
-          '• 整体替换为备份文件中的内容\n\n'
-          '该操作不可撤销！建议先执行“软件数据备份”。',
+        title: Text(context.tr('恢复数据警告')),
+        content: Text(
+          '${context.tr('恢复操作将完全覆盖当前所有数据：\n\n')}'
+          '${context.tr('• 删除当前全部词书、单词与学习记录\n')}'
+          '${context.tr('• 删除全部 AI 查词缓存与应用设置\n')}'
+          '${context.tr('• 整体替换为备份文件中的内容\n\n')}'
+          '${context.tr('该操作不可撤销！建议先执行“软件数据备份”。')}',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -523,7 +567,7 @@ class SettingsScreen extends ConsumerWidget {
               foregroundColor: Colors.black,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('我已了解，覆盖恢复'),
+            child: Text(context.tr('我已了解，覆盖恢复')),
           ),
         ],
       ),
@@ -545,11 +589,8 @@ class SettingsScreen extends ConsumerWidget {
         wipeExisting: true,
       );
 
-      // 数据已整体替换，刷新设置与词书相关缓存
-      ref.invalidate(settingsProvider);
-      ref.invalidate(allDecksProvider);
-      ref.invalidate(activeDeckProvider);
-      ref.invalidate(wordCountProvider);
+      // 数据已整体替换，刷新所有依赖数据库的 Provider（含连续打卡 / 待复习）
+      invalidateDbDerivedProviders(ref);
 
       if (!context.mounted) return;
       Navigator.pop(context); // 关闭加载对话框
@@ -557,15 +598,16 @@ class SettingsScreen extends ConsumerWidget {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(importResult.errors.isEmpty ? '恢复成功' : '恢复完成（有错误）'),
+          title: Text(context.tr(
+              importResult.errors.isEmpty ? '恢复成功' : '恢复完成（有错误）')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('恢复词书: ${importResult.deckCount}'),
-              Text('恢复单词: ${importResult.wordCount}'),
+              Text(context.trArgs('恢复词书: {0}', [importResult.deckCount])),
+              Text(context.trArgs('恢复单词: {0}', [importResult.wordCount])),
               if (importResult.skipCount > 0)
-                Text('跳过: ${importResult.skipCount}'),
+                Text(context.trArgs('跳过: {0}', [importResult.skipCount])),
               if (importResult.errors.isNotEmpty) ...[
                 ...importResult.errors
                     .take(5)
@@ -576,7 +618,7 @@ class SettingsScreen extends ConsumerWidget {
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('完成'),
+              child: Text(context.tr('完成')),
             ),
           ],
         ),
@@ -584,7 +626,7 @@ class SettingsScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // 关闭加载对话框
-        _showSnack(context, '恢复失败: $e');
+        _showSnack(context, context.trArgs('恢复失败: {0}', [e]));
       }
     }
   }
@@ -602,7 +644,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
           fileNameOverrides: [data.fileName],
-          text: 'WortApp 数据备份：${data.fileName}',
+          text: context.trArgs('WortApp 数据备份：{0}', [data.fileName]),
         );
       } else {
         // 原生平台：保存到文档目录
@@ -610,11 +652,11 @@ class SettingsScreen extends ConsumerWidget {
         final filePath = p.join(dir.path, data.fileName);
         await File(filePath).writeAsBytes(data.bytes, flush: true);
         if (!context.mounted) return;
-        _showSnack(context, '备份已保存到: $filePath');
+        _showSnack(context, context.trArgs('备份已保存到: {0}', [filePath]));
       }
     } catch (e) {
       if (!context.mounted) return;
-      _showSnack(context, '保存备份文件失败: $e');
+      _showSnack(context, context.trArgs('保存备份文件失败: {0}', [e]));
     }
   }
 
@@ -709,14 +751,14 @@ class _AiConcurrencyTileState extends ConsumerState<_AiConcurrencyTile> {
 
     return ListTile(
       leading: const Icon(Icons.bolt),
-      title: const Text('AI 并发查询数'),
-      subtitle: const Text('批量查词同时查询的单词数，范围 1~500，越大越快，注意 API 限流'),
+      title: Text(context.tr('AI 并发查询数')),
+      subtitle: Text(context.tr('批量查词同时查询的单词数，范围 1~500，越大越快，注意 API 限流')),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.remove_circle_outline),
-            tooltip: '减少并发',
+            tooltip: context.tr('减少并发'),
             onPressed: concurrency > _minConcurrency
                 ? () => _update(concurrency - 1)
                 : null,
@@ -744,7 +786,7 @@ class _AiConcurrencyTileState extends ConsumerState<_AiConcurrencyTile> {
           ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
-            tooltip: '增加并发',
+            tooltip: context.tr('增加并发'),
             onPressed: concurrency < _maxConcurrency
                 ? () => _update(concurrency + 1)
                 : null,
