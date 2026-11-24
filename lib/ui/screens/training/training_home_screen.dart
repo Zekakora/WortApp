@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
 import '../../../ui/utils/training_icons.dart';
-import '../../../ui/utils/wide_layout.dart';
+import '../../../ui/widgets/entrance.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import 'exercise_type_screen.dart';
@@ -59,26 +59,29 @@ class TrainingHomeScreen extends ConsumerWidget {
             ),
             if (!aiConfigured) ...[const SizedBox(height: 12), _ConfigHint()],
             const SizedBox(height: 16),
-            // 宽屏（平板）：三个技能入口并排，一眼看全
-            if (WideLayout.isWide(context))
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            // 四个入口：窄屏单列，宽屏（平板）两列 —— 四张卡平铺一行会挤
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final twoColumns = constraints.maxWidth >= 520;
+                final cardWidth = twoColumns
+                    ? (constraints.maxWidth - 12) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    for (var i = 0; i < TrainingSkill.values.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 12),
-                      Expanded(
-                        child: _SkillCard(skill: TrainingSkill.values[i]),
+                    for (var i = 0; i < TrainingSkill.values.length; i++)
+                      SizedBox(
+                        width: cardWidth,
+                        child: Entrance(
+                          index: i,
+                          child: _SkillCard(skill: TrainingSkill.values[i]),
+                        ),
                       ),
-                    ],
                   ],
-                ),
-              )
-            else
-              for (final skill in TrainingSkill.values) ...[
-                _SkillCard(skill: skill),
-                const SizedBox(height: 12),
-              ],
+                );
+              },
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

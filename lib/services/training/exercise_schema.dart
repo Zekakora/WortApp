@@ -50,6 +50,16 @@ class ExerciseSchema {
   /// 各题型允许出现的题干类型
   static Set<QuestionType> allowedQuestionTypes(ExerciseType type) =>
       switch (type) {
+        // 混合练习：一套题里允许出现所有题干类型，判分按每题类型走
+        ExerciseType.mixedPractice => const {
+          QuestionType.singleChoice,
+          QuestionType.multipleChoice,
+          QuestionType.trueFalse,
+          QuestionType.fillBlank,
+          QuestionType.dictation,
+          QuestionType.ordering,
+          QuestionType.freeText,
+        },
         ExerciseType.listeningComprehension ||
         ExerciseType.dialogComprehension ||
         ExerciseType.readingComprehension => const {
@@ -79,6 +89,8 @@ class ExerciseSchema {
     ExerciseType.errorCorrection => false,
     // 段落排序的材料由 options（打乱的段落）承载，不需要额外正文
     ExerciseType.paragraphOrdering => false,
+    // 混合练习的材料由各题自带（听写的句子、填空的句干），不需要统一正文
+    ExerciseType.mixedPractice => false,
     _ => true,
   };
 

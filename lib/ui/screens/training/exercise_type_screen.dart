@@ -141,5 +141,6 @@ class _TypeCard extends StatelessWidget {
     ExerciseType.translationWriting => Icons.language,
     ExerciseType.situationalWriting => Icons.mail_outline,
     ExerciseType.freeWriting => Icons.edit,
+    ExerciseType.mixedPractice => Icons.shuffle,
   };
 }

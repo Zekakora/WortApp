@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../data/models/training.dart';
 
@@ -8,4 +8,5 @@ IconData trainingSkillIcon(TrainingSkill skill) => switch (skill) {
   TrainingSkill.listening => Icons.headphones,
   TrainingSkill.reading => Icons.auto_stories,
   TrainingSkill.writing => Icons.edit_note,
+  TrainingSkill.mixed => Icons.shuffle,
 };

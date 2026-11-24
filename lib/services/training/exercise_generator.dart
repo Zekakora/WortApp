@@ -85,8 +85,10 @@ class ExerciseGenerator {
       questionCount: request.questionCount,
       vocabularyFocus: request.vocabularyFocus,
     );
-    final maxTokens =
-        ExercisePrompts.maxTokensFor(request.questionCount, request.type);
+    final maxTokens = ExercisePrompts.maxTokensFor(
+      request.questionCount,
+      request.type,
+    );
 
     // 两次尝试：第一次开 JSON 模式（部分厂商不支持会直接报错），
     // 第二次降级为普通请求 + 更低温度 + 明确"只返回 JSON"。
@@ -107,7 +109,7 @@ class ExerciseGenerator {
           userMessage: index == 0
               ? prompt.userMessage
               : '${prompt.userMessage}\n\n上一次输出无法解析。请严格只返回一个 JSON 对象，'
-                  '不要任何解释文字或代码块。',
+                    '不要任何解释文字或代码块。',
           temperature: attempt.temperature,
           maxTokens: attempt.maxTokens,
           jsonMode: attempt.jsonMode,
@@ -142,9 +144,7 @@ class ExerciseGenerator {
 
         warnings
           ..clear()
-          ..addAll(parsed.issues
-              .where((i) => !i.fatal)
-              .map((i) => i.message));
+          ..addAll(parsed.issues.where((i) => !i.fatal).map((i) => i.message));
 
         final exercise = parsed.exercise!;
         final exerciseId = await dao.saveExercise(

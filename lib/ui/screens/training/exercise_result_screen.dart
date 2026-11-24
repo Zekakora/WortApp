@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +13,7 @@ import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import '../../../ui/utils/selection_sentence.dart';
 import '../../../ui/utils/wide_layout.dart';
+import '../../../ui/widgets/entrance.dart';
 import '../../../ui/widgets/context_lookup_sheet.dart';
 import 'exercise_player_screen.dart';
 import 'training_setup_screen.dart';
@@ -276,7 +277,14 @@ class _QuestionGrid extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (var i = 0; i < items.length; i++) _buildChip(context, i),
+            for (var i = 0; i < items.length; i++)
+              Entrance(
+                index: i,
+                duration: const Duration(milliseconds: 260),
+                stagger: const Duration(milliseconds: 30),
+                offsetY: 0.06,
+                child: _buildChip(context, i),
+              ),
           ],
         ),
       ),
@@ -371,12 +379,18 @@ class _ScoreHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
-            '$score',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onPrimaryContainer,
-              height: 1.1,
+          // 得分从 0 滚到实际分数（easeOutCubic，非线性）
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: score),
+            duration: const Duration(milliseconds: 650),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => Text(
+              '$value',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onPrimaryContainer,
+                height: 1.1,
+              ),
             ),
           ),
           Padding(
@@ -389,17 +403,22 @@ class _ScoreHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.onPrimaryContainer.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$percent%',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
+          Entrance(
+            index: 1,
+            duration: const Duration(milliseconds: 420),
+            offsetY: 0.05,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.onPrimaryContainer.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$percent%',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

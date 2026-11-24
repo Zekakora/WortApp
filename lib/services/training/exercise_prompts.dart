@@ -1,4 +1,4 @@
-/// 训练题目生成提示词（任务书 §4.3）
+﻿/// 训练题目生成提示词（任务书 §4.3）
 ///
 /// 设计要点：
 /// - 系统提示里给出**完整 JSON 骨架**，字段名与 `ExerciseSchema` 的解析逻辑一一对应；
@@ -30,6 +30,7 @@ class ExercisePrompts {
       ExerciseType.listeningComprehension ||
       ExerciseType.readingCloze => 320,
       ExerciseType.sentenceBuilding || ExerciseType.errorCorrection => 460,
+      ExerciseType.mixedPractice => 430,
       _ => 260,
     };
     final total = 1200 + perQuestion * questionCount;
@@ -181,6 +182,17 @@ class ExercisePrompts {
             '（例如 "Korrigiere den Satz:"），questionType 用 "free_text"。'
             'answerKey.referenceAnswers 给出改正后的句子（可给 2 个等价改法），'
             'explanation 说明错误点与原因，rubric 维度同写入类。';
+      case ExerciseType.mixedPractice:
+        return '题型说明：生成  道**混合题**，按下面配比覆盖听力、语法词汇与写作：'
+            '① 约 1/3 为听写（questionType "dictation"）：每题 context 放该句德语原文（用于朗读），'
+            'prompt 只写指示语，**不得泄露句子内容**，answerKey.acceptedAnswers 放原句；'
+            '② 约 1/3 为语法词汇题（questionType "fill_blank" 或 "true_false"）：'
+            'fill_blank 的 prompt 用含 ___ 的句子，answerKey.acceptedAnswers 给答案；'
+            'true_false 的 prompt 给一句德语陈述，answerKey.acceptedAnswers 只用 "richtig"/"falsch"；'
+            '③ 其余为写作题（questionType "free_text"，最多 2 题）：每题 10 分，'
+            'answerKey.referenceAnswers 给参考句，rubric 用五维 grammar(3)/vocabulary(2)/'
+            'sentenceStructure(2)/taskCompletion(2)/naturalness(1)。'
+            'stimulus.kind 填 "none"，stimulus.text 留空；客观题 points 为 1。';
       case ExerciseType.translationWriting:
       case ExerciseType.situationalWriting:
       case ExerciseType.freeWriting:
@@ -197,7 +209,8 @@ class ExercisePrompts {
       ExerciseType.dictation ||
       ExerciseType.sentenceBuilding ||
       ExerciseType.errorCorrection ||
-      ExerciseType.paragraphOrdering => '',
+      ExerciseType.paragraphOrdering ||
+      ExerciseType.mixedPractice => '',
       _ => '短文或听力原文（德语）',
     };
 

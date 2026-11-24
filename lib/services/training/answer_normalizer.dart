@@ -48,13 +48,12 @@ class NormalizeOptions {
     bool? ignorePunctuation,
     bool? collapseWhitespace,
     bool? allowUmlautFolding,
-  }) =>
-      NormalizeOptions(
-        ignoreCase: ignoreCase ?? this.ignoreCase,
-        ignorePunctuation: ignorePunctuation ?? this.ignorePunctuation,
-        collapseWhitespace: collapseWhitespace ?? this.collapseWhitespace,
-        allowUmlautFolding: allowUmlautFolding ?? this.allowUmlautFolding,
-      );
+  }) => NormalizeOptions(
+    ignoreCase: ignoreCase ?? this.ignoreCase,
+    ignorePunctuation: ignorePunctuation ?? this.ignorePunctuation,
+    collapseWhitespace: collapseWhitespace ?? this.collapseWhitespace,
+    allowUmlautFolding: allowUmlautFolding ?? this.allowUmlautFolding,
+  );
 }
 
 /// 文本标准化器
@@ -66,7 +65,9 @@ class AnswerNormalizer {
   AnswerNormalizer._();
 
   /// 标点（含德语常用标点与引号），标准化时按需剥离
-  static final RegExp _punctuation = RegExp(r'''[.,;:!?¡¿"“”„‟'‚‘’«»‹›()\[\]{}—–\-…/\\|*_~`]+''');
+  static final RegExp _punctuation = RegExp(
+    r'''[.,;:!?¡¿"“”„‟'‚‘’«»‹›()\[\]{}—–\-…/\\|*_~`]+''',
+  );
 
   static String normalize(String input, NormalizeOptions options) {
     var text = _unifyCharacters(input);

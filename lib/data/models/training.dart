@@ -1,4 +1,4 @@
-/// AI 训练模块领域模型
+﻿/// AI 训练模块领域模型
 ///
 /// 设计要点（对应实施任务书 §4）：
 /// - 三大技能（听/读/写）并列，题型通过 [ExerciseType] 扩展，不复制流程；
@@ -11,7 +11,10 @@ library;
 enum TrainingSkill {
   listening('listening'),
   reading('reading'),
-  writing('writing');
+  writing('writing'),
+
+  /// 混合练习：一套题里听 / 读 / 写题型各出几道
+  mixed('mixed');
 
   const TrainingSkill(this.code);
 
@@ -28,6 +31,7 @@ enum TrainingSkill {
     TrainingSkill.listening => '听力',
     TrainingSkill.reading => '阅读',
     TrainingSkill.writing => '写作',
+    TrainingSkill.mixed => '混合',
   };
 
   /// 德语名（界面上与中文并列展示，属产品术语，不参与翻译）
@@ -35,6 +39,7 @@ enum TrainingSkill {
     TrainingSkill.listening => 'Hören',
     TrainingSkill.reading => 'Lesen',
     TrainingSkill.writing => 'Schreiben',
+    TrainingSkill.mixed => 'Gemischt',
   };
 }
 
@@ -76,6 +81,9 @@ enum GradingMode {
 
   /// AI Rubric 评分（开放式答案）
   aiRubric,
+
+  /// 混合：同一套题里客观题走程序判分、写作题走 AI Rubric
+  mixed,
 }
 
 /// 训练题型
@@ -214,6 +222,17 @@ enum ExerciseType {
     '按主题与字数写短文',
     QuestionType.freeText,
     GradingMode.aiRubric,
+  ),
+
+  /// 混合练习：一套题里包含听力（听写）、语法词汇（填空/判断）与写作（AI 评分），
+  /// 判分方式由**每道题的题干类型**决定，不统一。
+  mixedPractice(
+    'mixed_practice',
+    TrainingSkill.mixed,
+    '混合练习',
+    '听、读、写题型混合出题，一节课练全面',
+    QuestionType.singleChoice,
+    GradingMode.mixed,
   );
 
   const ExerciseType(

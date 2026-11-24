@@ -1,4 +1,4 @@
-﻿/// 训练模块（Hören / Lesen / Schreiben）相关文案 —— 由本地化任务填充。
+/// 训练模块（Hören / Lesen / Schreiben）相关文案 —— 由本地化任务填充。
 ///
 /// 与其它分片一样：中文原文即 key。训练模块新增文案集中放这里，
 /// 避免污染既有分片；重复 key 由 `translations_*.dart` 的 spread 顺序决定。
@@ -234,6 +234,10 @@ const Map<String, String> trainingEn = <String, String>{
   '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
       'Use {1} words from “{0}” (studied today / due for review / favourites) as references only',
   '近期词汇': 'Recent words',
+  '混合': 'Mixed',
+  '混合练习': 'Mixed practice',
+  '听、读、写题型混合出题，一节课练全面':
+      'Listening, grammar and writing questions in one session',
   // 错题重练 / 写作知识点统计
   '重练错题': 'Practise wrong answers',
   '本次没有错题': 'No wrong answers this time',
@@ -496,6 +500,9 @@ const Map<String, String> trainingDe = <String, String>{
   '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
       '{1} Wörter aus „{0}“ (heute gelernt / fällig / Favoriten) nur als Anregung',
   '近期词汇': 'Aktuelle Wörter',
+  '混合': 'Gemischt',
+  '混合练习': 'Gemischt üben',
+  '听、读、写题型混合出题，一节课练全面': 'Hör-, Grammatik- und Schreibaufgaben in einer Einheit',
   // Fehler wiederholen / Schreib-Lernpunkte
   '重练错题': 'Fehler erneut üben',
   '本次没有错题': 'Diesmal keine Fehler',

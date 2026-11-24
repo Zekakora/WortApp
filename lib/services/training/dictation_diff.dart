@@ -12,13 +12,7 @@ library;
 import 'answer_normalizer.dart';
 
 /// 单词级差异类型
-enum DictationDiffKind {
-  missing,
-  replaced,
-  extra,
-  caseOnly,
-  spelling,
-}
+enum DictationDiffKind { missing, replaced, extra, caseOnly, spelling }
 
 /// 一处差异
 class DictationDiffItem {
@@ -41,19 +35,19 @@ class DictationDiffItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'kind': kind.name,
-        if (expected != null) 'expected': expected,
-        if (actual != null) 'actual': actual,
-        'position': position,
-      };
+    'kind': kind.name,
+    if (expected != null) 'expected': expected,
+    if (actual != null) 'actual': actual,
+    'position': position,
+  };
 
   String get hintZh => switch (kind) {
-        DictationDiffKind.missing => '漏写',
-        DictationDiffKind.replaced => '写错',
-        DictationDiffKind.extra => '多写',
-        DictationDiffKind.caseOnly => '大小写',
-        DictationDiffKind.spelling => '拼写',
-      };
+    DictationDiffKind.missing => '漏写',
+    DictationDiffKind.replaced => '写错',
+    DictationDiffKind.extra => '多写',
+    DictationDiffKind.caseOnly => '大小写',
+    DictationDiffKind.spelling => '拼写',
+  };
 }
 
 /// 听写判分结果
@@ -75,18 +69,20 @@ class DictationResult {
 
   /// 实质错误（漏写/错词/多写），大小写与拼写单列
   List<DictationDiffItem> get substantiveErrors => diffs
-      .where((d) =>
-          d.kind == DictationDiffKind.missing ||
-          d.kind == DictationDiffKind.replaced ||
-          d.kind == DictationDiffKind.extra)
+      .where(
+        (d) =>
+            d.kind == DictationDiffKind.missing ||
+            d.kind == DictationDiffKind.replaced ||
+            d.kind == DictationDiffKind.extra,
+      )
       .toList();
 
   Map<String, dynamic> toJson() => {
-        'accuracy': accuracy,
-        'expectedCount': expectedCount,
-        'matchedCount': matchedCount,
-        'diffs': diffs.map((d) => d.toJson()).toList(),
-      };
+    'accuracy': accuracy,
+    'expectedCount': expectedCount,
+    'matchedCount': matchedCount,
+    'diffs': diffs.map((d) => d.toJson()).toList(),
+  };
 }
 
 /// 听写差异分析器
@@ -97,10 +93,7 @@ class DictationDiff {
   static List<String> tokenize(String text) {
     final unified = AnswerNormalizer.normalize(
       text,
-      const NormalizeOptions(
-        ignorePunctuation: true,
-        collapseWhitespace: true,
-      ),
+      const NormalizeOptions(ignorePunctuation: true, collapseWhitespace: true),
     );
     if (unified.isEmpty) return const [];
     return unified.split(' ').where((w) => w.isNotEmpty).toList();
@@ -170,37 +163,45 @@ class DictationDiff {
           final expectedWord = expected[op.expectedPos];
           final actualWord = actual[op.actualPos];
           if (expectedWord != actualWord) {
-            diffs.add(DictationDiffItem(
-              kind: DictationDiffKind.caseOnly,
-              expected: expectedWord,
-              actual: actualWord,
-              position: op.expectedPos,
-            ));
+            diffs.add(
+              DictationDiffItem(
+                kind: DictationDiffKind.caseOnly,
+                expected: expectedWord,
+                actual: actualWord,
+                position: op.expectedPos,
+              ),
+            );
           }
         case _OpKind.missing:
-          diffs.add(DictationDiffItem(
-            kind: DictationDiffKind.missing,
-            expected: expected[op.expectedPos],
-            position: op.expectedPos,
-          ));
+          diffs.add(
+            DictationDiffItem(
+              kind: DictationDiffKind.missing,
+              expected: expected[op.expectedPos],
+              position: op.expectedPos,
+            ),
+          );
         case _OpKind.extra:
-          diffs.add(DictationDiffItem(
-            kind: DictationDiffKind.extra,
-            actual: actual[op.actualPos],
-            position: op.expectedPos,
-          ));
+          diffs.add(
+            DictationDiffItem(
+              kind: DictationDiffKind.extra,
+              actual: actual[op.actualPos],
+              position: op.expectedPos,
+            ),
+          );
         case _OpKind.replace:
           final expectedWord = expected[op.expectedPos];
           final actualWord = actual[op.actualPos];
           final kind = _isNearMiss(expectedWord, actualWord)
               ? DictationDiffKind.spelling
               : DictationDiffKind.replaced;
-          diffs.add(DictationDiffItem(
-            kind: kind,
-            expected: expectedWord,
-            actual: actualWord,
-            position: op.expectedPos,
-          ));
+          diffs.add(
+            DictationDiffItem(
+              kind: kind,
+              expected: expectedWord,
+              actual: actualWord,
+              position: op.expectedPos,
+            ),
+          );
       }
     }
 
@@ -257,8 +258,8 @@ class DictationDiff {
         table[i][j] = _sameWord(a[i - 1], b[j - 1])
             ? table[i - 1][j - 1] + 1
             : (table[i - 1][j] > table[i][j - 1]
-                ? table[i - 1][j]
-                : table[i][j - 1]);
+                  ? table[i - 1][j]
+                  : table[i][j - 1]);
       }
     }
     return table;
@@ -273,11 +274,7 @@ class _Op {
   final int actualPos;
 
   _Op.match(this.expectedPos, this.actualPos) : kind = _OpKind.match;
-  _Op.missing(this.expectedPos)
-      : kind = _OpKind.missing,
-        actualPos = -1;
-  _Op.extra(this.actualPos)
-      : kind = _OpKind.extra,
-        expectedPos = actualPos;
+  _Op.missing(this.expectedPos) : kind = _OpKind.missing, actualPos = -1;
+  _Op.extra(this.actualPos) : kind = _OpKind.extra, expectedPos = actualPos;
   _Op.replace(this.expectedPos, this.actualPos) : kind = _OpKind.replace;
 }
