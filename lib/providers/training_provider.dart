@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/utils/german_parser.dart';
 import '../data/database/app_database.dart';
 import '../data/database/daos/exercise_dao.dart';
 import '../data/models/training.dart';
@@ -60,7 +61,7 @@ class TrainingPrefs {
   final String topic;
 
   /// 是否优先使用收藏词汇（与等级、难度等选项一起记忆）
-  final bool useFavorites;
+  final bool useVocabularyFocus;
 
   /// 是否已从数据库读取完成
   ///
@@ -73,7 +74,7 @@ class TrainingPrefs {
     this.difficulty = TrainingDifficulty.normal,
     this.questionCount = 5,
     this.topic = '',
-    this.useFavorites = false,
+    this.useVocabularyFocus = false,
     this.isLoaded = false,
   });
 
@@ -82,14 +83,14 @@ class TrainingPrefs {
     TrainingDifficulty? difficulty,
     int? questionCount,
     String? topic,
-    bool? useFavorites,
+    bool? useVocabularyFocus,
     bool? isLoaded,
   }) => TrainingPrefs(
     level: level ?? this.level,
     difficulty: difficulty ?? this.difficulty,
     questionCount: questionCount ?? this.questionCount,
     topic: topic ?? this.topic,
-    useFavorites: useFavorites ?? this.useFavorites,
+    useVocabularyFocus: useVocabularyFocus ?? this.useVocabularyFocus,
     isLoaded: isLoaded ?? this.isLoaded,
   );
 }
@@ -113,7 +114,7 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
       final difficulty = await db.getSetting('training_difficulty');
       final count = await db.getSetting('training_count');
       final topic = await db.getSetting('training_topic');
-      final useFavorites = await db.getSetting('training_use_favorites');
+      final useVocabularyFocus = await db.getSetting('training_use_vocab_focus');
 
       final parsedCount = int.tryParse(count ?? '');
       state = TrainingPrefs(
@@ -125,7 +126,7 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
             ? parsedCount!
             : state.questionCount,
         topic: topic ?? state.topic,
-        useFavorites: useFavorites == 'true',
+        useVocabularyFocus: useVocabularyFocus == 'true',
         isLoaded: true,
       );
     } catch (e) {
@@ -144,8 +145,8 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
       await db.setSetting('training_count', prefs.questionCount.toString());
       await db.setSetting('training_topic', prefs.topic);
       await db.setSetting(
-        'training_use_favorites',
-        prefs.useFavorites.toString(),
+        'training_use_vocab_focus',
+        prefs.useVocabularyFocus.toString(),
       );
     } catch (e) {
       debugPrint('保存训练设置失败: $e');
@@ -211,19 +212,82 @@ final trainingHistoryProvider =
       return db.exerciseDao.getHistory(skill: skill);
     });
 
-/// 收藏词汇（作为可选词汇范围传给生成提示词）
-final favoriteVocabularyProvider = FutureProvider<List<String>>((ref) async {
-  final db = ref.watch(databaseProvider);
-  if (db == null) return const [];
-  final deck = await ref.watch(activeDeckProvider.future);
-  if (deck == null) return const [];
-  final words = await db.wordDao.getWordsByDeck(deck.id);
-  return words
-      .where((w) => w.isFavorite)
-      .map((w) => w.german)
-      .take(40)
-      .toList();
-});
+/// 训练提示词用的「参考词」
+///
+/// 词书可能有几千个词，整份塞进提示词既费 token 又会逼模型硬塞生词。
+/// 这里只取少量（最多 [maxWords] 个）与当前学习进度相关的词：
+/// 今日学过的 → 最近到期的复习词 → 收藏词，按词形去重后截断。
+/// 提示词里会明确写"这些词只作参考，不必全部出现"。
+class TrainingVocabularyFocus {
+  static const int maxWords = 20;
+
+  final List<String> words;
+
+  /// 来源词书名（界面上告诉用户这 20 个词是从哪儿挑的）
+  final String deckName;
+
+  const TrainingVocabularyFocus({this.words = const [], this.deckName = ''});
+
+  bool get isEmpty => words.isEmpty;
+
+  /// 传给提示词的文本
+  String get promptText => words.join(', ');
+}
+
+final trainingVocabularyFocusProvider =
+    FutureProvider<TrainingVocabularyFocus>((ref) async {
+      final db = ref.watch(databaseProvider);
+      if (db == null) return const TrainingVocabularyFocus();
+
+      // 来源词书：练习默认词书优先，其次当前词书
+      final defaultDeckId = ref.watch(practiceDefaultDeckProvider);
+      Deck? deck;
+      if (defaultDeckId != null) {
+        deck = await db.deckDao.getDeckById(defaultDeckId);
+      }
+      deck ??= await ref.watch(activeDeckProvider.future);
+      if (deck == null) return const TrainingVocabularyFocus();
+
+      final targetDeckId = deck.id;
+      final picked = <String>[];
+      final seen = <String>{};
+
+      void collect(Iterable<Word> words) {
+        for (final word in words) {
+          if (picked.length >= TrainingVocabularyFocus.maxWords) return;
+          final key = GermanParser.canonicalKey(word.german);
+          if (key.isEmpty || !seen.add(key)) continue;
+          picked.add(word.german);
+        }
+      }
+
+      try {
+        // 1. 今天学过的词
+        collect(await db.wordDao.getTodayStudiedWords(targetDeckId));
+
+        // 2. 最近该复习的词（最逾期的在前）
+        if (picked.length < TrainingVocabularyFocus.maxWords) {
+          final dueIds = await db.sm2Dao.getDueReviewWordIds(
+            deckId: targetDeckId,
+            limit: TrainingVocabularyFocus.maxWords - picked.length,
+          );
+          if (dueIds.isNotEmpty) {
+            collect(await db.wordDao.getWordsByIds(dueIds));
+          }
+        }
+
+        // 3. 收藏词补齐
+        if (picked.length < TrainingVocabularyFocus.maxWords) {
+          final favorites = (await db.wordDao.getWordsByDeck(targetDeckId))
+              .where((w) => w.isFavorite);
+          collect(favorites);
+        }
+      } catch (e) {
+        debugPrint('收集参考词失败: $e');
+      }
+
+      return TrainingVocabularyFocus(words: picked, deckName: deck.name);
+    });
 
 /// 答题会话状态
 class TrainingSessionState {

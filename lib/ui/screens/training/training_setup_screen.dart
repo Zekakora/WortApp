@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
@@ -12,7 +12,7 @@ import 'exercise_player_screen.dart';
 /// 训练设置：等级 / 难度 / 题量 / 主题 / 词汇范围
 ///
 /// - CEFR 等级与难度是**两个维度**（任务书 §2），分开选择；
-/// - 所有选项（含「优先使用收藏词汇」）都会即时写入 settings 表，
+/// - 所有选项（含「优先使用近期学习的词汇」）都会即时写入 settings 表，
 ///   下次进入默认就是上次的选择；
 /// - 平板（≥ 720dp）：左栏选项、右栏当前选择摘要 + 开始按钮，避免底部按钮
 ///   被推到屏幕外。
@@ -31,7 +31,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
   TrainingDifficulty _difficulty = TrainingDifficulty.normal;
   int _count = 5;
   String _topic = '';
-  bool _useFavorites = false;
+  bool _useVocabularyFocus = false;
   bool _starting = false;
 
   /// 是否已经把上次保存的选项填进控件（只填一次，之后以用户操作为准）
@@ -43,7 +43,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
     _difficulty = prefs.difficulty;
     _count = prefs.questionCount;
     _topic = prefs.topic;
-    _useFavorites = prefs.useFavorites;
+    _useVocabularyFocus = prefs.useVocabularyFocus;
     _prefilled = true;
   }
 
@@ -57,7 +57,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
             difficulty: _difficulty,
             questionCount: _count,
             topic: _topic,
-            useFavorites: _useFavorites,
+            useVocabularyFocus: _useVocabularyFocus,
             isLoaded: true,
           ),
         );
@@ -83,11 +83,12 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
 
     final settings = ref.watch(settingsProvider);
     final aiConfigured = settings.aiConfig.isConfigured;
-    final favorites = ref.watch(favoriteVocabularyProvider);
-    final favoriteWords = favorites.valueOrNull ?? const <String>[];
+    final vocabFocus =
+        ref.watch(trainingVocabularyFocusProvider).valueOrNull ??
+        const TrainingVocabularyFocus();
     final isWide = WideLayout.isWide(context);
 
-    final options = _buildOptions(context, favoriteWords);
+    final options = _buildOptions(context, vocabFocus);
     final panel = _buildStartPanel(context, aiConfigured);
 
     return Scaffold(
@@ -121,7 +122,10 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
   }
 
   /// 左栏：题目说明 + 各选项
-  List<Widget> _buildOptions(BuildContext context, List<String> favoriteWords) {
+  List<Widget> _buildOptions(
+    BuildContext context,
+    TrainingVocabularyFocus vocabFocus,
+  ) {
     return [
       Text(
         context.tr(widget.type.descZh),
@@ -189,17 +193,20 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
             ),
         ],
       ),
-      if (favoriteWords.isNotEmpty) ...[
+      if (!vocabFocus.isEmpty) ...[
         const SizedBox(height: 16),
         _SectionTitle(context.tr('词汇范围')),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(context.tr('优先使用收藏词汇')),
+          title: Text(context.tr('优先使用近期学习的词汇')),
           subtitle: Text(
-            context.trArgs('共 {0} 个收藏词，生成时会尽量用到', [favoriteWords.length]),
+            context.trArgs(
+              '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现',
+              [vocabFocus.deckName, vocabFocus.words.length],
+            ),
           ),
-          value: _useFavorites,
-          onChanged: (value) => _update(() => _useFavorites = value),
+          value: _useVocabularyFocus,
+          onChanged: (value) => _update(() => _useVocabularyFocus = value),
         ),
       ],
     ];
@@ -214,7 +221,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
         difficulty: _difficulty,
         count: _count,
         topic: _topic,
-        useFavorites: _useFavorites,
+        useVocabularyFocus: _useVocabularyFocus,
       ),
       const SizedBox(height: 16),
       FilledButton.icon(
@@ -250,10 +257,11 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
     setState(() => _starting = true);
     _persist();
 
-    final favorites =
-        ref.read(favoriteVocabularyProvider).valueOrNull ?? const <String>[];
-    final vocabularyFocus = _useFavorites && favorites.isNotEmpty
-        ? favorites.join(', ')
+    final focus =
+        ref.read(trainingVocabularyFocusProvider).valueOrNull ??
+            const TrainingVocabularyFocus();
+    final vocabularyFocus = _useVocabularyFocus && !focus.isEmpty
+        ? focus.promptText
         : null;
 
     final id = await ref
@@ -306,7 +314,7 @@ class _SummaryCard extends StatelessWidget {
   final TrainingDifficulty difficulty;
   final int count;
   final String topic;
-  final bool useFavorites;
+  final bool useVocabularyFocus;
 
   const _SummaryCard({
     required this.type,
@@ -314,7 +322,7 @@ class _SummaryCard extends StatelessWidget {
     required this.difficulty,
     required this.count,
     required this.topic,
-    required this.useFavorites,
+    required this.useVocabularyFocus,
   });
 
   @override
@@ -350,7 +358,7 @@ class _SummaryCard extends StatelessWidget {
               _Chip(
                 text: topic.isEmpty ? context.tr('随机主题') : context.tr(topic),
               ),
-              if (useFavorites) _Chip(text: context.tr('收藏词汇')),
+              if (useVocabularyFocus) _Chip(text: context.tr('近期词汇')),
             ],
           ),
         ],

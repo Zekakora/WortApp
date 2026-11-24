@@ -130,9 +130,21 @@ class _ResultBodyState extends State<_ResultBody> {
       );
     }
 
-    // 宽屏：左原文 + 题目列表，右结果详情
+    // 宽屏：上方原文 + 结果详情，底部是可上下滚动的小网格选题
     final index = _selected.clamp(0, view.items.length - 1);
     final item = view.items[index];
+    final hasStimulus = exercise.stimulusText.isNotEmpty;
+
+    final detail = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 20, 16),
+      child: _QuestionReview(
+        item: item,
+        attempt: view.attemptOf(item.question.key),
+        index: index,
+        total: view.items.length,
+        asCard: false,
+      ),
+    );
 
     return Column(
       children: [
@@ -142,60 +154,42 @@ class _ResultBodyState extends State<_ResultBody> {
         ),
         const Divider(height: 1),
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 2,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 8, 24),
+          child: hasStimulus
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (exercise.stimulusText.isNotEmpty) ...[
-                      _StimulusSection(
-                        text: exercise.stimulusText,
-                        isListening: type.skill == TrainingSkill.listening,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 8),
-                      child: Text(
-                        context.tr('题目列表'),
-                        style: Theme.of(context).textTheme.labelLarge,
+                    Expanded(
+                      flex: 2,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 8, 16),
+                        children: [
+                          _StimulusSection(
+                            text: exercise.stimulusText,
+                            isListening: type.skill == TrainingSkill.listening,
+                          ),
+                        ],
                       ),
                     ),
-                    for (var i = 0; i < view.items.length; i++)
-                      _QuestionTile(
-                        item: view.items[i],
-                        attempt: view.attemptOf(view.items[i].question.key),
-                        index: i,
-                        selected: i == index,
-                        onTap: () => setState(() => _selected = i),
-                      ),
+                    const VerticalDivider(width: 1, thickness: 1),
+                    Expanded(flex: 3, child: detail),
                   ],
-                ),
-              ),
-              const VerticalDivider(width: 1, thickness: 1),
-              Expanded(
-                flex: 3,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 20, 24),
-                  child: _QuestionReview(
-                    item: item,
-                    attempt: view.attemptOf(item.question.key),
-                    index: index,
-                    total: view.items.length,
-                    asCard: false,
-                  ),
-                ),
-              ),
-            ],
-          ),
+                )
+              : detail,
+        ),
+        const Divider(height: 1),
+        _QuestionGrid(
+          items: view.items,
+          attemptsByKey: {
+            for (final entry in view.items)
+              entry.question.key: view.attemptOf(entry.question.key),
+          },
+          selected: index,
+          onSelected: (value) => setState(() => _selected = value),
         ),
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: actions,
           ),
         ),
@@ -204,30 +198,45 @@ class _ResultBodyState extends State<_ResultBody> {
   }
 }
 
-/// 左栏：单题摘要
-class _QuestionTile extends StatelessWidget {
-  final ExerciseQuestionView item;
-  final ExerciseAttempt? attempt;
-  final int index;
-  final bool selected;
-  final VoidCallback onTap;
+/// 底部题目小网格：只显示「第 N 题」+ 对错标志，可上下滚动
+class _QuestionGrid extends StatelessWidget {
+  final List<ExerciseQuestionView> items;
+  final Map<String, ExerciseAttempt?> attemptsByKey;
+  final int selected;
+  final ValueChanged<int> onSelected;
 
-  const _QuestionTile({
-    required this.item,
-    required this.attempt,
-    required this.index,
+  const _QuestionGrid({
+    required this.items,
+    required this.attemptsByKey,
     required this.selected,
-    required this.onTap,
+    required this.onSelected,
   });
 
   @override
   Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 108),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < items.length; i++) _buildChip(context, i),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(BuildContext context, int index) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final attempt = attemptsByKey[items[index].question.key];
     final isCorrect = attempt?.isCorrect ?? false;
     final isPartial = attempt?.isPartial ?? false;
     final unavailable = attempt?.graderType == 'unavailable';
-    final color = unavailable
+    final statusColor = unavailable
         ? colorScheme.outline
         : isCorrect
         ? Colors.green
@@ -235,65 +244,41 @@ class _QuestionTile extends StatelessWidget {
         ? Colors.orange
         : colorScheme.error;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: selected ? colorScheme.secondaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              children: [
-                Icon(
-                  unavailable
-                      ? Icons.help_outline
-                      : isCorrect
-                      ? Icons.check_circle
-                      : isPartial
-                      ? Icons.adjust
-                      : Icons.cancel,
-                  size: 16,
-                  color: color,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.trArgs('第 {0} 题', [index + 1]),
-                        style: theme.textTheme.labelSmall,
-                      ),
-                      Text(
-                        item.question.prompt,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${_fmt(attempt?.score ?? 0)}/${_fmt(attempt?.maxScore ?? item.question.points)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+    return Material(
+      color: index == selected
+          ? colorScheme.secondaryContainer
+          : colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => onSelected(index),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                unavailable
+                    ? Icons.help_outline
+                    : isCorrect
+                    ? Icons.check_circle
+                    : isPartial
+                    ? Icons.adjust
+                    : Icons.cancel,
+                size: 14,
+                color: statusColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                context.trArgs('第 {0} 题', [index + 1]),
+                style: theme.textTheme.labelSmall,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  static String _fmt(num value) =>
-      value == value.roundToDouble() ? value.round().toString() : '$value';
 }
 
 class _ScoreHeader extends StatelessWidget {

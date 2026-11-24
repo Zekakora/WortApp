@@ -1,4 +1,4 @@
-/// 训练模块（Hören / Lesen / Schreiben）相关文案 —— 由本地化任务填充。
+﻿/// 训练模块（Hören / Lesen / Schreiben）相关文案 —— 由本地化任务填充。
 ///
 /// 与其它分片一样：中文原文即 key。训练模块新增文案集中放这里，
 /// 避免污染既有分片；重复 key 由 `translations_*.dart` 的 spread 顺序决定。
@@ -230,6 +230,10 @@ const Map<String, String> trainingEn = <String, String>{
   '显示原文': 'Show text',
   '{0} 题': '{0} questions',
   '收藏词汇': 'Favourite words',
+  '优先使用近期学习的词汇': 'Prefer recently studied vocabulary',
+  '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
+      'Use {1} words from “{0}” (studied today / due for review / favourites) as references only',
+  '近期词汇': 'Recent words',
 };
 
 const Map<String, String> trainingDe = <String, String>{
@@ -463,4 +467,8 @@ const Map<String, String> trainingDe = <String, String>{
   '显示原文': 'Text einblenden',
   '{0} 题': '{0} Fragen',
   '收藏词汇': 'Favoriten',
+  '优先使用近期学习的词汇': 'Zuletzt gelernten Wortschatz bevorzugen',
+  '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
+      '{1} Wörter aus „{0}“ (heute gelernt / fällig / Favoriten) nur als Anregung',
+  '近期词汇': 'Aktuelle Wörter',
 };

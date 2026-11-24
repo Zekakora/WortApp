@@ -67,7 +67,10 @@ class ExercisePrompts {
     final topicText = topic.isEmpty ? '日常生活中的常见话题' : topic;
     final vocabText = (vocabularyFocus == null || vocabularyFocus.trim().isEmpty)
         ? ''
-        : '\n可参考的词汇范围（仅在自然的情况下使用，不要硬塞）：$vocabularyFocus';
+        : '\n参考词（来自学习者最近的学习记录，**不是必用词表**）：$vocabularyFocus'
+            '\n关于参考词的要求：这些词只作参考，能自然融入时用 1–3 个即可；'
+            '不要为了用上它们而堆砌或改变话题，用不上就直接忽略；'
+            '不要让这些词左右整体难度（难度仍以等级与难度参数为准）。';
 
     final userMessage = [
       '请生成一套练习：',
