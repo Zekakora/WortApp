@@ -5,6 +5,7 @@ import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/study_provider.dart';
+import '../../../ui/utils/wide_layout.dart';
 import 'study_stats_screen.dart';
 import 'widgets/flip_mode_screen.dart';
 import 'widgets/de_to_cn_screen.dart';
@@ -264,8 +265,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
+          final deckPane = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // 词书信息
               Card(
@@ -460,18 +461,8 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                               ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // 每词连续答对次数（1 = 答对一次即通过）
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                      const Divider(height: 24),
+
                       Row(
                         children: [
                           Icon(
@@ -508,7 +499,33 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              // 错误统计排行榜入口（今日/历史，二级页面）
+              Card(
+                child: ListTile(
+                  leading: Icon(
+                    Icons.bar_chart,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(context.tr('错误统计排行榜')),
+                  subtitle: Text(context.tr('今日/历史的错误次数与错误率')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudyStatsScreen(deckId: deck.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+
+          final modesPane = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
                 context.tr('选择学习模式'),
                 style: Theme.of(
@@ -584,25 +601,32 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 24),
-              // 错误统计排行榜入口（今日/历史，二级页面）
-              Card(
-                child: ListTile(
-                  leading: Icon(
-                    Icons.bar_chart,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: Text(context.tr('错误统计排行榜')),
-                  subtitle: Text(context.tr('今日/历史的错误次数与错误率')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StudyStatsScreen(deckId: deck.id),
-                      ),
-                    );
-                  },
+            ],
+          );
+
+          // 平板 / 宽屏：左边练习参数、右边学习模式；窄屏仍为单列上下滚动
+          if (!WideLayout.isWide(context)) {
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [deckPane, const SizedBox(height: 24), modesPane],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 4,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [deckPane],
+                ),
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(
+                flex: 5,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [modesPane],
                 ),
               ),
             ],
