@@ -10,7 +10,9 @@ import 'exercise_player_screen.dart';
 
 /// 训练设置：等级 / 难度 / 题量 / 主题 / 词汇范围
 ///
-/// CEFR 等级与难度是**两个维度**（任务书 §2 明确要求），因此分开选择。
+/// - CEFR 等级与难度是**两个维度**（任务书 §2），分开选择；
+/// - 所有选项（含「优先使用收藏词汇」）都会即时写入 settings 表，
+///   下次进入默认就是上次的选择。
 class TrainingSetupScreen extends ConsumerStatefulWidget {
   final ExerciseType type;
 
@@ -22,28 +24,59 @@ class TrainingSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
-  late CefrLevel _level;
-  late TrainingDifficulty _difficulty;
-  late int _count;
-  late String _topic;
+  CefrLevel _level = CefrLevel.b1;
+  TrainingDifficulty _difficulty = TrainingDifficulty.normal;
+  int _count = 5;
+  String _topic = '';
   bool _useFavorites = false;
   bool _starting = false;
-  bool _initialized = false;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialized) return;
-    final prefs = ref.read(trainingPrefsProvider);
+  /// 是否已经把上次保存的选项填进控件（只填一次，之后以用户操作为准）
+  bool _prefilled = false;
+
+  /// 用保存过的选项初始化一次（在 build 里调用，不 setState：随后必然 build）
+  void _prefill(TrainingPrefs prefs) {
+    if (_prefilled) return;
     _level = prefs.level;
     _difficulty = prefs.difficulty;
     _count = prefs.questionCount;
     _topic = prefs.topic;
-    _initialized = true;
+    _useFavorites = prefs.useFavorites;
+    _prefilled = true;
+  }
+
+  /// 记忆当前选项（每次改动立即落库，不依赖"点了开始才保存"）
+  void _persist() {
+    ref.read(trainingPrefsProvider.notifier).save(
+          TrainingPrefs(
+            level: _level,
+            difficulty: _difficulty,
+            questionCount: _count,
+            topic: _topic,
+            useFavorites: _useFavorites,
+            isLoaded: true,
+          ),
+        );
+  }
+
+  void _update(void Function() change) {
+    setState(change);
+    _persist();
   }
 
   @override
   Widget build(BuildContext context) {
+    final prefs = ref.watch(trainingPrefsProvider);
+
+    // 设置读库是异步的：先等加载完，避免"默认值闪一下再跳成上次的选择"
+    if (!prefs.isLoaded) {
+      return Scaffold(
+        appBar: AppBar(title: Text(context.tr(widget.type.titleZh))),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    _prefill(prefs);
+
     final settings = ref.watch(settingsProvider);
     final aiConfigured = settings.aiConfig.isConfigured;
     final favorites = ref.watch(favoriteVocabularyProvider);
@@ -63,7 +96,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
                 ),
           ),
           const SizedBox(height: 16),
-          if (!aiConfigured) _AiWarningBanner(),
+          if (!aiConfigured) const _AiWarningBanner(),
           _SectionTitle(context.tr('CEFR 等级')),
           Wrap(
             spacing: 8,
@@ -73,7 +106,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
                 ChoiceChip(
                   label: Text(level.code),
                   selected: _level == level,
-                  onSelected: (_) => setState(() => _level = level),
+                  onSelected: (_) => _update(() => _level = level),
                 ),
             ],
           ),
@@ -89,7 +122,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
             ],
             selected: {_difficulty},
             onSelectionChanged: (selection) =>
-                setState(() => _difficulty = selection.first),
+                _update(() => _difficulty = selection.first),
           ),
           const SizedBox(height: 16),
           _SectionTitle(context.tr('题量')),
@@ -100,7 +133,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
                 ChoiceChip(
                   label: Text('$count'),
                   selected: _count == count,
-                  onSelected: (_) => setState(() => _count = count),
+                  onSelected: (_) => _update(() => _count = count),
                 ),
             ],
           ),
@@ -113,13 +146,13 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
               ChoiceChip(
                 label: Text(context.tr('随机主题')),
                 selected: _topic.isEmpty,
-                onSelected: (_) => setState(() => _topic = ''),
+                onSelected: (_) => _update(() => _topic = ''),
               ),
               for (final topic in trainingTopics)
                 ChoiceChip(
                   label: Text(context.tr(topic)),
                   selected: _topic == topic,
-                  onSelected: (_) => setState(() => _topic = topic),
+                  onSelected: (_) => _update(() => _topic = topic),
                 ),
             ],
           ),
@@ -135,7 +168,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
                 ]),
               ),
               value: _useFavorites,
-              onChanged: (value) => setState(() => _useFavorites = value),
+              onChanged: (value) => _update(() => _useFavorites = value),
             ),
             const SizedBox(height: 8),
           ],
@@ -172,13 +205,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
 
   Future<void> _start() async {
     setState(() => _starting = true);
-    final prefs = TrainingPrefs(
-      level: _level,
-      difficulty: _difficulty,
-      questionCount: _count,
-      topic: _topic,
-    );
-    await ref.read(trainingPrefsProvider.notifier).save(prefs);
+    _persist();
 
     final favorites = ref.read(favoriteVocabularyProvider).valueOrNull ??
         const <String>[];
@@ -246,6 +273,8 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _AiWarningBanner extends StatelessWidget {
+  const _AiWarningBanner();
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;

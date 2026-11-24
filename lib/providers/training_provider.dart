@@ -59,11 +59,22 @@ class TrainingPrefs {
   final int questionCount;
   final String topic;
 
+  /// 是否优先使用收藏词汇（与等级、难度等选项一起记忆）
+  final bool useFavorites;
+
+  /// 是否已从数据库读取完成
+  ///
+  /// 设置是异步读取的，界面必须先等它加载完再初始化选项，
+  /// 否则会先显示默认值（B1 / 普通 / 5 题）然后跳变成上次的选择。
+  final bool isLoaded;
+
   const TrainingPrefs({
     this.level = CefrLevel.b1,
     this.difficulty = TrainingDifficulty.normal,
     this.questionCount = 5,
     this.topic = '',
+    this.useFavorites = false,
+    this.isLoaded = false,
   });
 
   TrainingPrefs copyWith({
@@ -71,12 +82,16 @@ class TrainingPrefs {
     TrainingDifficulty? difficulty,
     int? questionCount,
     String? topic,
+    bool? useFavorites,
+    bool? isLoaded,
   }) =>
       TrainingPrefs(
         level: level ?? this.level,
         difficulty: difficulty ?? this.difficulty,
         questionCount: questionCount ?? this.questionCount,
         topic: topic ?? this.topic,
+        useFavorites: useFavorites ?? this.useFavorites,
+        isLoaded: isLoaded ?? this.isLoaded,
       );
 }
 
@@ -90,28 +105,38 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
 
   Future<void> _load() async {
     final db = _db;
-    if (db == null) return;
+    if (db == null) {
+      state = state.copyWith(isLoaded: true);
+      return;
+    }
     try {
       final level = await db.getSetting('training_level');
       final difficulty = await db.getSetting('training_difficulty');
       final count = await db.getSetting('training_count');
       final topic = await db.getSetting('training_topic');
+      final useFavorites = await db.getSetting('training_use_favorites');
+
+      final parsedCount = int.tryParse(count ?? '');
       state = TrainingPrefs(
         level: level == null ? state.level : CefrLevel.fromCode(level),
         difficulty: difficulty == null
             ? state.difficulty
             : TrainingDifficulty.fromCode(difficulty),
-        questionCount:
-            int.tryParse(count ?? '') ?? state.questionCount,
+        questionCount: trainingQuestionCounts.contains(parsedCount)
+            ? parsedCount!
+            : state.questionCount,
         topic: topic ?? state.topic,
+        useFavorites: useFavorites == 'true',
+        isLoaded: true,
       );
     } catch (e) {
       debugPrint('读取训练设置失败: $e');
+      state = state.copyWith(isLoaded: true);
     }
   }
 
   Future<void> save(TrainingPrefs prefs) async {
-    state = prefs;
+    state = prefs.copyWith(isLoaded: true);
     final db = _db;
     if (db == null) return;
     try {
@@ -119,6 +144,10 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
       await db.setSetting('training_difficulty', prefs.difficulty.code);
       await db.setSetting('training_count', prefs.questionCount.toString());
       await db.setSetting('training_topic', prefs.topic);
+      await db.setSetting(
+        'training_use_favorites',
+        prefs.useFavorites.toString(),
+      );
     } catch (e) {
       debugPrint('保存训练设置失败: $e');
     }
