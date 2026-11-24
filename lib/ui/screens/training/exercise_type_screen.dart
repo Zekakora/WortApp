@@ -6,7 +6,7 @@ import '../../../data/models/training.dart';
 import '../../../ui/utils/wide_layout.dart';
 import 'training_setup_screen.dart';
 
-/// 题型列表（某个技能下的所有题型，未实现的标注"后续"）
+/// 题型列表（某个技能下的所有题型）
 class ExerciseTypeScreen extends ConsumerWidget {
   final TrainingSkill skill;
 
@@ -78,13 +78,9 @@ class _TypeCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: type.implemented
-            ? () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => TrainingSetupScreen(type: type),
-                ),
-              )
-            : null,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => TrainingSetupScreen(type: type)),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -93,16 +89,12 @@ class _TypeCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: type.implemented
-                      ? colorScheme.primaryContainer
-                      : colorScheme.surfaceContainerHighest,
+                  color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   _iconOf(type),
-                  color: type.implemented
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurfaceVariant,
+                  color: colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 12),
@@ -110,32 +102,9 @@ class _TypeCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            context.tr(type.titleZh),
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        if (!type.implemented) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              context.tr('后续'),
-                              style: theme.textTheme.labelSmall,
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      context.tr(type.titleZh),
+                      style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -147,8 +116,7 @@ class _TypeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (type.implemented)
-                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),

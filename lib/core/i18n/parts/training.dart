@@ -234,6 +234,31 @@ const Map<String, String> trainingEn = <String, String>{
   '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
       'Use {1} words from “{0}” (studied today / due for review / favourites) as references only',
   '近期词汇': 'Recent words',
+  // 错题重练 / 写作知识点统计
+  '重练错题': 'Practise wrong answers',
+  '本次没有错题': 'No wrong answers this time',
+  '写作知识点统计': 'Writing knowledge points',
+  '写作练习': 'Writing sessions',
+  '纠正条数': 'Corrections',
+  '涉及知识点': 'Knowledge points',
+  '{0} 次': '{0}×',
+  '还没有写作练习记录': 'No writing practice yet',
+  '完成写作类练习后，这里会统计常错的知识点':
+      'After a writing exercise, the knowledge points you get wrong most often appear here',
+  '读取统计失败: {0}': 'Could not load statistics: {0}',
+  '第二虚拟式': 'Konjunktiv II',
+  '动词变位': 'Verb conjugation',
+  '时态': 'Tense',
+  '格与冠词': 'Case and articles',
+  '介词搭配': 'Prepositions',
+  '语序': 'Word order',
+  '形容词变格': 'Adjective declension',
+  '名词性数与复数': 'Gender, number and plural',
+  '拼写与大小写': 'Spelling and capitalisation',
+  '用词选择': 'Word choice',
+  '表达自然度': 'Naturalness',
+  '任务完成度': 'Task completion',
+  '其他': 'Other',
 };
 
 const Map<String, String> trainingDe = <String, String>{
@@ -471,4 +496,29 @@ const Map<String, String> trainingDe = <String, String>{
   '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现':
       '{1} Wörter aus „{0}“ (heute gelernt / fällig / Favoriten) nur als Anregung',
   '近期词汇': 'Aktuelle Wörter',
+  // Fehler wiederholen / Schreib-Lernpunkte
+  '重练错题': 'Fehler erneut üben',
+  '本次没有错题': 'Diesmal keine Fehler',
+  '写作知识点统计': 'Schreib-Lernpunkte',
+  '写作练习': 'Schreibübungen',
+  '纠正条数': 'Korrekturen',
+  '涉及知识点': 'Lernpunkte',
+  '{0} 次': '{0}×',
+  '还没有写作练习记录': 'Noch keine Schreibübung',
+  '完成写作类练习后，这里会统计常错的知识点':
+      'Nach einer Schreibübung erscheinen hier die Lernpunkte mit den häufigsten Fehlern',
+  '读取统计失败: {0}': 'Statistik konnte nicht geladen werden: {0}',
+  '第二虚拟式': 'Konjunktiv II',
+  '动词变位': 'Verbkonjugation',
+  '时态': 'Tempus',
+  '格与冠词': 'Kasus und Artikel',
+  '介词搭配': 'Präpositionen',
+  '语序': 'Wortstellung',
+  '形容词变格': 'Adjektivdeklination',
+  '名词性数与复数': 'Genus, Numerus und Plural',
+  '拼写与大小写': 'Rechtschreibung und Groß-/Kleinschreibung',
+  '用词选择': 'Wortwahl',
+  '表达自然度': 'Natürlichkeit',
+  '任务完成度': 'Aufgabenerfüllung',
+  '其他': 'Sonstiges',
 };

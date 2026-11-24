@@ -8,11 +8,13 @@ import '../../../core/i18n/app_localizations.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/database/daos/exercise_dao.dart';
 import '../../../data/models/training.dart';
+import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import '../../../ui/utils/selection_sentence.dart';
 import '../../../ui/utils/wide_layout.dart';
 import '../../../ui/widgets/context_lookup_sheet.dart';
+import 'exercise_player_screen.dart';
 import 'training_setup_screen.dart';
 
 /// 结果页：得分、逐题对错、正确答案、解析、听写差异与写作 Rubric
@@ -49,17 +51,42 @@ class ExerciseResultScreen extends ConsumerWidget {
   }
 }
 
-class _ResultBody extends StatefulWidget {
+class _ResultBody extends ConsumerStatefulWidget {
   final ExerciseResultView view;
 
   const _ResultBody({required this.view});
 
   @override
-  State<_ResultBody> createState() => _ResultBodyState();
+  ConsumerState<_ResultBody> createState() => _ResultBodyState();
 }
 
-class _ResultBodyState extends State<_ResultBody> {
+class _ResultBodyState extends ConsumerState<_ResultBody> {
   int _selected = 0;
+
+  /// 重练错题：本地克隆错题为新练习（不重新调用 AI），直接进入答题页
+  Future<void> _redoWrong() async {
+    final db = ref.read(databaseProvider);
+    if (db == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final newId = await db.exerciseDao.cloneWrongQuestions(
+      widget.view.exercise.id,
+    );
+    if (!mounted) return;
+
+    if (newId == null) {
+      messenger.showSnackBar(SnackBar(content: Text(context.tr('本次没有错题'))));
+      return;
+    }
+
+    ref.invalidate(trainingHistoryProvider);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExercisePlayerScreen(exerciseId: newId),
+      ),
+    );
+    if (!mounted) return;
+    ref.invalidate(trainingResultProvider(widget.view.exercise.id));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +108,23 @@ class _ResultBodyState extends State<_ResultBody> {
       durationSeconds: exercise.durationSeconds,
     );
 
+    final wrongCount = view.items.where((item) {
+      final attempt = view.attemptOf(item.question.key);
+      return attempt != null && !attempt.isCorrect;
+    }).length;
+
     final actions = Row(
       children: [
+        if (wrongCount > 0) ...[
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: _redoWrong,
+              icon: const Icon(Icons.replay),
+              label: Text(context.tr('重练错题')),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => Navigator.of(context).pushReplacement(

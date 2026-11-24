@@ -19,23 +19,23 @@ enum TrainingSkill {
   final String code;
 
   static TrainingSkill fromCode(String code) => TrainingSkill.values.firstWhere(
-        (s) => s.code == code,
-        orElse: () => TrainingSkill.reading,
-      );
+    (s) => s.code == code,
+    orElse: () => TrainingSkill.reading,
+  );
 
   /// 中文名（i18n key）
   String get titleZh => switch (this) {
-        TrainingSkill.listening => '听力',
-        TrainingSkill.reading => '阅读',
-        TrainingSkill.writing => '写作',
-      };
+    TrainingSkill.listening => '听力',
+    TrainingSkill.reading => '阅读',
+    TrainingSkill.writing => '写作',
+  };
 
   /// 德语名（界面上与中文并列展示，属产品术语，不参与翻译）
   String get germanName => switch (this) {
-        TrainingSkill.listening => 'Hören',
-        TrainingSkill.reading => 'Lesen',
-        TrainingSkill.writing => 'Schreiben',
-      };
+    TrainingSkill.listening => 'Hören',
+    TrainingSkill.reading => 'Lesen',
+    TrainingSkill.writing => 'Schreiben',
+  };
 }
 
 /// 题目类型（决定 Renderer 与判分方式）
@@ -52,23 +52,21 @@ enum QuestionType {
 
   final String code;
 
-  static QuestionType fromCode(String code) =>
-      QuestionType.values.firstWhere(
-        (t) => t.code == code,
-        orElse: () => QuestionType.freeText,
-      );
+  static QuestionType fromCode(String code) => QuestionType.values.firstWhere(
+    (t) => t.code == code,
+    orElse: () => QuestionType.freeText,
+  );
 
   /// 是否由程序确定性判分（false 表示必须走 AI Rubric）
   bool get isObjective => this != QuestionType.freeText;
 
   /// 用户答案是否为纯文本输入
   bool get isTextInput => switch (this) {
-        QuestionType.fillBlank ||
-        QuestionType.dictation ||
-        QuestionType.freeText =>
-          true,
-        _ => false,
-      };
+    QuestionType.fillBlank ||
+    QuestionType.dictation ||
+    QuestionType.freeText => true,
+    _ => false,
+  };
 }
 
 /// 判分方式
@@ -108,7 +106,6 @@ enum ExerciseType {
     '边听边补全挖空文本',
     QuestionType.fillBlank,
     GradingMode.program,
-    implemented: false,
   ),
   dialogComprehension(
     'dialog_comprehension',
@@ -117,7 +114,6 @@ enum ExerciseType {
     '听生活场景对话并作答',
     QuestionType.singleChoice,
     GradingMode.program,
-    implemented: false,
   ),
   listeningSentenceOrdering(
     'listening_sentence_ordering',
@@ -126,7 +122,6 @@ enum ExerciseType {
     '听取片段后排列正确顺序',
     QuestionType.ordering,
     GradingMode.program,
-    implemented: false,
   ),
 
   // ---- Lesen · 阅读 ----
@@ -153,7 +148,6 @@ enum ExerciseType {
     '根据上下文选择词义或搭配',
     QuestionType.singleChoice,
     GradingMode.program,
-    implemented: false,
   ),
   trueFalseReading(
     'true_false',
@@ -162,7 +156,6 @@ enum ExerciseType {
     '判断陈述与材料是否一致',
     QuestionType.trueFalse,
     GradingMode.program,
-    implemented: false,
   ),
   paragraphOrdering(
     'paragraph_ordering',
@@ -171,7 +164,6 @@ enum ExerciseType {
     '排列句子或段落恢复逻辑',
     QuestionType.ordering,
     GradingMode.program,
-    implemented: false,
   ),
   headingMatching(
     'heading_matching',
@@ -180,7 +172,6 @@ enum ExerciseType {
     '为段落匹配最合适的标题',
     QuestionType.singleChoice,
     GradingMode.program,
-    implemented: false,
   ),
 
   // ---- Schreiben · 写作 ----
@@ -207,7 +198,6 @@ enum ExerciseType {
     '把中文句子译成德语',
     QuestionType.freeText,
     GradingMode.aiRubric,
-    implemented: false,
   ),
   situationalWriting(
     'situational_writing',
@@ -216,7 +206,6 @@ enum ExerciseType {
     '按场景写邮件、预约、请假等',
     QuestionType.freeText,
     GradingMode.aiRubric,
-    implemented: false,
   ),
   freeWriting(
     'free_writing',
@@ -225,7 +214,6 @@ enum ExerciseType {
     '按主题与字数写短文',
     QuestionType.freeText,
     GradingMode.aiRubric,
-    implemented: false,
   );
 
   const ExerciseType(
@@ -234,9 +222,8 @@ enum ExerciseType {
     this.titleZh,
     this.descZh,
     this.defaultQuestionType,
-    this.gradingMode, {
-    this.implemented = true,
-  });
+    this.gradingMode,
+  );
 
   /// 持久化编码（写入 exercises.exercise_type）
   final String code;
@@ -253,20 +240,13 @@ enum ExerciseType {
 
   final GradingMode gradingMode;
 
-  /// 当前版本是否已实现（false 时列表里显示"后续"且不可进入）
-  final bool implemented;
-
   static ExerciseType fromCode(String code) => ExerciseType.values.firstWhere(
-        (t) => t.code == code,
-        orElse: () => ExerciseType.readingComprehension,
-      );
+    (t) => t.code == code,
+    orElse: () => ExerciseType.readingComprehension,
+  );
 
   static List<ExerciseType> forSkill(TrainingSkill skill) =>
       ExerciseType.values.where((t) => t.skill == skill).toList();
-
-  /// 是否有可进入练习的题型
-  static bool hasImplemented(TrainingSkill skill) =>
-      ExerciseType.values.any((t) => t.skill == skill && t.implemented);
 }
 
 /// CEFR 等级
@@ -363,20 +343,20 @@ class AnswerKey {
   }
 
   Map<String, dynamic> toJson() => {
-        if (acceptedAnswers.isNotEmpty) 'acceptedAnswers': acceptedAnswers,
-        if (correctIndices.isNotEmpty) 'correctIndices': correctIndices,
-        if (correctOrder.isNotEmpty) 'correctOrder': correctOrder,
-        if (acceptedOrders.isNotEmpty) 'acceptedOrders': acceptedOrders,
-        if (referenceAnswers.isNotEmpty) 'referenceAnswers': referenceAnswers,
-      };
+    if (acceptedAnswers.isNotEmpty) 'acceptedAnswers': acceptedAnswers,
+    if (correctIndices.isNotEmpty) 'correctIndices': correctIndices,
+    if (correctOrder.isNotEmpty) 'correctOrder': correctOrder,
+    if (acceptedOrders.isNotEmpty) 'acceptedOrders': acceptedOrders,
+    if (referenceAnswers.isNotEmpty) 'referenceAnswers': referenceAnswers,
+  };
 
   factory AnswerKey.fromJson(Map<String, dynamic> json) => AnswerKey(
-        acceptedAnswers: _stringList(json['acceptedAnswers']),
-        correctIndices: _intList(json['correctIndices']),
-        correctOrder: _intList(json['correctOrder']),
-        acceptedOrders: _intListList(json['acceptedOrders']),
-        referenceAnswers: _stringList(json['referenceAnswers']),
-      );
+    acceptedAnswers: _stringList(json['acceptedAnswers']),
+    correctIndices: _intList(json['correctIndices']),
+    correctOrder: _intList(json['correctOrder']),
+    acceptedOrders: _intListList(json['acceptedOrders']),
+    referenceAnswers: _stringList(json['referenceAnswers']),
+  );
 
   static List<String> _stringList(dynamic raw) {
     if (raw is String) return raw.trim().isEmpty ? const [] : [raw];
@@ -438,21 +418,20 @@ class Rubric {
 
   bool get isEmpty => dimensions.isEmpty;
 
-  int get maxScore =>
-      dimensions.fold(0, (sum, d) => sum + d.maxScore);
+  int get maxScore => dimensions.fold(0, (sum, d) => sum + d.maxScore);
 
   Map<String, dynamic> toJson() => {
-        'dimensions': dimensions.map((d) => d.toJson()).toList(),
-      };
+    'dimensions': dimensions.map((d) => d.toJson()).toList(),
+  };
 
   factory Rubric.fromJson(Map<String, dynamic> json) => Rubric(
-        dimensions: (json['dimensions'] as List?)
-                ?.whereType<Map>()
-                .map((e) => RubricDimension.fromJson(
-                    Map<String, dynamic>.from(e)))
-                .toList() ??
-            const [],
-      );
+    dimensions:
+        (json['dimensions'] as List?)
+            ?.whereType<Map>()
+            .map((e) => RubricDimension.fromJson(Map<String, dynamic>.from(e)))
+            .toList() ??
+        const [],
+  );
 }
 
 /// AI 生成并被校验通过的题目（含答案，只在生成/评分/落库链路中流转）
@@ -485,24 +464,24 @@ class GeneratedQuestion {
   /// [PlaybackQuestion.audioText]（**只供 TTS 朗读，UI 不得显示**），
   /// 而 `contextText` 保持为空，避免被当成可展示的上下文渲染出来。
   PlaybackQuestion toPlayback(int orderIndex) => PlaybackQuestion(
-        key: key,
-        orderIndex: orderIndex,
-        type: type,
-        prompt: prompt,
-        options: options,
-        contextText: type == QuestionType.dictation ? null : contextText,
-        audioText: type == QuestionType.dictation ? contextText : null,
-        points: points,
-      );
+    key: key,
+    orderIndex: orderIndex,
+    type: type,
+    prompt: prompt,
+    options: options,
+    contextText: type == QuestionType.dictation ? null : contextText,
+    audioText: type == QuestionType.dictation ? contextText : null,
+    points: points,
+  );
 
   /// 评分用答案
   QuestionSolution toSolution() => QuestionSolution(
-        key: key,
-        type: type,
-        answerKey: answerKey,
-        explanation: explanation,
-        rubric: rubric,
-      );
+    key: key,
+    type: type,
+    answerKey: answerKey,
+    explanation: explanation,
+    rubric: rubric,
+  );
 }
 
 /// AI 生成并被校验通过的整套练习
@@ -534,8 +513,7 @@ class GeneratedExercise {
   int get maxScore => questions.fold(0, (sum, q) => sum + q.points);
 
   /// 是否为听力材料（需要朗读）
-  bool get hasAudio =>
-      stimulusKind == 'audio' || stimulusKind == 'text_audio';
+  bool get hasAudio => stimulusKind == 'audio' || stimulusKind == 'text_audio';
 }
 
 /// 答题阶段可见的题目（**不含任何答案字段**）
@@ -606,30 +584,31 @@ class QuestionGrade {
   });
 
   static QuestionGrade correct(double maxScore) => QuestionGrade(
-        score: maxScore,
-        maxScore: maxScore,
-        isCorrect: true,
-        graderType: 'program',
-      );
+    score: maxScore,
+    maxScore: maxScore,
+    isCorrect: true,
+    graderType: 'program',
+  );
 
-  static QuestionGrade wrong(double maxScore,
-          {Map<String, dynamic>? feedback}) =>
-      QuestionGrade(
-        score: 0,
-        maxScore: maxScore,
-        isCorrect: false,
-        graderType: 'program',
-        feedback: feedback,
-      );
+  static QuestionGrade wrong(
+    double maxScore, {
+    Map<String, dynamic>? feedback,
+  }) => QuestionGrade(
+    score: 0,
+    maxScore: maxScore,
+    isCorrect: false,
+    graderType: 'program',
+    feedback: feedback,
+  );
 
   /// 评分暂不可用（AI 失败）：保留用户答案，不伪造分数
   static QuestionGrade unavailable(double maxScore) => QuestionGrade(
-        score: 0,
-        maxScore: maxScore,
-        isCorrect: false,
-        graderType: 'unavailable',
-        feedback: const {'pending': true},
-      );
+    score: 0,
+    maxScore: maxScore,
+    isCorrect: false,
+    graderType: 'unavailable',
+    feedback: const {'pending': true},
+  );
 }
 
 /// 历史列表条目

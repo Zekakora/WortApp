@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/i18n/app_localizations.dart';
@@ -31,7 +31,13 @@ class StimulusView extends StatelessWidget {
     this.revealed = false,
   });
 
-  bool get _isAudio => kind == 'audio';
+  /// 纯听力材料（提交前不显示原文）
+  bool get _isAudioOnly => kind == 'audio';
+
+  /// 听力 + 可见文本（听力填空：既要能播放，也要能看到挖空文本）
+  bool get _isAudioWithText => kind == 'audio_text';
+
+  bool get _isAudio => _isAudioOnly || _isAudioWithText;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +50,9 @@ class StimulusView extends StatelessWidget {
         children: [
           SpeechControls(text: text, sentenceMode: true),
           const SizedBox(height: 8),
-          if (!revealed)
+          if (_isAudioWithText)
+            _TextBody(text: text, onLookup: onLookup, label: null)
+          else if (!revealed)
             Text(
               context.tr('听完后作答，提交后可查看原文'),
               style: theme.textTheme.bodySmall?.copyWith(

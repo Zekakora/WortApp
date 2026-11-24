@@ -28,8 +28,7 @@ class ExercisePrompts {
     final perQuestion = switch (type) {
       ExerciseType.readingComprehension ||
       ExerciseType.listeningComprehension ||
-      ExerciseType.readingCloze =>
-        320,
+      ExerciseType.readingCloze => 320,
       ExerciseType.sentenceBuilding || ExerciseType.errorCorrection => 460,
       _ => 260,
     };
@@ -65,12 +64,13 @@ class ExercisePrompts {
     ].join('\n');
 
     final topicText = topic.isEmpty ? '日常生活中的常见话题' : topic;
-    final vocabText = (vocabularyFocus == null || vocabularyFocus.trim().isEmpty)
+    final vocabText =
+        (vocabularyFocus == null || vocabularyFocus.trim().isEmpty)
         ? ''
         : '\n参考词（来自学习者最近的学习记录，**不是必用词表**）：$vocabularyFocus'
-            '\n关于参考词的要求：这些词只作参考，能自然融入时用 1–3 个即可；'
-            '不要为了用上它们而堆砌或改变话题，用不上就直接忽略；'
-            '不要让这些词左右整体难度（难度仍以等级与难度参数为准）。';
+              '\n关于参考词的要求：这些词只作参考，能自然融入时用 1–3 个即可；'
+              '不要为了用上它们而堆砌或改变话题，用不上就直接忽略；'
+              '不要让这些词左右整体难度（难度仍以等级与难度参数为准）。';
 
     final userMessage = [
       '请生成一套练习：',
@@ -83,10 +83,7 @@ class ExercisePrompts {
       vocabText,
     ].join('\n');
 
-    return ExercisePrompt(
-      systemPrompt: systemPrompt,
-      userMessage: userMessage,
-    );
+    return ExercisePrompt(systemPrompt: systemPrompt, userMessage: userMessage);
   }
 
   /// 解析/错误说明的输出语言
@@ -131,6 +128,12 @@ class ExercisePrompts {
             '每题为 3–4 个德语选项的单选题，questionType 用 "single_choice"，'
             'answerKey.correctAnswers 用字母。问题要覆盖细节、主旨与推断。';
       case ExerciseType.listeningCloze:
+        return '题型说明：生成一段约 100–160 词的德语听力文本，放在 stimulus.text，'
+            'stimulus.kind 填 "audio_text"（学习者既能播放音频，也能看到挖空文本）。'
+            '文本中挖空 $count 处，用 (1) ___、(2) ___ 这样带序号的空位标注。'
+            '每题的 prompt 写 "Lücke (n): <含 ___ 的那一句>"，context 放同一个句子，'
+            'questionType 用 "fill_blank"，answerKey.acceptedAnswers 放正确答案（最多 3 个等价写法）。'
+            '挖空应是听音后能确定的成分（介词、冠词、动词变位、连词），不要挖可有可无的修饰语。';
       case ExerciseType.readingCloze:
         return '题型说明：生成一篇约 120–200 词的德语短文放在 stimulus.text，'
             '其中挖空 $count 处（用三个下划线 ___ 表示），stimulus.kind 填 "text"。'
@@ -139,19 +142,34 @@ class ExercisePrompts {
             '（若有合理的等价写法，一并放进 acceptedAnswers，最多 3 个）。'
             '挖空应是介词、冠词、动词变位、连词等有唯一或有限答案的成分，不要挖可有可无的修饰语。';
       case ExerciseType.contextVocabulary:
-        return '题型说明：每题给一个含目标词的德语句子作为 context，prompt 询问该词在句中的含义，'
-            'options 为 3–4 个德语近义解释或中文释义（与界面语言一致），answerKey.correctAnswers 用字母。';
+        return '题型说明：每题给一个含目标词的德语句子作为 context，'
+            'prompt 写 "Was bedeutet „<目标词>“ in diesem Satz?"，'
+            'options 为 3–4 个德语近义解释，answerKey.correctAnswers 用字母。'
+            'stimulus.kind 填 "none"，stimulus.text 留空；不要重复同一个目标词。';
       case ExerciseType.trueFalseReading:
-        return '题型说明：生成一篇约 120–200 词的德语短文放在 stimulus.text，'
-            '每题为一句德语陈述，questionType 用 "true_false"，'
-            'answerKey.acceptedAnswers 只用 "richtig" 或 "falsch"。';
+        return '题型说明：生成一篇约 120–200 词的德语短文放在 stimulus.text，stimulus.kind 填 "text"。'
+            '每题为一句德语陈述（prompt），questionType 用 "true_false"，'
+            'answerKey.acceptedAnswers 只用 "richtig" 或 "falsch"（全篇至少各一个，避免全对或全错）。';
       case ExerciseType.headingMatching:
-        return '题型说明：生成若干德语段落（放在 stimulus.text，用换行分隔），'
-            '每段一题，options 为 4 个德语标题候选，questionType 用 "single_choice"。';
+        return '题型说明：生成 $count 个德语段落（约 250–400 词总量），放在 stimulus.text，'
+            '每段以 "(1) "、"(2) " 这样的编号开头并用换行分隔。每题对应其中一段：'
+            'context 放该段原文，prompt 写 "Welche Überschrift passt zu Absatz (n)?"，'
+            'options 为 4 个德语标题（其中只有 1 个正确，其余为其他段落的干扰项），'
+            'questionType 用 "single_choice"，answerKey.correctAnswers 用字母。';
       case ExerciseType.listeningSentenceOrdering:
+        return '题型说明：生成一段由 4–6 个德语句子组成的听力材料（约 60–100 词），'
+            '放在 stimulus.text，stimulus.kind 填 "audio"。'
+            '然后把这些句子**打乱顺序**放进 options（options 的顺序就是学习者看到的初始顺序），'
+            'questionType 用 "ordering"，answerKey.correctOrder 用 options 下标表示正确顺序'
+            '（例如 options 有 4 项时为 [2,0,3,1]，必须是 0..n-1 的完整排列）。'
+            '只生成 1 道排序题，prompt 写 "Bringe die Sätze in die richtige Reihenfolge."。';
       case ExerciseType.paragraphOrdering:
-        return '题型说明：把一段德语材料拆成有序的若干部分，题目要求恢复顺序。'
-            'answerKey.correctOrder 是 0 基下标排列（如 [2,0,1]），必须是完整排列。';
+        return '题型说明：生成一篇由 4–6 个德语段落组成的短文（约 200–320 词），'
+            '把这些段落**打乱顺序**放进 options（options 的顺序就是学习者看到的初始顺序），'
+            'stimulus.kind 填 "none"，stimulus.text 留空。'
+            'questionType 用 "ordering"，answerKey.correctOrder 用 options 下标表示正确顺序'
+            '（必须是 0..n-1 的完整排列）。只生成 1 道排序题，'
+            'prompt 写 "Bringe die Absätze in die richtige Reihenfolge."。';
       case ExerciseType.sentenceBuilding:
         return '题型说明：每题的 prompt 给出**德语要求与给定的词块/关键词**（例如 '
             '"Bilde einen Satz mit: weil / ich / heute / keine Zeit haben"），'
@@ -178,8 +196,8 @@ class ExercisePrompts {
     final needsStimulusText = switch (type) {
       ExerciseType.dictation ||
       ExerciseType.sentenceBuilding ||
-      ExerciseType.errorCorrection =>
-        '',
+      ExerciseType.errorCorrection ||
+      ExerciseType.paragraphOrdering => '',
       _ => '短文或听力原文（德语）',
     };
 
@@ -193,7 +211,7 @@ class ExercisePrompts {
   "difficulty": "easy|normal|hard",
   "title": "德语标题",
   "instructions": "德语作答指示",
-  "stimulus": {"kind": "text|audio|none", "text": "$needsStimulusText"},
+  "stimulus": {"kind": "text|audio|audio_text|none", "text": "$needsStimulusText"},
   "questions": [
     {
       "id": "q1",

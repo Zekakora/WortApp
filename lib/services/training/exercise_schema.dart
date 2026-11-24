@@ -32,8 +32,7 @@ class SchemaParseResult {
 
   bool get ok => exercise != null;
 
-  List<SchemaIssue> get fatalIssues =>
-      issues.where((i) => i.fatal).toList();
+  List<SchemaIssue> get fatalIssues => issues.where((i) => i.fatal).toList();
 
   /// 给用户看的简短错误描述
   String get errorSummary => fatalIssues.isEmpty
@@ -53,38 +52,35 @@ class ExerciseSchema {
       switch (type) {
         ExerciseType.listeningComprehension ||
         ExerciseType.dialogComprehension ||
-        ExerciseType.readingComprehension =>
-          const {
-            QuestionType.singleChoice,
-            QuestionType.multipleChoice,
-            QuestionType.trueFalse,
-          },
+        ExerciseType.readingComprehension => const {
+          QuestionType.singleChoice,
+          QuestionType.multipleChoice,
+          QuestionType.trueFalse,
+        },
         ExerciseType.contextVocabulary ||
-        ExerciseType.headingMatching =>
-          const {QuestionType.singleChoice},
+        ExerciseType.headingMatching => const {QuestionType.singleChoice},
         ExerciseType.dictation => const {QuestionType.dictation},
         ExerciseType.listeningCloze ||
-        ExerciseType.readingCloze =>
-          const {QuestionType.fillBlank},
+        ExerciseType.readingCloze => const {QuestionType.fillBlank},
         ExerciseType.trueFalseReading => const {QuestionType.trueFalse},
         ExerciseType.listeningSentenceOrdering ||
-        ExerciseType.paragraphOrdering =>
-          const {QuestionType.ordering},
+        ExerciseType.paragraphOrdering => const {QuestionType.ordering},
         ExerciseType.sentenceBuilding ||
         ExerciseType.errorCorrection ||
         ExerciseType.translationWriting ||
         ExerciseType.situationalWriting ||
-        ExerciseType.freeWriting =>
-          const {QuestionType.freeText},
+        ExerciseType.freeWriting => const {QuestionType.freeText},
       };
 
   /// 该题型是否需要材料（文章/听力原文）
   static bool needsStimulus(ExerciseType type) => switch (type) {
-        ExerciseType.dictation => false,
-        ExerciseType.sentenceBuilding => false,
-        ExerciseType.errorCorrection => false,
-        _ => true,
-      };
+    ExerciseType.dictation => false,
+    ExerciseType.sentenceBuilding => false,
+    ExerciseType.errorCorrection => false,
+    // 段落排序的材料由 options（打乱的段落）承载，不需要额外正文
+    ExerciseType.paragraphOrdering => false,
+    _ => true,
+  };
 
   /// 解析并校验模型输出
   static SchemaParseResult parse(
@@ -102,27 +98,27 @@ class ExerciseSchema {
     final skillRaw = _str(json['skill']);
     final typeRaw = _str(json['exerciseType'] ?? json['exercise_type']);
     if (typeRaw.isNotEmpty && typeRaw != expectedType.code) {
-      issues.add(SchemaIssue(
-        'exerciseType',
-        '题型不一致（期望 ${expectedType.code}，实际 $typeRaw）',
-      ));
+      issues.add(
+        SchemaIssue(
+          'exerciseType',
+          '题型不一致（期望 ${expectedType.code}，实际 $typeRaw）',
+        ),
+      );
     }
     if (skillRaw.isNotEmpty && skillRaw != expectedType.skill.code) {
-      issues.add(SchemaIssue(
-        'skill',
-        '技能分类不一致（期望 ${expectedType.skill.code}，实际 $skillRaw）',
-      ));
+      issues.add(
+        SchemaIssue(
+          'skill',
+          '技能分类不一致（期望 ${expectedType.skill.code}，实际 $skillRaw）',
+        ),
+      );
     }
 
     final level = _str(json['level']).isEmpty
         ? expectedLevel
         : CefrLevel.fromCode(_str(json['level']));
     if (level != expectedLevel) {
-      issues.add(SchemaIssue(
-        'level',
-        '等级与请求不一致（按请求等级展示）',
-        fatal: false,
-      ));
+      issues.add(SchemaIssue('level', '等级与请求不一致（按请求等级展示）', fatal: false));
     }
     final difficulty = _str(json['difficulty']).isEmpty
         ? expectedDifficulty
@@ -158,16 +154,20 @@ class ExerciseSchema {
     }
 
     if (minQuestions != null && rawQuestions.length < minQuestions) {
-      issues.add(SchemaIssue(
-        'questions',
-        '题目数量不足（请求 $minQuestions 题，实际 ${rawQuestions.length} 题）',
-      ));
+      issues.add(
+        SchemaIssue(
+          'questions',
+          '题目数量不足（请求 $minQuestions 题，实际 ${rawQuestions.length} 题）',
+        ),
+      );
     }
     if (maxQuestions != null && rawQuestions.length > maxQuestions) {
-      issues.add(SchemaIssue(
-        'questions',
-        '题目数量超出（请求 $maxQuestions 题，实际 ${rawQuestions.length} 题）',
-      ));
+      issues.add(
+        SchemaIssue(
+          'questions',
+          '题目数量超出（请求 $maxQuestions 题，实际 ${rawQuestions.length} 题）',
+        ),
+      );
     }
 
     final questions = <GeneratedQuestion>[];
@@ -226,17 +226,20 @@ class ExerciseSchema {
     final allowed = allowedQuestionTypes(type);
     if (!allowed.contains(questionType)) {
       // 题型声明的题干类型不在允许集合里：能改回默认就改，改不了就报错
-      issues.add(SchemaIssue(
-        fieldPrefix,
-        '题干类型 ${questionType.code} 不适用于 ${type.code}',
-        fatal: false,
-      ));
+      issues.add(
+        SchemaIssue(
+          fieldPrefix,
+          '题干类型 ${questionType.code} 不适用于 ${type.code}',
+          fatal: false,
+        ),
+      );
       questionType = type.defaultQuestionType;
     }
 
     final options = _stringList(raw['options']);
     final contextText = _str(raw['context'] ?? raw['contextText']);
-    final points = _asInt(raw['points'] ?? raw['score']) ??
+    final points =
+        _asInt(raw['points'] ?? raw['score']) ??
         (questionType == QuestionType.freeText ? 10 : 1);
     if (points <= 0) {
       issues.add(SchemaIssue(fieldPrefix, '分值必须为正数'));
@@ -246,11 +249,7 @@ class ExerciseSchema {
     final answerRaw = _asMap(raw['answerKey'] ?? raw['answer_key']);
     final explanation = _str(raw['explanation'] ?? raw['analysis']);
     if (explanation.isEmpty && questionType.isObjective) {
-      issues.add(SchemaIssue(
-        '$fieldPrefix.explanation',
-        '缺少解析',
-        fatal: false,
-      ));
+      issues.add(SchemaIssue('$fieldPrefix.explanation', '缺少解析', fatal: false));
     }
 
     final answerKey = _buildAnswerKey(
@@ -303,43 +302,38 @@ class ExerciseSchema {
       case QuestionType.trueFalse:
         final indices = _resolveChoiceIndices(raw, options);
         if (indices.isEmpty) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '选择题答案无法定位到选项',
-          ));
+          issues.add(SchemaIssue('$fieldPrefix.answerKey', '选择题答案无法定位到选项'));
           return null;
         }
-        final outOfRange =
-            indices.where((i) => i < 0 || i >= options.length).toList();
+        final outOfRange = indices
+            .where((i) => i < 0 || i >= options.length)
+            .toList();
         if (outOfRange.isNotEmpty) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '答案引用了不存在的选项：$outOfRange',
-          ));
+          issues.add(
+            SchemaIssue('$fieldPrefix.answerKey', '答案引用了不存在的选项：$outOfRange'),
+          );
           return null;
         }
         if (questionType == QuestionType.singleChoice && indices.length > 1) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '单选题出现多个答案，已保留第一个',
-            fatal: false,
-          ));
+          issues.add(
+            SchemaIssue(
+              '$fieldPrefix.answerKey',
+              '单选题出现多个答案，已保留第一个',
+              fatal: false,
+            ),
+          );
         }
         return AnswerKey(
-          correctIndices:
-              questionType == QuestionType.singleChoice
-                  ? [indices.first]
-                  : (indices.toSet().toList()..sort()),
+          correctIndices: questionType == QuestionType.singleChoice
+              ? [indices.first]
+              : (indices.toSet().toList()..sort()),
           acceptedAnswers: accepted,
           referenceAnswers: references,
         );
 
       case QuestionType.fillBlank:
         if (accepted.isEmpty) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '填空题缺少可接受答案',
-          ));
+          issues.add(SchemaIssue('$fieldPrefix.answerKey', '填空题缺少可接受答案'));
           return null;
         }
         return AnswerKey(
@@ -349,17 +343,15 @@ class ExerciseSchema {
 
       case QuestionType.dictation:
         if (accepted.isEmpty) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '听写题缺少标准答案',
-          ));
+          issues.add(SchemaIssue('$fieldPrefix.answerKey', '听写题缺少标准答案'));
           return null;
         }
         return AnswerKey(acceptedAnswers: accepted);
 
       case QuestionType.ordering:
         final order = _asIntList(raw['correctOrder'] ?? raw['order']);
-        final acceptedOrders = (raw['acceptedOrders'] as List?)
+        final acceptedOrders =
+            (raw['acceptedOrders'] as List?)
                 ?.whereType<List>()
                 .map((e) => e.map(_asInt).whereType<int>().toList())
                 .where((e) => e.isNotEmpty)
@@ -367,27 +359,20 @@ class ExerciseSchema {
             const <List<int>>[];
         final primary = order.isNotEmpty
             ? order
-            : (acceptedOrders.isNotEmpty ? acceptedOrders.first : const <int>[]);
+            : (acceptedOrders.isNotEmpty
+                  ? acceptedOrders.first
+                  : const <int>[]);
         if (primary.isEmpty) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '排序题缺少正确顺序',
-          ));
+          issues.add(SchemaIssue('$fieldPrefix.answerKey', '排序题缺少正确顺序'));
           return null;
         }
         final sorted = [...primary]..sort();
         final expected = List.generate(primary.length, (i) => i);
         if (sorted.join(',') != expected.join(',')) {
-          issues.add(SchemaIssue(
-            '$fieldPrefix.answerKey',
-            '排序题答案不是有效排列',
-          ));
+          issues.add(SchemaIssue('$fieldPrefix.answerKey', '排序题答案不是有效排列'));
           return null;
         }
-        return AnswerKey(
-          correctOrder: primary,
-          acceptedOrders: acceptedOrders,
-        );
+        return AnswerKey(correctOrder: primary, acceptedOrders: acceptedOrders);
 
       case QuestionType.freeText:
         // 开放式题目：参考答案可选，不强制
@@ -404,16 +389,15 @@ class ExerciseSchema {
     List<String> options,
   ) {
     final explicit = _asIntList(
-      raw['correctIndices'] ??
-          raw['correct_indices'] ??
-          raw['correctIndex'],
+      raw['correctIndices'] ?? raw['correct_indices'] ?? raw['correctIndex'],
     );
     if (explicit.isNotEmpty &&
         explicit.every((i) => i >= 0 && i < options.length)) {
       return explicit;
     }
 
-    final rawAnswers = raw['correctAnswers'] ??
+    final rawAnswers =
+        raw['correctAnswers'] ??
         raw['correct_answers'] ??
         raw['answers'] ??
         raw['answer'] ??
@@ -441,7 +425,9 @@ class ExerciseSchema {
     }
 
     // 字母 A-F（允许 "A." / "A)" / "A、" 等后缀）
-    final letterMatch = RegExp(r'^([A-Fa-f])(?:[.)、．\]]|\s|$)').firstMatch(value);
+    final letterMatch = RegExp(
+      r'^([A-Fa-f])(?:[.)、．\]]|\s|$)',
+    ).firstMatch(value);
     if (letterMatch != null) {
       final index = letterMatch.group(1)!.toUpperCase().codeUnitAt(0) - 65;
       if (index >= 0 && index < options.length) return index;
@@ -488,24 +474,24 @@ class ExerciseSchema {
     }
 
     if (dimensions.isEmpty) {
-      issues.add(SchemaIssue(
-        '$fieldPrefix.rubric',
-        '评分维度无效，改用默认评分标准',
-        fatal: false,
-      ));
+      issues.add(
+        SchemaIssue('$fieldPrefix.rubric', '评分维度无效，改用默认评分标准', fatal: false),
+      );
       return defaultWritingRubric;
     }
     return Rubric(dimensions: dimensions);
   }
 
   /// 写作类默认评分标准（语法 / 词汇 / 句法 / 任务完成 / 自然度）
-  static const Rubric defaultWritingRubric = Rubric(dimensions: [
-    RubricDimension(name: 'grammar', maxScore: 3),
-    RubricDimension(name: 'vocabulary', maxScore: 2),
-    RubricDimension(name: 'sentenceStructure', maxScore: 2),
-    RubricDimension(name: 'taskCompletion', maxScore: 2),
-    RubricDimension(name: 'naturalness', maxScore: 1),
-  ]);
+  static const Rubric defaultWritingRubric = Rubric(
+    dimensions: [
+      RubricDimension(name: 'grammar', maxScore: 3),
+      RubricDimension(name: 'vocabulary', maxScore: 2),
+      RubricDimension(name: 'sentenceStructure', maxScore: 2),
+      RubricDimension(name: 'taskCompletion', maxScore: 2),
+      RubricDimension(name: 'naturalness', maxScore: 1),
+    ],
+  );
 
   // ---- 类型收敛工具 ----
 

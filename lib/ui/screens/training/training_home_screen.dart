@@ -8,6 +8,7 @@ import '../../../ui/utils/wide_layout.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import 'exercise_type_screen.dart';
+import 'writing_insight_screen.dart';
 import 'training_history_screen.dart';
 import 'exercise_result_screen.dart';
 
@@ -26,6 +27,13 @@ class TrainingHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(context.tr('AI 训练')),
         actions: [
+          IconButton(
+            tooltip: context.tr('写作知识点统计'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const WritingInsightScreen()),
+            ),
+            icon: const Icon(Icons.insights),
+          ),
           IconButton(
             tooltip: context.tr('练习历史'),
             onPressed: () => Navigator.of(context).push(
@@ -145,9 +153,7 @@ class _SkillCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final implemented = ExerciseType.forSkill(
-      skill,
-    ).where((t) => t.implemented).length;
+    final implemented = ExerciseType.forSkill(skill).length;
 
     return Card(
       clipBehavior: Clip.antiAlias,

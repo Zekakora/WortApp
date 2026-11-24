@@ -18,8 +18,7 @@ class ExercisePlayback {
 
   const ExercisePlayback({required this.exercise, required this.questions});
 
-  int get maxScore =>
-      questions.fold(0, (sum, q) => sum + q.points);
+  int get maxScore => questions.fold(0, (sum, q) => sum + q.points);
 
   ExerciseType get type => ExerciseType.fromCode(exercise.exerciseType);
 }
@@ -29,10 +28,7 @@ class ExerciseQuestionView {
   final PlaybackQuestion question;
   final QuestionSolution solution;
 
-  const ExerciseQuestionView({
-    required this.question,
-    required this.solution,
-  });
+  const ExerciseQuestionView({required this.question, required this.solution});
 }
 
 /// 结果页数据包：题目 + 答案 + 解析 + 用户答案与判分
@@ -47,8 +43,7 @@ class ExerciseResultView {
     required this.attemptsByKey,
   });
 
-  ExerciseAttempt? attemptOf(String questionKey) =>
-      attemptsByKey[questionKey];
+  ExerciseAttempt? attemptOf(String questionKey) => attemptsByKey[questionKey];
 }
 
 /// 一次提交里单题的批改结果
@@ -61,6 +56,21 @@ class AttemptInput {
     required this.questionKey,
     required this.userAnswer,
     required this.grade,
+  });
+}
+
+/// 写作类答题记录（知识点统计用：答题行 + 所属练习信息）
+class WritingAttemptRow {
+  final ExerciseAttempt attempt;
+  final int exerciseId;
+  final String exerciseType;
+  final DateTime createdAt;
+
+  const WritingAttemptRow({
+    required this.attempt,
+    required this.exerciseId,
+    required this.exerciseType,
+    required this.createdAt,
   });
 }
 
@@ -118,9 +128,11 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
             answerKeyJson: Value(jsonEncode(q.answerKey.toJson())),
             points: Value(q.points),
             explanation: Value(q.explanation),
-            rubricJson: Value(q.rubric == null || q.rubric!.isEmpty
-                ? null
-                : jsonEncode(q.rubric!.toJson())),
+            rubricJson: Value(
+              q.rubric == null || q.rubric!.isEmpty
+                  ? null
+                  : jsonEncode(q.rubric!.toJson()),
+            ),
           ),
         );
       }
@@ -163,12 +175,10 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
     required int durationSeconds,
   }) {
     return transaction(() async {
-      final questions = await (select(exerciseQuestions)
-            ..where((t) => t.exerciseId.equals(exerciseId)))
-          .get();
-      final byKey = {
-        for (final q in questions) q.questionKey: q,
-      };
+      final questions = await (select(
+        exerciseQuestions,
+      )..where((t) => t.exerciseId.equals(exerciseId))).get();
+      final byKey = {for (final q in questions) q.questionKey: q};
 
       var totalScore = 0.0;
       var maxScore = 0.0;
@@ -189,9 +199,11 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
             isCorrect: Value(input.grade.isCorrect),
             isPartial: Value(input.grade.isPartial),
             graderType: Value(input.grade.graderType),
-            feedbackJson: Value(input.grade.feedback == null
-                ? null
-                : jsonEncode(input.grade.feedback)),
+            feedbackJson: Value(
+              input.grade.feedback == null
+                  ? null
+                  : jsonEncode(input.grade.feedback),
+            ),
             submittedAt: now,
           ),
         );
@@ -211,18 +223,19 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
 
   // ---- 读取（答题阶段：无答案） ----
 
-  Future<Exercise?> getById(int exerciseId) =>
-      (select(exercises)..where((t) => t.id.equals(exerciseId)))
-          .getSingleOrNull();
+  Future<Exercise?> getById(int exerciseId) => (select(
+    exercises,
+  )..where((t) => t.id.equals(exerciseId))).getSingleOrNull();
 
   /// 答题用：只返回题干与选项，**不含答案与解析**
   Future<ExercisePlayback?> getPlayback(int exerciseId) async {
     final row = await getById(exerciseId);
     if (row == null) return null;
-    final rows = await (select(exerciseQuestions)
-          ..where((t) => t.exerciseId.equals(exerciseId))
-          ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
-        .get();
+    final rows =
+        await (select(exerciseQuestions)
+              ..where((t) => t.exerciseId.equals(exerciseId))
+              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
+            .get();
     return ExercisePlayback(
       exercise: row,
       questions: rows.map((r) {
@@ -246,10 +259,11 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
 
   /// 评分用：题目 key → 答案与解析
   Future<Map<String, QuestionSolution>> getSolutions(int exerciseId) async {
-    final rows = await (select(exerciseQuestions)
-          ..where((t) => t.exerciseId.equals(exerciseId))
-          ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
-        .get();
+    final rows =
+        await (select(exerciseQuestions)
+              ..where((t) => t.exerciseId.equals(exerciseId))
+              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
+            .get();
     return {
       for (final r in rows)
         r.questionKey: QuestionSolution(
@@ -267,16 +281,15 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
     final playback = await getPlayback(exerciseId);
     if (playback == null) return null;
 
-    final solutionRows = await (select(exerciseQuestions)
-          ..where((t) => t.exerciseId.equals(exerciseId))
-          ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
-        .get();
-    final attemptRows = await (select(exerciseAttempts)
-          ..where((t) => t.exerciseId.equals(exerciseId)))
-        .get();
-    final questionById = {
-      for (final r in solutionRows) r.id: r.questionKey,
-    };
+    final solutionRows =
+        await (select(exerciseQuestions)
+              ..where((t) => t.exerciseId.equals(exerciseId))
+              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
+            .get();
+    final attemptRows = await (select(
+      exerciseAttempts,
+    )..where((t) => t.exerciseId.equals(exerciseId))).get();
+    final questionById = {for (final r in solutionRows) r.id: r.questionKey};
 
     return ExerciseResultView(
       exercise: playback.exercise,
@@ -339,28 +352,135 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
 
   /// 未完成的练习（已生成未提交，可继续作答）
   Future<List<ExerciseHistoryEntry>> getUnfinished({int limit = 20}) async {
-    final rows = await (select(exercises)
-          ..where((t) => t.status.equals('ready'))
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-          ..limit(limit))
-        .get();
+    final rows =
+        await (select(exercises)
+              ..where((t) => t.status.equals('ready'))
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+              ..limit(limit))
+            .get();
     return rows.map(_toEntry).toList();
   }
 
-  static ExerciseHistoryEntry _toEntry(Exercise r) => ExerciseHistoryEntry(
-        id: r.id,
-        skill: TrainingSkill.fromCode(r.skill),
-        exerciseType: ExerciseType.fromCode(r.exerciseType),
-        level: CefrLevel.fromCode(r.level),
-        difficulty: TrainingDifficulty.fromCode(r.difficulty),
-        topic: r.topic,
-        title: r.title,
-        status: r.status,
-        totalScore: r.totalScore,
-        maxScore: r.maxScore,
-        createdAt: r.createdAt,
-        submittedAt: r.submittedAt,
+  /// 复制「错题」为新练习（本地克隆，不调用 AI）
+  ///
+  /// 只带走过答错或部分正确的题目及其答案/解析，新练习状态为 ready，
+  /// 可直接进入答题页重做；原练习保持不变。没有错题时返回 null。
+  Future<int?> cloneWrongQuestions(int exerciseId) async {
+    final view = await getResultView(exerciseId);
+    if (view == null) return null;
+
+    final wrongKeys = <String>[];
+    for (final item in view.items) {
+      final attempt = view.attemptOf(item.question.key);
+      if (attempt == null) continue;
+      if (!attempt.isCorrect) wrongKeys.add(item.question.key);
+    }
+    if (wrongKeys.isEmpty) return null;
+
+    final sourceQuestions =
+        await (select(exerciseQuestions)
+              ..where((t) => t.exerciseId.equals(exerciseId))
+              ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
+            .get();
+    final picked = sourceQuestions
+        .where((q) => wrongKeys.contains(q.questionKey))
+        .toList();
+    if (picked.isEmpty) return null;
+
+    return transaction(() async {
+      final source = view.exercise;
+      final newId = await into(exercises).insert(
+        ExercisesCompanion.insert(
+          skill: source.skill,
+          exerciseType: source.exerciseType,
+          level: source.level,
+          difficulty: source.difficulty,
+          topic: Value(source.topic),
+          title: '${source.title} · 错题',
+          instructions: Value(source.instructions),
+          stimulusKind: Value(source.stimulusKind),
+          stimulusText: Value(source.stimulusText),
+          status: 'ready',
+          maxScore: Value(picked.fold<int>(0, (sum, q) => sum + q.points)),
+          schemaVersion: Value(source.schemaVersion),
+          promptVersion: Value('${source.promptVersion}+redo'),
+          aiModel: Value(source.aiModel),
+          createdAt: DateTime.now(),
+        ),
       );
+
+      for (var index = 0; index < picked.length; index++) {
+        final q = picked[index];
+        await into(exerciseQuestions).insert(
+          ExerciseQuestionsCompanion.insert(
+            exerciseId: newId,
+            questionKey: q.questionKey,
+            orderIndex: index,
+            questionType: q.questionType,
+            prompt: q.prompt,
+            contextText: Value(q.contextText),
+            optionsJson: Value(q.optionsJson),
+            answerKeyJson: Value(q.answerKeyJson),
+            points: Value(q.points),
+            explanation: Value(q.explanation),
+            rubricJson: Value(q.rubricJson),
+          ),
+        );
+      }
+
+      return newId;
+    });
+  }
+
+  /// 写作类练习的答题记录（知识点统计用）
+  ///
+  /// 只取写作技能（写作知识点统计的范围），按练习时间倒序最多 [exerciseLimit] 次。
+  Future<List<WritingAttemptRow>> getWritingAttempts({
+    int exerciseLimit = 300,
+  }) async {
+    final writingExercises =
+        await (select(exercises)
+              ..where((t) => t.skill.equals('writing'))
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+              ..limit(exerciseLimit))
+            .get();
+    if (writingExercises.isEmpty) {
+      return const [];
+    }
+
+    final ids = writingExercises.map((e) => e.id).toList();
+    final attempts = await (select(
+      exerciseAttempts,
+    )..where((t) => t.exerciseId.isIn(ids))).get();
+    final exerciseById = {for (final e in writingExercises) e.id: e};
+
+    return attempts.where((a) => exerciseById.containsKey(a.exerciseId)).map((
+      a,
+    ) {
+      final exercise = exerciseById[a.exerciseId]!;
+      return WritingAttemptRow(
+        attempt: a,
+        exerciseId: a.exerciseId,
+        exerciseType: exercise.exerciseType,
+        createdAt: exercise.createdAt,
+      );
+    }).toList();
+  }
+
+  static ExerciseHistoryEntry _toEntry(Exercise r) => ExerciseHistoryEntry(
+    id: r.id,
+    skill: TrainingSkill.fromCode(r.skill),
+    exerciseType: ExerciseType.fromCode(r.exerciseType),
+    level: CefrLevel.fromCode(r.level),
+    difficulty: TrainingDifficulty.fromCode(r.difficulty),
+    topic: r.topic,
+    title: r.title,
+    status: r.status,
+    totalScore: r.totalScore,
+    maxScore: r.maxScore,
+    createdAt: r.createdAt,
+    submittedAt: r.submittedAt,
+  );
 
   /// 最近一次已提交的练习（用于首页"继续 / 再练一次"）
   Future<ExerciseHistoryEntry?> getLatest({TrainingSkill? skill}) async {
@@ -387,12 +507,12 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
   /// 删除一次练习及其题目、答题记录（练习历史仅本地，删除即彻底删除）
   Future<void> deleteExercise(int exerciseId) {
     return transaction(() async {
-      await (delete(exerciseAttempts)
-            ..where((t) => t.exerciseId.equals(exerciseId)))
-          .go();
-      await (delete(exerciseQuestions)
-            ..where((t) => t.exerciseId.equals(exerciseId)))
-          .go();
+      await (delete(
+        exerciseAttempts,
+      )..where((t) => t.exerciseId.equals(exerciseId))).go();
+      await (delete(
+        exerciseQuestions,
+      )..where((t) => t.exerciseId.equals(exerciseId))).go();
       await (delete(exercises)..where((t) => t.id.equals(exerciseId))).go();
     });
   }
@@ -437,7 +557,9 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) return Rubric.fromJson(decoded);
-      if (decoded is Map) return Rubric.fromJson(Map<String, dynamic>.from(decoded));
+      if (decoded is Map) {
+        return Rubric.fromJson(Map<String, dynamic>.from(decoded));
+      }
     } catch (_) {
       // 忽略损坏数据
     }

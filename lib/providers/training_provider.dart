@@ -14,6 +14,7 @@ import '../services/ai/ai_service.dart';
 import '../services/speech/speech_playback_service.dart';
 import '../services/training/exercise_generator.dart';
 import '../services/training/grading_service.dart';
+import '../services/training/writing_insight.dart';
 import 'database_provider.dart';
 import 'deck_provider.dart';
 import 'settings_provider.dart';
@@ -114,7 +115,9 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
       final difficulty = await db.getSetting('training_difficulty');
       final count = await db.getSetting('training_count');
       final topic = await db.getSetting('training_topic');
-      final useVocabularyFocus = await db.getSetting('training_use_vocab_focus');
+      final useVocabularyFocus = await db.getSetting(
+        'training_use_vocab_focus',
+      );
 
       final parsedCount = int.tryParse(count ?? '');
       state = TrainingPrefs(
@@ -234,60 +237,62 @@ class TrainingVocabularyFocus {
   String get promptText => words.join(', ');
 }
 
-final trainingVocabularyFocusProvider =
-    FutureProvider<TrainingVocabularyFocus>((ref) async {
-      final db = ref.watch(databaseProvider);
-      if (db == null) return const TrainingVocabularyFocus();
+final trainingVocabularyFocusProvider = FutureProvider<TrainingVocabularyFocus>(
+  (ref) async {
+    final db = ref.watch(databaseProvider);
+    if (db == null) return const TrainingVocabularyFocus();
 
-      // 来源词书：练习默认词书优先，其次当前词书
-      final defaultDeckId = ref.watch(practiceDefaultDeckProvider);
-      Deck? deck;
-      if (defaultDeckId != null) {
-        deck = await db.deckDao.getDeckById(defaultDeckId);
+    // 来源词书：练习默认词书优先，其次当前词书
+    final defaultDeckId = ref.watch(practiceDefaultDeckProvider);
+    Deck? deck;
+    if (defaultDeckId != null) {
+      deck = await db.deckDao.getDeckById(defaultDeckId);
+    }
+    deck ??= await ref.watch(activeDeckProvider.future);
+    if (deck == null) return const TrainingVocabularyFocus();
+
+    final targetDeckId = deck.id;
+    final picked = <String>[];
+    final seen = <String>{};
+
+    void collect(Iterable<Word> words) {
+      for (final word in words) {
+        if (picked.length >= TrainingVocabularyFocus.maxWords) return;
+        final key = GermanParser.canonicalKey(word.german);
+        if (key.isEmpty || !seen.add(key)) continue;
+        picked.add(word.german);
       }
-      deck ??= await ref.watch(activeDeckProvider.future);
-      if (deck == null) return const TrainingVocabularyFocus();
+    }
 
-      final targetDeckId = deck.id;
-      final picked = <String>[];
-      final seen = <String>{};
+    try {
+      // 1. 今天学过的词
+      collect(await db.wordDao.getTodayStudiedWords(targetDeckId));
 
-      void collect(Iterable<Word> words) {
-        for (final word in words) {
-          if (picked.length >= TrainingVocabularyFocus.maxWords) return;
-          final key = GermanParser.canonicalKey(word.german);
-          if (key.isEmpty || !seen.add(key)) continue;
-          picked.add(word.german);
+      // 2. 最近该复习的词（最逾期的在前）
+      if (picked.length < TrainingVocabularyFocus.maxWords) {
+        final dueIds = await db.sm2Dao.getDueReviewWordIds(
+          deckId: targetDeckId,
+          limit: TrainingVocabularyFocus.maxWords - picked.length,
+        );
+        if (dueIds.isNotEmpty) {
+          collect(await db.wordDao.getWordsByIds(dueIds));
         }
       }
 
-      try {
-        // 1. 今天学过的词
-        collect(await db.wordDao.getTodayStudiedWords(targetDeckId));
-
-        // 2. 最近该复习的词（最逾期的在前）
-        if (picked.length < TrainingVocabularyFocus.maxWords) {
-          final dueIds = await db.sm2Dao.getDueReviewWordIds(
-            deckId: targetDeckId,
-            limit: TrainingVocabularyFocus.maxWords - picked.length,
-          );
-          if (dueIds.isNotEmpty) {
-            collect(await db.wordDao.getWordsByIds(dueIds));
-          }
-        }
-
-        // 3. 收藏词补齐
-        if (picked.length < TrainingVocabularyFocus.maxWords) {
-          final favorites = (await db.wordDao.getWordsByDeck(targetDeckId))
-              .where((w) => w.isFavorite);
-          collect(favorites);
-        }
-      } catch (e) {
-        debugPrint('收集参考词失败: $e');
+      // 3. 收藏词补齐
+      if (picked.length < TrainingVocabularyFocus.maxWords) {
+        final favorites = (await db.wordDao.getWordsByDeck(
+          targetDeckId,
+        )).where((w) => w.isFavorite);
+        collect(favorites);
       }
+    } catch (e) {
+      debugPrint('收集参考词失败: $e');
+    }
 
-      return TrainingVocabularyFocus(words: picked, deckName: deck.name);
-    });
+    return TrainingVocabularyFocus(words: picked, deckName: deck.name);
+  },
+);
 
 /// 答题会话状态
 class TrainingSessionState {
@@ -576,6 +581,16 @@ final trainingSessionProvider =
         ref.watch(trainingGradingProvider),
       );
     });
+
+/// 写作知识点统计（只统计写作类的 AI 纠正，客观题不进这里）
+final writingInsightProvider = FutureProvider<WritingKnowledgeInsight>((
+  ref,
+) async {
+  final db = ref.watch(databaseProvider);
+  if (db == null) return WritingKnowledgeInsight.empty;
+  final rows = await db.exerciseDao.getWritingAttempts();
+  return buildWritingKnowledgeInsight(rows);
+});
 
 /// 单个练习的结果数据（结果页用）
 final trainingResultProvider = FutureProvider.family<ExerciseResultView?, int>((

@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/i18n/app_localizations.dart';
 import '../../data/models/training.dart';
+import '../../data/models/writing_knowledge.dart';
 import '../ai/ai_service.dart';
 import 'ai_json.dart';
 import 'answer_normalizer.dart';
@@ -193,10 +194,7 @@ class GradingService {
       maxScore: maxScore,
       isCorrect: isCorrect,
       isPartial: !isCorrect && score > 0,
-      feedback: {
-        'expectedText': expected,
-        ...diff.toJson(),
-      },
+      feedback: {'expectedText': expected, ...diff.toJson()},
     );
   }
 
@@ -222,8 +220,7 @@ class GradingService {
     for (var i = 0; i < selected.length && i < primary.length; i++) {
       if (selected[i] == primary[i]) positionHits++;
     }
-    final ratio =
-        primary.isEmpty ? 0.0 : positionHits / primary.length;
+    final ratio = primary.isEmpty ? 0.0 : positionHits / primary.length;
 
     return QuestionGrade(
       score: isCorrect ? maxScore : 0,
@@ -335,12 +332,13 @@ class GradingService {
       for (final item in rawDimensions.whereType<Map>()) {
         final map = Map<String, dynamic>.from(item);
         final name = map['name']?.toString() ?? '';
-        final maxScoreOfDimension = _asNum(map['maxScore']) ??
-            _rubricMaxOf(rubric, name) ??
-            0;
+        final maxScoreOfDimension =
+            _asNum(map['maxScore']) ?? _rubricMaxOf(rubric, name) ?? 0;
         if (maxScoreOfDimension <= 0) continue;
-        final score = (_asNum(map['score']) ?? 0)
-            .clamp(0.0, maxScoreOfDimension.toDouble());
+        final score = (_asNum(map['score']) ?? 0).clamp(
+          0.0,
+          maxScoreOfDimension.toDouble(),
+        );
         dimensionSum += score;
         dimensions.add({
           'name': name,
@@ -360,7 +358,9 @@ class GradingService {
       0,
       (sum, d) => sum + (d['maxScore'] as num).toDouble(),
     );
-    final ratio = rubricMax <= 0 ? 0.0 : (dimensionSum / rubricMax).clamp(0.0, 1.0);
+    final ratio = rubricMax <= 0
+        ? 0.0
+        : (dimensionSum / rubricMax).clamp(0.0, 1.0);
     final score = double.parse((maxScore * ratio).toStringAsFixed(2));
 
     final corrections = <Map<String, dynamic>>[];
@@ -376,6 +376,9 @@ class GradingService {
           'suggestion': suggestion,
           'reason': map['reason']?.toString() ?? '',
           'category': map['category']?.toString() ?? 'grammar',
+          'knowledge': WritingKnowledge.fromCode(
+            map['knowledge']?.toString() ?? '',
+          ).code,
           'certain': map['certain'] is bool ? map['certain'] : true,
         });
       }
@@ -396,13 +399,15 @@ class GradingService {
     );
   }
 
-  static const Rubric _defaultRubric = Rubric(dimensions: [
-    RubricDimension(name: 'grammar', maxScore: 3),
-    RubricDimension(name: 'vocabulary', maxScore: 2),
-    RubricDimension(name: 'sentenceStructure', maxScore: 2),
-    RubricDimension(name: 'taskCompletion', maxScore: 2),
-    RubricDimension(name: 'naturalness', maxScore: 1),
-  ]);
+  static const Rubric _defaultRubric = Rubric(
+    dimensions: [
+      RubricDimension(name: 'grammar', maxScore: 3),
+      RubricDimension(name: 'vocabulary', maxScore: 2),
+      RubricDimension(name: 'sentenceStructure', maxScore: 2),
+      RubricDimension(name: 'taskCompletion', maxScore: 2),
+      RubricDimension(name: 'naturalness', maxScore: 1),
+    ],
+  );
 
   static num? _rubricMaxOf(Rubric rubric, String name) {
     for (final d in rubric.dimensions) {
@@ -430,12 +435,14 @@ class GradingService {
 1. 逐维度给分，分数必须在 0 到该维度满分之间，总分不需要你算。
 2. 必须区分「确定错误」与「可接受的风格差异」：仅因与参考答案措辞不同不判错。
 3. corrections 只列真正的修改建议，给出 original（学生原文片段）、suggestion（修改后）、
-   reason（原因）、category（grammar/vocabulary/structure/style）、certain（true=确定错误，false=建议）。
+   reason（原因）、category（grammar/vocabulary/structure/style）、certain（true=确定错误，false=建议），
+   并从下面的知识点清单里挑一个填到 knowledge（务必用清单里的英文 code）：
+   ${WritingKnowledge.promptList}。
 4. ${_feedbackLanguageDirective()}
 5. 输出结构：
 {
   "dimensions": [{"name": "grammar", "score": 2, "maxScore": 3, "feedback": "具体说明"}],
-  "corrections": [{"original": "...", "suggestion": "...", "reason": "...", "category": "grammar", "certain": true}],
+  "corrections": [{"original": "...", "suggestion": "...", "reason": "...", "category": "grammar", "knowledge": "konjunktiv_ii", "certain": true}],
   "overallFeedback": "整体评价与改进建议"
 }''';
   }
@@ -466,8 +473,10 @@ class GradingService {
       buffer.writeln('上下文：${question.contextText}');
     }
     if (solution.answerKey.referenceAnswers.isNotEmpty) {
-      buffer.writeln('参考答案（仅作参考，不是唯一正确标准）：'
-          '${solution.answerKey.referenceAnswers.join(' / ')}');
+      buffer.writeln(
+        '参考答案（仅作参考，不是唯一正确标准）：'
+        '${solution.answerKey.referenceAnswers.join(' / ')}',
+      );
     }
     buffer.writeln('学生答案：');
     buffer.writeln(userAnswer);
@@ -495,7 +504,10 @@ class GradingService {
 
   static bool? _normalizeBool(String raw) {
     final value = raw.trim().toLowerCase();
-    if (value == 'true' || value == 'richtig' || value == '正确' || value == '1') {
+    if (value == 'true' ||
+        value == 'richtig' ||
+        value == '正确' ||
+        value == '1') {
       return true;
     }
     if (value == 'false' ||
