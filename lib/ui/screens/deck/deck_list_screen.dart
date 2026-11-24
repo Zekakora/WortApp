@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
@@ -10,6 +10,7 @@ import 'dart:io';
 import '../../../core/i18n/app_localizations.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/deck_provider.dart';
+import '../../../providers/training_provider.dart';
 import '../../../providers/search_provider.dart';
 import '../../../providers/batch_update_provider.dart';
 import '../../../providers/settings_provider.dart';
@@ -669,6 +670,15 @@ class _DeckCard extends ConsumerWidget {
                     value: 'export',
                     child: Text(context.tr('导出')),
                   ),
+                  // 练习里收藏的词若还不在任何词书，会自动加入这本词书
+                  PopupMenuItem(
+                    value: 'practiceDefault',
+                    child: Text(
+                      ref.watch(practiceDefaultDeckProvider) == deck.id
+                          ? context.tr('取消练习默认词书')
+                          : context.tr('设为练习默认词书'),
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'delete',
                     child: Text(context.tr('删除'),
@@ -700,6 +710,21 @@ class _DeckCard extends ConsumerWidget {
         break;
       case 'export':
         _exportDeck(context, ref);
+        break;
+      case 'practiceDefault':
+        final notifier = ref.read(practiceDefaultDeckProvider.notifier);
+        final isDefault = ref.read(practiceDefaultDeckProvider) == deck.id;
+        await notifier.setDeck(isDefault ? null : deck.id);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isDefault
+                  ? context.tr('已取消练习默认词书')
+                  : context.trArgs('练习中收藏的词将加入「{0}」', [deck.name]),
+            ),
+          ),
+        );
         break;
       case 'delete':
         _confirmDelete(context, ref);

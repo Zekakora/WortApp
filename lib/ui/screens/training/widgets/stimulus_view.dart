@@ -16,7 +16,7 @@ class StimulusView extends StatelessWidget {
 
   /// 长按查词回调（selectedText, 所在句子, 整段上下文）
   final void Function(String selectedText, String? sentence, String? context)?
-      onLookup;
+  onLookup;
 
   /// 是否已提交（听力原文在提交后才可见）
   final bool revealed;
@@ -86,7 +86,7 @@ class _TextBody extends StatelessWidget {
   final String text;
   final String? label;
   final void Function(String selectedText, String? sentence, String? context)?
-      onLookup;
+  onLookup;
 
   const _TextBody({required this.text, this.label, this.onLookup});
 

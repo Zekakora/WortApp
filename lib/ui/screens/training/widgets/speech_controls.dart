@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/app_localizations.dart';
@@ -44,9 +44,7 @@ class _SpeechControlsState extends ConsumerState<SpeechControls> {
 
   Future<void> _init() async {
     final service = ref.read(trainingSpeechProvider);
-    await service.initialize(
-      rate: ref.read(settingsProvider).ttsSpeed,
-    );
+    await service.initialize(rate: ref.read(settingsProvider).ttsSpeed);
     if (mounted) setState(() {});
   }
 
@@ -137,15 +135,13 @@ class _SpeechControlsState extends ConsumerState<SpeechControls> {
               FilledButton.tonalIcon(
                 onPressed: widget.enabled
                     ? (_playing
-                        ? _stop
-                        : (widget.sentenceMode
-                            ? _playSentenceBySentence
-                            : _playWhole))
+                          ? _stop
+                          : (widget.sentenceMode
+                                ? _playSentenceBySentence
+                                : _playWhole))
                     : null,
                 icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
-                label: Text(
-                  _playing ? context.tr('停止') : context.tr('播放'),
-                ),
+                label: Text(_playing ? context.tr('停止') : context.tr('播放')),
               ),
               const SizedBox(width: 8),
               if (widget.sentenceMode && !_playing)
@@ -159,10 +155,10 @@ class _SpeechControlsState extends ConsumerState<SpeechControls> {
                 tooltip: context.tr('重播'),
                 onPressed: widget.enabled
                     ? (_playing
-                        ? _stop
-                        : (widget.sentenceMode
-                            ? _playSentenceBySentence
-                            : _playWhole))
+                          ? _stop
+                          : (widget.sentenceMode
+                                ? _playSentenceBySentence
+                                : _playWhole))
                     : null,
                 icon: const Icon(Icons.replay),
               ),

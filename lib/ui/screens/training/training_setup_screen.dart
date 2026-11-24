@@ -6,13 +6,16 @@ import '../../../data/models/training.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import '../../../services/training/exercise_generator.dart';
+import '../../../ui/utils/wide_layout.dart';
 import 'exercise_player_screen.dart';
 
 /// 训练设置：等级 / 难度 / 题量 / 主题 / 词汇范围
 ///
 /// - CEFR 等级与难度是**两个维度**（任务书 §2），分开选择；
 /// - 所有选项（含「优先使用收藏词汇」）都会即时写入 settings 表，
-///   下次进入默认就是上次的选择。
+///   下次进入默认就是上次的选择；
+/// - 平板（≥ 720dp）：左栏选项、右栏当前选择摘要 + 开始按钮，避免底部按钮
+///   被推到屏幕外。
 class TrainingSetupScreen extends ConsumerStatefulWidget {
   final ExerciseType type;
 
@@ -34,7 +37,6 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
   /// 是否已经把上次保存的选项填进控件（只填一次，之后以用户操作为准）
   bool _prefilled = false;
 
-  /// 用保存过的选项初始化一次（在 build 里调用，不 setState：随后必然 build）
   void _prefill(TrainingPrefs prefs) {
     if (_prefilled) return;
     _level = prefs.level;
@@ -47,7 +49,9 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
 
   /// 记忆当前选项（每次改动立即落库，不依赖"点了开始才保存"）
   void _persist() {
-    ref.read(trainingPrefsProvider.notifier).save(
+    ref
+        .read(trainingPrefsProvider.notifier)
+        .save(
           TrainingPrefs(
             level: _level,
             difficulty: _difficulty,
@@ -81,138 +85,180 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
     final aiConfigured = settings.aiConfig.isConfigured;
     final favorites = ref.watch(favoriteVocabularyProvider);
     final favoriteWords = favorites.valueOrNull ?? const <String>[];
+    final isWide = WideLayout.isWide(context);
+
+    final options = _buildOptions(context, favoriteWords);
+    final panel = _buildStartPanel(context, aiConfigured);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.tr(widget.type.titleZh)),
+      appBar: AppBar(title: Text(context.tr(widget.type.titleZh))),
+      body: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 24),
+                    children: options,
+                  ),
+                ),
+                const VerticalDivider(width: 1, thickness: 1),
+                Expanded(
+                  flex: 2,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 20, 24),
+                    children: panel,
+                  ),
+                ),
+              ],
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [...options, const SizedBox(height: 8), ...panel],
+            ),
+    );
+  }
+
+  /// 左栏：题目说明 + 各选项
+  List<Widget> _buildOptions(BuildContext context, List<String> favoriteWords) {
+    return [
+      Text(
+        context.tr(widget.type.descZh),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      const SizedBox(height: 16),
+      _SectionTitle(context.tr('CEFR 等级')),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Text(
-            context.tr(widget.type.descZh),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 16),
-          if (!aiConfigured) const _AiWarningBanner(),
-          _SectionTitle(context.tr('CEFR 等级')),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final level in CefrLevel.values)
-                ChoiceChip(
-                  label: Text(level.code),
-                  selected: _level == level,
-                  onSelected: (_) => _update(() => _level = level),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle(context.tr('难度')),
-          SegmentedButton<TrainingDifficulty>(
-            segments: [
-              for (final difficulty in TrainingDifficulty.values)
-                ButtonSegment(
-                  value: difficulty,
-                  label: Text(context.tr(difficulty.titleZh)),
-                ),
-            ],
-            selected: {_difficulty},
-            onSelectionChanged: (selection) =>
-                _update(() => _difficulty = selection.first),
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle(context.tr('题量')),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final count in trainingQuestionCounts)
-                ChoiceChip(
-                  label: Text('$count'),
-                  selected: _count == count,
-                  onSelected: (_) => _update(() => _count = count),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SectionTitle(context.tr('主题')),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ChoiceChip(
-                label: Text(context.tr('随机主题')),
-                selected: _topic.isEmpty,
-                onSelected: (_) => _update(() => _topic = ''),
-              ),
-              for (final topic in trainingTopics)
-                ChoiceChip(
-                  label: Text(context.tr(topic)),
-                  selected: _topic == topic,
-                  onSelected: (_) => _update(() => _topic = topic),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (favoriteWords.isNotEmpty) ...[
-            _SectionTitle(context.tr('词汇范围')),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(context.tr('优先使用收藏词汇')),
-              subtitle: Text(
-                context.trArgs('共 {0} 个收藏词，生成时会尽量用到', [
-                  favoriteWords.length,
-                ]),
-              ),
-              value: _useFavorites,
-              onChanged: (value) => _update(() => _useFavorites = value),
-            ),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _starting || !aiConfigured ? null : _start,
-            icon: _starting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.play_arrow),
-            label: Text(
-              _starting ? context.tr('正在生成题目…') : context.tr('开始练习'),
-            ),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-          if (!aiConfigured)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                context.tr('训练题目由 AI 生成，请先在设置中配置 AI API Key'),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+          for (final level in CefrLevel.values)
+            ChoiceChip(
+              label: Text(level.code),
+              selected: _level == level,
+              onSelected: (_) => _update(() => _level = level),
             ),
         ],
       ),
-    );
+      const SizedBox(height: 16),
+      _SectionTitle(context.tr('难度')),
+      SegmentedButton<TrainingDifficulty>(
+        segments: [
+          for (final difficulty in TrainingDifficulty.values)
+            ButtonSegment(
+              value: difficulty,
+              label: Text(context.tr(difficulty.titleZh)),
+            ),
+        ],
+        selected: {_difficulty},
+        onSelectionChanged: (selection) =>
+            _update(() => _difficulty = selection.first),
+      ),
+      const SizedBox(height: 16),
+      _SectionTitle(context.tr('题量')),
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final count in trainingQuestionCounts)
+            ChoiceChip(
+              label: Text('$count'),
+              selected: _count == count,
+              onSelected: (_) => _update(() => _count = count),
+            ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _SectionTitle(context.tr('主题')),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ChoiceChip(
+            label: Text(context.tr('随机主题')),
+            selected: _topic.isEmpty,
+            onSelected: (_) => _update(() => _topic = ''),
+          ),
+          for (final topic in trainingTopics)
+            ChoiceChip(
+              label: Text(context.tr(topic)),
+              selected: _topic == topic,
+              onSelected: (_) => _update(() => _topic = topic),
+            ),
+        ],
+      ),
+      if (favoriteWords.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        _SectionTitle(context.tr('词汇范围')),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.tr('优先使用收藏词汇')),
+          subtitle: Text(
+            context.trArgs('共 {0} 个收藏词，生成时会尽量用到', [favoriteWords.length]),
+          ),
+          value: _useFavorites,
+          onChanged: (value) => _update(() => _useFavorites = value),
+        ),
+      ],
+    ];
+  }
+
+  /// 右栏：当前选择摘要 + 开始按钮
+  List<Widget> _buildStartPanel(BuildContext context, bool aiConfigured) {
+    return [
+      _SummaryCard(
+        type: widget.type,
+        level: _level,
+        difficulty: _difficulty,
+        count: _count,
+        topic: _topic,
+        useFavorites: _useFavorites,
+      ),
+      const SizedBox(height: 16),
+      FilledButton.icon(
+        onPressed: _starting || !aiConfigured ? null : _start,
+        icon: _starting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.play_arrow),
+        label: Text(_starting ? context.tr('正在生成题目…') : context.tr('开始练习')),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
+      if (!aiConfigured) ...[
+        const SizedBox(height: 12),
+        const _AiWarningBanner(),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            context.tr('训练题目由 AI 生成，请先在设置中配置 AI API Key'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
+    ];
   }
 
   Future<void> _start() async {
     setState(() => _starting = true);
     _persist();
 
-    final favorites = ref.read(favoriteVocabularyProvider).valueOrNull ??
-        const <String>[];
-    final vocabularyFocus =
-        _useFavorites && favorites.isNotEmpty ? favorites.join(', ') : null;
+    final favorites =
+        ref.read(favoriteVocabularyProvider).valueOrNull ?? const <String>[];
+    final vocabularyFocus = _useFavorites && favorites.isNotEmpty
+        ? favorites.join(', ')
+        : null;
 
-    final id = await ref.read(trainingSessionProvider.notifier).start(
+    final id = await ref
+        .read(trainingSessionProvider.notifier)
+        .start(
           ExerciseGenerationRequest(
             type: widget.type,
             level: _level,
@@ -227,8 +273,8 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
     setState(() => _starting = false);
 
     if (id == null) {
-      final error = ref.read(trainingSessionProvider).error ??
-          context.tr('生成失败');
+      final error =
+          ref.read(trainingSessionProvider).error ?? context.tr('生成失败');
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -245,13 +291,89 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
       return;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ExercisePlayerScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ExercisePlayerScreen()));
     // 答题页返回后，如果已经提交，历史列表需要刷新
     ref.invalidate(trainingHistoryProvider);
+  }
+}
+
+/// 当前选择摘要（宽屏右栏 / 窄屏底部）
+class _SummaryCard extends StatelessWidget {
+  final ExerciseType type;
+  final CefrLevel level;
+  final TrainingDifficulty difficulty;
+  final int count;
+  final String topic;
+  final bool useFavorites;
+
+  const _SummaryCard({
+    required this.type,
+    required this.level,
+    required this.difficulty,
+    required this.count,
+    required this.topic,
+    required this.useFavorites,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            type.skill.germanName,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(context.tr(type.titleZh), style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _Chip(text: level.code),
+              _Chip(text: context.tr(difficulty.titleZh)),
+              _Chip(text: context.trArgs('{0} 题', [count])),
+              _Chip(
+                text: topic.isEmpty ? context.tr('随机主题') : context.tr(topic),
+              ),
+              if (useFavorites) _Chip(text: context.tr('收藏词汇')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+
+  const _Chip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(text, style: Theme.of(context).textTheme.labelSmall),
+    );
   }
 }
 
@@ -264,10 +386,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleSmall,
-      ),
+      child: Text(text, style: Theme.of(context).textTheme.titleSmall),
     );
   }
 }
@@ -279,7 +398,6 @@ class _AiWarningBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
@@ -287,7 +405,10 @@ class _AiWarningBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: colorScheme.onErrorContainer),
+          Icon(
+            Icons.warning_amber_rounded,
+            color: colorScheme.onErrorContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +8,13 @@ import '../../../data/database/app_database.dart';
 import '../../../data/database/daos/exercise_dao.dart';
 import '../../../data/models/training.dart';
 import '../../../providers/training_provider.dart';
+import '../../../ui/utils/wide_layout.dart';
 import 'training_setup_screen.dart';
 
 /// 结果页：得分、逐题对错、正确答案、解析、听写差异与写作 Rubric
+///
+/// 平板布局（≥ 720dp）：左侧是题目列表（带每题得分），右侧显示所选题目的
+/// 详细结果（用户答案 / 正确答案 / 解析 / 评分维度），避免长列表来回滚动。
 class ExerciseResultScreen extends ConsumerWidget {
   final int exerciseId;
 
@@ -41,67 +45,239 @@ class ExerciseResultScreen extends ConsumerWidget {
   }
 }
 
-class _ResultBody extends StatelessWidget {
+class _ResultBody extends StatefulWidget {
   final ExerciseResultView view;
 
   const _ResultBody({required this.view});
 
   @override
+  State<_ResultBody> createState() => _ResultBodyState();
+}
+
+class _ResultBodyState extends State<_ResultBody> {
+  int _selected = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final view = widget.view;
     final exercise = view.exercise;
     final type = ExerciseType.fromCode(exercise.exerciseType);
-    final total = exercise.maxScore == 0
+    final ratio = exercise.maxScore == 0
         ? 0.0
         : exercise.totalScore / exercise.maxScore;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+    final header = _ScoreHeader(
+      score: exercise.totalScore,
+      maxScore: exercise.maxScore,
+      ratio: ratio,
+      type: type,
+      level: exercise.level,
+      difficulty: exercise.difficulty,
+      topic: exercise.topic,
+      durationSeconds: exercise.durationSeconds,
+    );
+
+    final actions = Row(
       children: [
-        _ScoreHeader(
-          score: exercise.totalScore,
-          maxScore: exercise.maxScore,
-          ratio: total,
-          type: type,
-          level: exercise.level,
-          difficulty: exercise.difficulty,
-          topic: exercise.topic,
-          durationSeconds: exercise.durationSeconds,
-        ),
-        const SizedBox(height: 16),
-        for (var i = 0; i < view.items.length; i++)
-          _QuestionReview(
-            item: view.items[i],
-            attempt: view.attemptOf(view.items[i].question.key),
-            index: i,
-            total: view.items.length,
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => TrainingSetupScreen(type: type),
+              ),
+            ),
+            icon: const Icon(Icons.refresh),
+            label: Text(context.tr('再练一次')),
           ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => TrainingSetupScreen(type: type),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.check),
+            label: Text(context.tr('完成')),
+          ),
+        ),
+      ],
+    );
+
+    if (!WideLayout.isWide(context) || view.items.length < 2) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          header,
+          const SizedBox(height: 16),
+          for (var i = 0; i < view.items.length; i++)
+            _QuestionReview(
+              item: view.items[i],
+              attempt: view.attemptOf(view.items[i].question.key),
+              index: i,
+              total: view.items.length,
+              asCard: true,
+            ),
+          const SizedBox(height: 8),
+          actions,
+        ],
+      );
+    }
+
+    // 宽屏：左题目列表 + 右结果详情
+    final index = _selected.clamp(0, view.items.length - 1);
+    final item = view.items[index];
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: header,
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 2,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 8, 24),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 8),
+                      child: Text(
+                        context.tr('题目列表'),
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    for (var i = 0; i < view.items.length; i++)
+                      _QuestionTile(
+                        item: view.items[i],
+                        attempt: view.attemptOf(view.items[i].question.key),
+                        index: i,
+                        selected: i == index,
+                        onTap: () => setState(() => _selected = i),
+                      ),
+                  ],
+                ),
+              ),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(
+                flex: 3,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 20, 24),
+                  child: _QuestionReview(
+                    item: item,
+                    attempt: view.attemptOf(item.question.key),
+                    index: index,
+                    total: view.items.length,
+                    asCard: false,
                   ),
                 ),
-                icon: const Icon(Icons.refresh),
-                label: Text(context.tr('再练一次')),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.check),
-                label: Text(context.tr('完成')),
-              ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: actions,
+          ),
         ),
       ],
     );
   }
+}
+
+/// 左栏：单题摘要
+class _QuestionTile extends StatelessWidget {
+  final ExerciseQuestionView item;
+  final ExerciseAttempt? attempt;
+  final int index;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _QuestionTile({
+    required this.item,
+    required this.attempt,
+    required this.index,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isCorrect = attempt?.isCorrect ?? false;
+    final isPartial = attempt?.isPartial ?? false;
+    final unavailable = attempt?.graderType == 'unavailable';
+    final color = unavailable
+        ? colorScheme.outline
+        : isCorrect
+        ? Colors.green
+        : isPartial
+        ? Colors.orange
+        : colorScheme.error;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected ? colorScheme.secondaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  unavailable
+                      ? Icons.help_outline
+                      : isCorrect
+                      ? Icons.check_circle
+                      : isPartial
+                      ? Icons.adjust
+                      : Icons.cancel,
+                  size: 16,
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.trArgs('第 {0} 题', [index + 1]),
+                        style: theme.textTheme.labelSmall,
+                      ),
+                      Text(
+                        item.question.prompt,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${_fmt(attempt?.score ?? 0)}/${_fmt(attempt?.maxScore ?? item.question.points)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _fmt(num value) =>
+      value == value.roundToDouble() ? value.round().toString() : '$value';
 }
 
 class _ScoreHeader extends StatelessWidget {
@@ -161,8 +337,10 @@ class _ScoreHeader extends StatelessWidget {
               ),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.onPrimaryContainer.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -191,13 +369,13 @@ class _ScoreHeader extends StatelessWidget {
             children: [
               _MetaChip(label: level),
               _MetaChip(
-                label: context.tr(TrainingDifficulty.fromCode(difficulty).titleZh),
+                label: context.tr(
+                  TrainingDifficulty.fromCode(difficulty).titleZh,
+                ),
               ),
               if (topic.isNotEmpty) _MetaChip(label: context.tr(topic)),
               if (durationSeconds != null && durationSeconds! > 0)
-                _MetaChip(
-                  label: context.trArgs('耗时 {0} 秒', [durationSeconds]),
-                ),
+                _MetaChip(label: context.trArgs('耗时 {0} 秒', [durationSeconds])),
             ],
           ),
         ],
@@ -231,11 +409,15 @@ class _QuestionReview extends StatelessWidget {
   final int index;
   final int total;
 
+  /// 是否包一层 Card（窄屏列表用）；宽屏右栏直接铺开
+  final bool asCard;
+
   const _QuestionReview({
     required this.item,
     required this.attempt,
     required this.index,
     required this.total,
+    this.asCard = true,
   });
 
   @override
@@ -252,106 +434,103 @@ class _QuestionReview extends StatelessWidget {
     final statusColor = unavailable
         ? colorScheme.outline
         : isCorrect
-            ? Colors.green
-            : isPartial
-                ? Colors.orange
-                : colorScheme.error;
+        ? Colors.green
+        : isPartial
+        ? Colors.orange
+        : colorScheme.error;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
+            Icon(
+              unavailable
+                  ? Icons.help_outline
+                  : isCorrect
+                  ? Icons.check_circle
+                  : isPartial
+                  ? Icons.adjust
+                  : Icons.cancel,
+              size: 18,
+              color: statusColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              context.trArgs('第 {0} / {1} 题', [index + 1, total]),
+              style: theme.textTheme.labelMedium,
+            ),
+            const Spacer(),
+            Text(
+              '${_fmt(attempt?.score ?? 0)} / ${_fmt(attempt?.maxScore ?? question.points)}',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: statusColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (question.contextText != null && question.contextText!.isNotEmpty)
+          Text(
+            question.contextText!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        Text(question.prompt, style: theme.textTheme.bodyLarge),
+        const SizedBox(height: 12),
+        _AnswerRow(
+          label: context.tr('你的答案'),
+          value: _formatUserAnswer(question, attempt?.userAnswer ?? ''),
+          highlight: statusColor,
+        ),
+        _AnswerRow(
+          label: context.tr('正确答案'),
+          value: _formatCorrectAnswer(question, solution),
+          highlight: null,
+        ),
+        if (unavailable)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              context.tr('本题评分暂不可用，已保留你的答案'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        if (feedback != null) _FeedbackBlock(feedback: feedback),
+        if (solution.explanation.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  unavailable
-                      ? Icons.help_outline
-                      : isCorrect
-                          ? Icons.check_circle
-                          : isPartial
-                              ? Icons.adjust
-                              : Icons.cancel,
-                  size: 18,
-                  color: statusColor,
-                ),
-                const SizedBox(width: 6),
+                Text(context.tr('解析'), style: theme.textTheme.labelMedium),
+                const SizedBox(height: 4),
                 Text(
-                  context.trArgs('第 {0} / {1} 题', [index + 1, total]),
-                  style: theme.textTheme.labelMedium,
-                ),
-                const Spacer(),
-                Text(
-                  '${_fmt(attempt?.score ?? 0)} / ${_fmt(attempt?.maxScore ?? question.points)}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  solution.explanation,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            if (question.contextText != null &&
-                question.contextText!.isNotEmpty)
-              Text(
-                question.contextText!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            Text(question.prompt, style: theme.textTheme.bodyLarge),
-            const SizedBox(height: 12),
-            _AnswerRow(
-              label: context.tr('你的答案'),
-              value: _formatUserAnswer(question, attempt?.userAnswer ?? ''),
-              highlight: statusColor,
-            ),
-            _AnswerRow(
-              label: context.tr('正确答案'),
-              value: _formatCorrectAnswer(question, solution),
-              highlight: null,
-            ),
-            if (unavailable)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  context.tr('本题评分暂不可用，已保留你的答案'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            if (feedback != null) _FeedbackBlock(feedback: feedback),
-            if (solution.explanation.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.tr('解析'),
-                      style: theme.textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      solution.explanation,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
+    );
+
+    if (!asCard) return content;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(padding: const EdgeInsets.all(16), child: content),
     );
   }
 
@@ -396,9 +575,11 @@ class _QuestionReview extends StatelessWidget {
     final key = solution.answerKey;
     if (key.correctIndices.isNotEmpty) {
       final letters = key.correctIndices
-          .map((i) => i < question.options.length
-              ? String.fromCharCode(65 + i)
-              : '${i + 1}')
+          .map(
+            (i) => i < question.options.length
+                ? String.fromCharCode(65 + i)
+                : '${i + 1}',
+          )
           .join(', ');
       final optionTexts = key.correctIndices
           .where((i) => i < question.options.length)
@@ -449,8 +630,9 @@ class _AnswerRow extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 height: 1.4,
                 color: highlight,
-                fontWeight:
-                    highlight == null ? FontWeight.w500 : FontWeight.w600,
+                fontWeight: highlight == null
+                    ? FontWeight.w500
+                    : FontWeight.w600,
               ),
             ),
           ),
@@ -604,8 +786,8 @@ class _DimensionRow extends StatelessWidget {
               child: Text(
                 feedback,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
         ],

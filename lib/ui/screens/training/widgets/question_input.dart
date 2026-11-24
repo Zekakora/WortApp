@@ -345,9 +345,7 @@ class _OptionTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: multiple ? BoxShape.rectangle : BoxShape.circle,
                   borderRadius: multiple ? BorderRadius.circular(6) : null,
-                  color: selected
-                      ? colorScheme.primary
-                      : colorScheme.surface,
+                  color: selected ? colorScheme.primary : colorScheme.surface,
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Text(
@@ -398,8 +396,7 @@ class _ChoiceButton extends StatelessWidget {
       label: Text(label),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        backgroundColor:
-            selected ? colorScheme.primaryContainer : null,
+        backgroundColor: selected ? colorScheme.primaryContainer : null,
         side: selected
             ? BorderSide(color: colorScheme.primary, width: 2)
             : BorderSide(color: colorScheme.outlineVariant),

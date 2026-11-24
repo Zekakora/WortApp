@@ -2,10 +2,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
+import '../../../data/database/daos/exercise_dao.dart';
 import '../../../data/models/training.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
-import '../../widgets/context_lookup_sheet.dart';
+import '../../../ui/utils/wide_layout.dart';
+import '../../../ui/widgets/context_lookup_sheet.dart';
 import 'exercise_result_screen.dart';
 import 'widgets/question_input.dart';
 import 'widgets/stimulus_view.dart';
@@ -16,6 +18,9 @@ import 'widgets/stimulus_view.dart';
 /// 1. 提交前不展示任何正确答案与解析（题目数据来自不含答案的 `getPlayback`）；
 /// 2. 听力理解题在提交前不展示原文；
 /// 3. 退出时明确询问"保存草稿 / 放弃"，已提交的练习一定保留。
+///
+/// 平板布局（≥ 720dp）：左栏放材料（阅读原文 / 听力音频 / 题型要求），
+/// 右栏放题干与作答区，两栏各自独立滚动；窄屏保持单栏上下顺序。
 class ExercisePlayerScreen extends ConsumerStatefulWidget {
   /// 从历史继续作答时传入；直接在生成后进入时为 null
   final int? exerciseId;
@@ -67,8 +72,9 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
                   children: [
                     Text(
                       context.tr(
-                        ExerciseType.fromCode(playback.exercise.exerciseType)
-                            .titleZh,
+                        ExerciseType.fromCode(
+                          playback.exercise.exerciseType,
+                        ).titleZh,
                       ),
                       style: const TextStyle(fontSize: 16),
                     ),
@@ -93,7 +99,9 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
   Widget _buildBody(BuildContext context, TrainingSessionState session) {
     if (session.isBusy) {
       return _BusyView(
-        title: session.hasExercise ? context.tr('正在批改…') : context.tr('AI 正在出题…'),
+        title: session.hasExercise
+            ? context.tr('正在批改…')
+            : context.tr('AI 正在出题…'),
         subtitle: session.hasExercise
             ? context.tr('写作类题目由 AI 按评分标准批改，请稍候')
             : context.tr('根据你的等级、难度和主题生成题目，通常 10–30 秒'),
@@ -115,14 +123,10 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
     final playback = session.playback;
     final question = session.currentQuestion;
     if (playback == null || question == null) {
-      return _BusyView(
-        title: context.tr('正在加载练习…'),
-        subtitle: '',
-      );
+      return _BusyView(title: context.tr('正在加载练习…'), subtitle: '');
     }
 
-    final type = ExerciseType.fromCode(playback.exercise.exerciseType);
-    final isListening = type.skill == TrainingSkill.listening;
+    final isWide = WideLayout.isWide(context);
 
     return Column(
       children: [
@@ -133,70 +137,167 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
           minHeight: 4,
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            children: [
-              if (playback.exercise.title.isNotEmpty)
-                Text(
-                  playback.exercise.title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              if (playback.exercise.instructions.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    playback.exercise.instructions,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              // 材料区：听力给播放控件（不显示原文），阅读可长按查词
-              if (playback.exercise.stimulusText.isNotEmpty)
-                StimulusView(
-                  text: playback.exercise.stimulusText,
-                  kind: playback.exercise.stimulusKind,
-                  onLookup: isListening ? null : _openLookup,
-                  revealed: false,
-                ),
-              const SizedBox(height: 16),
-              _QuestionCard(
-                question: question,
-                index: session.currentIndex,
-                total: session.total,
-              ),
-              const SizedBox(height: 12),
-              QuestionInput(
-                key: ValueKey('${playback.exercise.id}-${question.key}'),
-                question: question,
-                initialValue: session.answers[question.key] ?? '',
-                onChanged: (value) => ref
-                    .read(trainingSessionProvider.notifier)
-                    .setAnswer(question.key, value),
-                onPlayAudio: () => _playDictation(question),
-                audioAvailable: _speechReady,
-              ),
-              if (session.notices.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                for (final notice in session.notices)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      notice,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                    ),
-                  ),
-              ],
-              const SizedBox(height: 24),
-            ],
-          ),
+          child: isWide
+              ? _buildWide(context, session, playback, question)
+              : _buildNarrow(context, session, playback, question),
         ),
         _buildBottomBar(context, session),
       ],
     );
+  }
+
+  /// 窄屏：单栏上下滚动（原有布局）
+  Widget _buildNarrow(
+    BuildContext context,
+    TrainingSessionState session,
+    ExercisePlayback playback,
+    PlaybackQuestion question,
+  ) {
+    final isListening =
+        ExerciseType.fromCode(playback.exercise.exerciseType).skill ==
+        TrainingSkill.listening;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      children: [
+        ..._headerSlivers(context, playback),
+        if (playback.exercise.stimulusText.isNotEmpty) ...[
+          StimulusView(
+            text: playback.exercise.stimulusText,
+            kind: playback.exercise.stimulusKind,
+            onLookup: isListening ? null : _openLookup,
+            revealed: false,
+          ),
+          const SizedBox(height: 16),
+        ],
+        _QuestionCard(
+          question: question,
+          index: session.currentIndex,
+          total: session.total,
+        ),
+        const SizedBox(height: 12),
+        _buildInput(context, session, playback, question),
+        ..._noticeSlivers(context, session),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  /// 宽屏：左材料 / 右题目+作答，两栏独立滚动
+  Widget _buildWide(
+    BuildContext context,
+    TrainingSessionState session,
+    ExercisePlayback playback,
+    PlaybackQuestion question,
+  ) {
+    final isListening =
+        ExerciseType.fromCode(playback.exercise.exerciseType).skill ==
+        TrainingSkill.listening;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 3,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ..._headerSlivers(context, playback),
+                if (playback.exercise.stimulusText.isNotEmpty)
+                  StimulusView(
+                    text: playback.exercise.stimulusText,
+                    kind: playback.exercise.stimulusKind,
+                    onLookup: isListening ? null : _openLookup,
+                    revealed: false,
+                  )
+                else
+                  _RequirementCard(playback: playback),
+              ],
+            ),
+          ),
+        ),
+        const VerticalDivider(width: 1, thickness: 1),
+        Expanded(
+          flex: 2,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _QuestionCard(
+                  question: question,
+                  index: session.currentIndex,
+                  total: session.total,
+                ),
+                const SizedBox(height: 12),
+                _buildInput(context, session, playback, question),
+                ..._noticeSlivers(context, session),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _headerSlivers(BuildContext context, ExercisePlayback playback) {
+    return [
+      if (playback.exercise.title.isNotEmpty)
+        Text(
+          playback.exercise.title,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      if (playback.exercise.instructions.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 12),
+          child: Text(
+            playback.exercise.instructions,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildInput(
+    BuildContext context,
+    TrainingSessionState session,
+    ExercisePlayback playback,
+    PlaybackQuestion question,
+  ) {
+    return QuestionInput(
+      key: ValueKey('${playback.exercise.id}-${question.key}'),
+      question: question,
+      initialValue: session.answers[question.key] ?? '',
+      onChanged: (value) => ref
+          .read(trainingSessionProvider.notifier)
+          .setAnswer(question.key, value),
+      onPlayAudio: () => _playDictation(question),
+      audioAvailable: _speechReady,
+    );
+  }
+
+  List<Widget> _noticeSlivers(
+    BuildContext context,
+    TrainingSessionState session,
+  ) {
+    if (session.notices.isEmpty) return const [];
+    return [
+      const SizedBox(height: 12),
+      for (final notice in session.notices)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            notice,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ),
+    ];
   }
 
   Widget _buildBottomBar(BuildContext context, TrainingSessionState session) {
@@ -250,7 +351,8 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
 
   Future<void> _confirmSubmit() async {
     final session = ref.read(trainingSessionProvider);
-    final unanswered = session.total -
+    final unanswered =
+        session.total -
         session.answers.values.where((v) => v.trim().isNotEmpty).length;
     if (unanswered > 0) {
       final confirmed = await showDialog<bool>(
@@ -293,14 +395,11 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
     ref.invalidate(trainingHistoryProvider);
     setState(() => _allowPop = true);
     await Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => ExerciseResultScreen(exerciseId: id),
-      ),
+      MaterialPageRoute(builder: (_) => ExerciseResultScreen(exerciseId: id)),
     );
   }
 
   Future<void> _confirmExit() async {
-    // 已经提交过的练习直接从路由退出，不再询问
     final notifier = ref.read(trainingSessionProvider.notifier);
     final session = ref.read(trainingSessionProvider);
 
@@ -314,9 +413,7 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(dialogContext.tr('退出本次练习？')),
-        content: Text(
-          dialogContext.tr('未提交的练习可以保存草稿，稍后从历史记录继续；已提交的练习一定会保留。'),
-        ),
+        content: Text(dialogContext.tr('未提交的练习可以保存草稿，稍后从历史记录继续；已提交的练习一定会保留。')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop('cancel'),
@@ -342,6 +439,40 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
     if (!mounted) return;
     setState(() => _allowPop = true);
     Navigator.of(context).pop();
+  }
+}
+
+/// 没有材料时的左栏内容：题型说明（题干在右栏，避免同一个题干显示两遍）
+class _RequirementCard extends StatelessWidget {
+  final ExercisePlayback playback;
+
+  const _RequirementCard({required this.playback});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final type = ExerciseType.fromCode(playback.exercise.exerciseType);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.tr(type.titleZh), style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            context.tr(type.descZh),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

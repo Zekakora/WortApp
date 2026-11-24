@@ -84,15 +84,14 @@ class TrainingPrefs {
     String? topic,
     bool? useFavorites,
     bool? isLoaded,
-  }) =>
-      TrainingPrefs(
-        level: level ?? this.level,
-        difficulty: difficulty ?? this.difficulty,
-        questionCount: questionCount ?? this.questionCount,
-        topic: topic ?? this.topic,
-        useFavorites: useFavorites ?? this.useFavorites,
-        isLoaded: isLoaded ?? this.isLoaded,
-      );
+  }) => TrainingPrefs(
+    level: level ?? this.level,
+    difficulty: difficulty ?? this.difficulty,
+    questionCount: questionCount ?? this.questionCount,
+    topic: topic ?? this.topic,
+    useFavorites: useFavorites ?? this.useFavorites,
+    isLoaded: isLoaded ?? this.isLoaded,
+  );
 }
 
 /// 训练设置 Notifier：读写 settings 表（与其它设置一致，用 key/value 存储）
@@ -156,17 +155,61 @@ class TrainingPrefsNotifier extends StateNotifier<TrainingPrefs> {
 
 final trainingPrefsProvider =
     StateNotifierProvider<TrainingPrefsNotifier, TrainingPrefs>((ref) {
-  return TrainingPrefsNotifier(ref.watch(databaseProvider));
-});
+      return TrainingPrefsNotifier(ref.watch(databaseProvider));
+    });
+
+/// 练习中「查词 / 收藏」的默认目标词书
+///
+/// 由「词书」页的菜单设置（`practice_default_deck_id`）。设置后，
+/// 练习里收藏的词若还不在任何词书里，会自动加入这本词书（任务书 §6.2
+/// 要求"用户主动确认才写库"，这里的"确认"就是点收藏这个动作）。
+class PracticeDefaultDeckNotifier extends StateNotifier<int?> {
+  final AppDatabase? _db;
+
+  PracticeDefaultDeckNotifier(this._db) : super(null) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final raw = await _db?.getSetting('practice_default_deck_id');
+      final id = int.tryParse(raw ?? '');
+      if (id != null) state = id;
+    } catch (e) {
+      debugPrint('读取练习默认词书失败: $e');
+    }
+  }
+
+  /// 设置/清除默认词书（传 null 表示清除）
+  Future<void> setDeck(int? deckId) async {
+    state = deckId;
+    try {
+      if (deckId == null) {
+        await _db?.deleteSetting('practice_default_deck_id');
+      } else {
+        await _db?.setSetting('practice_default_deck_id', deckId.toString());
+      }
+    } catch (e) {
+      debugPrint('保存练习默认词书失败: $e');
+    }
+  }
+}
+
+final practiceDefaultDeckProvider =
+    StateNotifierProvider<PracticeDefaultDeckNotifier, int?>((ref) {
+      return PracticeDefaultDeckNotifier(ref.watch(databaseProvider));
+    });
 
 /// 练习历史（按技能筛选；练习历史只存本地，不参与备份与同步）
 final trainingHistoryProvider =
-    FutureProvider.family<List<ExerciseHistoryEntry>, TrainingSkill?>(
-        (ref, skill) async {
-  final db = ref.watch(databaseProvider);
-  if (db == null) return const [];
-  return db.exerciseDao.getHistory(skill: skill);
-});
+    FutureProvider.family<List<ExerciseHistoryEntry>, TrainingSkill?>((
+      ref,
+      skill,
+    ) async {
+      final db = ref.watch(databaseProvider);
+      if (db == null) return const [];
+      return db.exerciseDao.getHistory(skill: skill);
+    });
 
 /// 收藏词汇（作为可选词汇范围传给生成提示词）
 final favoriteVocabularyProvider = FutureProvider<List<String>>((ref) async {
@@ -249,18 +292,18 @@ class TrainingSessionState {
     int? submittedExerciseId,
     bool clearSubmitted = false,
     DateTime? startedAt,
-  }) =>
-      TrainingSessionState(
-        playback: playback ?? this.playback,
-        answers: answers ?? this.answers,
-        currentIndex: currentIndex ?? this.currentIndex,
-        isBusy: isBusy ?? this.isBusy,
-        error: clearError ? null : (error ?? this.error),
-        notices: notices ?? this.notices,
-        submittedExerciseId:
-            clearSubmitted ? null : (submittedExerciseId ?? this.submittedExerciseId),
-        startedAt: startedAt ?? this.startedAt,
-      );
+  }) => TrainingSessionState(
+    playback: playback ?? this.playback,
+    answers: answers ?? this.answers,
+    currentIndex: currentIndex ?? this.currentIndex,
+    isBusy: isBusy ?? this.isBusy,
+    error: clearError ? null : (error ?? this.error),
+    notices: notices ?? this.notices,
+    submittedExerciseId: clearSubmitted
+        ? null
+        : (submittedExerciseId ?? this.submittedExerciseId),
+    startedAt: startedAt ?? this.startedAt,
+  );
 }
 
 /// 答题会话 Notifier
@@ -270,7 +313,7 @@ class TrainingSessionNotifier extends StateNotifier<TrainingSessionState> {
   final GradingService _grading;
 
   TrainingSessionNotifier(this._db, this._generator, this._grading)
-      : super(const TrainingSessionState());
+    : super(const TrainingSessionState());
 
   ExerciseDao? get _dao => _db?.exerciseDao;
 
@@ -292,10 +335,7 @@ class TrainingSessionNotifier extends StateNotifier<TrainingSessionState> {
     try {
       final result = await generator.generate(request);
       if (!result.ok) {
-        state = state.copyWith(
-          isBusy: false,
-          error: result.error,
-        );
+        state = state.copyWith(isBusy: false, error: result.error);
         return null;
       }
 
@@ -424,11 +464,13 @@ class TrainingSessionNotifier extends StateNotifier<TrainingSessionState> {
           topic: playback.exercise.topic,
         );
         if (grade.graderType == 'unavailable') unavailable++;
-        attempts.add(AttemptInput(
-          questionKey: question.key,
-          userAnswer: userAnswer,
-          grade: grade,
-        ));
+        attempts.add(
+          AttemptInput(
+            questionKey: question.key,
+            userAnswer: userAnswer,
+            grade: grade,
+          ),
+        );
       }
 
       if (unavailable > 0) {
@@ -463,17 +505,19 @@ class TrainingSessionNotifier extends StateNotifier<TrainingSessionState> {
 /// 答题会话 Provider
 final trainingSessionProvider =
     StateNotifierProvider<TrainingSessionNotifier, TrainingSessionState>((ref) {
-  final db = ref.watch(databaseProvider);
-  return TrainingSessionNotifier(
-    db,
-    ref.watch(trainingGeneratorProvider),
-    ref.watch(trainingGradingProvider),
-  );
-});
+      final db = ref.watch(databaseProvider);
+      return TrainingSessionNotifier(
+        db,
+        ref.watch(trainingGeneratorProvider),
+        ref.watch(trainingGradingProvider),
+      );
+    });
 
 /// 单个练习的结果数据（结果页用）
-final trainingResultProvider =
-    FutureProvider.family<ExerciseResultView?, int>((ref, exerciseId) async {
+final trainingResultProvider = FutureProvider.family<ExerciseResultView?, int>((
+  ref,
+  exerciseId,
+) async {
   final db = ref.watch(databaseProvider);
   if (db == null) return null;
   return db.exerciseDao.getResultView(exerciseId);

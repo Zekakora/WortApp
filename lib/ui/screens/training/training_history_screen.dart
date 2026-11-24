@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
+import '../../../ui/utils/wide_layout.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/training_provider.dart';
 import 'exercise_player_screen.dart';
@@ -17,8 +18,7 @@ class TrainingHistoryScreen extends ConsumerStatefulWidget {
       _TrainingHistoryScreenState();
 }
 
-class _TrainingHistoryScreenState
-    extends ConsumerState<TrainingHistoryScreen> {
+class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
   TrainingSkill? _filter;
   List<ExerciseHistoryEntry> _unfinished = const [];
 
@@ -102,10 +102,7 @@ class _TrainingHistoryScreenState
               if (value == 'clear') _clearAll();
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'clear',
-                child: Text(context.tr('清空练习历史')),
-              ),
+              PopupMenuItem(value: 'clear', child: Text(context.tr('清空练习历史'))),
             ],
           ),
         ],
@@ -136,85 +133,94 @@ class _TrainingHistoryScreenState
           Expanded(
             child: asyncHistory.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(
-                child: Text(context.trArgs('读取历史失败: {0}', [error])),
-              ),
-              data: (_) => ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                children: [
-                  if (_unfinished.isNotEmpty) ...[
-                    Text(
-                      context.tr('未完成的练习'),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    for (final entry in _unfinished)
-                      Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: const Icon(Icons.play_circle_outline),
-                          title: Text(context.tr(entry.exerciseType.titleZh)),
-                          subtitle: Text(
-                            '${entry.level.code} · '
-                            '${context.tr(entry.difficulty.titleZh)} · '
-                            '${_formatDate(entry.createdAt)}',
-                          ),
-                          trailing: FilledButton.tonal(
-                            onPressed: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => ExercisePlayerScreen(
-                                    exerciseId: entry.id,
-                                  ),
-                                ),
-                              );
-                              ref.invalidate(trainingHistoryProvider);
-                              await _loadUnfinished();
-                            },
-                            child: Text(context.tr('继续')),
-                          ),
+              error: (error, _) =>
+                  Center(child: Text(context.trArgs('读取历史失败: {0}', [error]))),
+              data: (_) => Center(
+                child: SizedBox(
+                  // 宽屏限宽：一行文字过长反而难读，列表居中即可
+                  width: WideLayout.isWide(context) ? 960 : double.infinity,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    children: [
+                      if (_unfinished.isNotEmpty) ...[
+                        Text(
+                          context.tr('未完成的练习'),
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
-                      ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (entries.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: Text(
-                          context.tr('还没有练习记录'),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    )
-                  else
-                    for (final entry in entries)
-                      Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: _scoreBadge(context, entry),
-                          title: Text(context.tr(entry.exerciseType.titleZh)),
-                          subtitle: Text(
-                            '${entry.level.code} · '
-                            '${context.tr(entry.difficulty.titleZh)}'
-                            '${entry.topic.isEmpty ? '' : ' · ${context.tr(entry.topic)}'}'
-                            ' · ${_formatDate(entry.submittedAt ?? entry.createdAt)}',
-                          ),
-                          trailing: IconButton(
-                            tooltip: context.tr('删除'),
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _delete(entry),
-                          ),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ExerciseResultScreen(
-                                exerciseId: entry.id,
+                        const SizedBox(height: 8),
+                        for (final entry in _unfinished)
+                          Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const Icon(Icons.play_circle_outline),
+                              title: Text(
+                                context.tr(entry.exerciseType.titleZh),
+                              ),
+                              subtitle: Text(
+                                '${entry.level.code} · '
+                                '${context.tr(entry.difficulty.titleZh)} · '
+                                '${_formatDate(entry.createdAt)}',
+                              ),
+                              trailing: FilledButton.tonal(
+                                onPressed: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => ExercisePlayerScreen(
+                                        exerciseId: entry.id,
+                                      ),
+                                    ),
+                                  );
+                                  ref.invalidate(trainingHistoryProvider);
+                                  await _loadUnfinished();
+                                },
+                                child: Text(context.tr('继续')),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                ],
+                        const SizedBox(height: 16),
+                      ],
+                      if (entries.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text(
+                              context.tr('还没有练习记录'),
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        )
+                      else
+                        for (final entry in entries)
+                          Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: _scoreBadge(context, entry),
+                              title: Text(
+                                context.tr(entry.exerciseType.titleZh),
+                              ),
+                              subtitle: Text(
+                                '${entry.level.code} · '
+                                '${context.tr(entry.difficulty.titleZh)}'
+                                '${entry.topic.isEmpty ? '' : ' · ${context.tr(entry.topic)}'}'
+                                ' · ${_formatDate(entry.submittedAt ?? entry.createdAt)}',
+                              ),
+                              trailing: IconButton(
+                                tooltip: context.tr('删除'),
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _delete(entry),
+                              ),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ExerciseResultScreen(
+                                    exerciseId: entry.id,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -228,8 +234,8 @@ class _TrainingHistoryScreenState
     final color = percent >= 80
         ? Colors.green
         : percent >= 50
-            ? Colors.orange
-            : Theme.of(context).colorScheme.error;
+        ? Colors.orange
+        : Theme.of(context).colorScheme.error;
     return CircleAvatar(
       backgroundColor: color.withValues(alpha: 0.15),
       child: Text(

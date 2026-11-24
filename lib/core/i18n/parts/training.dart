@@ -218,6 +218,21 @@ const Map<String, String> trainingEn = <String, String>{
       'The lookup uses the surrounding sentence; once added, the word is available in study mode',
   '未找到结果': 'No result found',
   '查词失败: {0}': 'Lookup failed: {0}',
+
+  // 练习默认词书
+  '设为练习默认词书': 'Set as default practice wordbook',
+  '取消练习默认词书': 'Remove default practice wordbook',
+  '已取消练习默认词书': 'Default practice wordbook removed',
+  '练习中收藏的词将加入「{0}」':
+      'Words favourited during practice will be added to “{0}”',
+  '收藏并加入「{0}」': 'Favourite and add to “{0}”',
+  '已收藏并加入「{0}」': 'Favourited and added to “{0}”',
+
+  // 平板布局
+  '题目列表': 'Questions',
+  '第 {0} 题': 'Question {0}',
+  '{0} 题': '{0} questions',
+  '收藏词汇': 'Favourite words',
 };
 
 const Map<String, String> trainingDe = <String, String>{
@@ -441,4 +456,19 @@ const Map<String, String> trainingDe = <String, String>{
       'Die Suche berücksichtigt den Satzkontext; nach dem Hinzufügen ist das Wort im Lernmodus verfügbar',
   '未找到结果': 'Kein Ergebnis gefunden',
   '查词失败: {0}': 'Nachschlagen fehlgeschlagen: {0}',
+
+  // Standard-Wortliste für Übungen
+  '设为练习默认词书': 'Als Standard-Wortliste für Übungen festlegen',
+  '取消练习默认词书': 'Standard-Wortliste für Übungen entfernen',
+  '已取消练习默认词书': 'Standard-Wortliste für Übungen entfernt',
+  '练习中收藏的词将加入「{0}」':
+      'In Übungen favorisierte Wörter werden zu „{0}“ hinzugefügt',
+  '收藏并加入「{0}」': 'Favorisieren und zu „{0}“ hinzufügen',
+  '已收藏并加入「{0}」': 'Favorisiert und zu „{0}“ hinzugefügt',
+
+  // Tablet-Layout
+  '题目列表': 'Fragen',
+  '第 {0} 题': 'Frage {0}',
+  '{0} 题': '{0} Fragen',
+  '收藏词汇': 'Favoriten',
 };

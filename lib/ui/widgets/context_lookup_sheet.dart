@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/app_localizations.dart';
@@ -144,23 +144,26 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
     if (db == null || result == null) return;
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
-    final outcome = await WordIntakeService(db)
-        .addToDeck(deckId: deckId, result: result);
+    final outcome = await WordIntakeService(
+      db,
+    ).addToDeck(deckId: deckId, result: result);
     final existing = await WordIntakeService(db).findExisting(result);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _existing = existing;
     });
-    messenger.showSnackBar(SnackBar(
-      content: Text(
-        outcome.isAdded
-            ? context.tr('已添加到词书')
-            : outcome.status == WordIntakeStatus.alreadyExists
-                ? context.tr('该单词已存在，未重复添加')
-                : context.tr('添加失败'),
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          outcome.isAdded
+              ? context.tr('已添加到词书')
+              : outcome.status == WordIntakeStatus.alreadyExists
+              ? context.tr('该单词已存在，未重复添加')
+              : context.tr('添加失败'),
+        ),
       ),
-    ));
+    );
   }
 
   Future<void> _toggleFavorite() async {
@@ -181,6 +184,48 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
               existingDeck: _existing?.existingDeck,
             );
     });
+  }
+
+  /// 收藏并加入「练习默认词书」：一次点击完成入库 + 收藏
+  ///
+  /// 只在单词还不在任何词书时提供（已在词书里的词直接切收藏状态即可，
+  /// 不能再往别的词书重复插一条）。
+  Future<void> _favoriteIntoDefaultDeck(int deckId, String deckName) async {
+    final db = ref.read(databaseProvider);
+    final result = _result;
+    if (db == null || result == null) return;
+
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final intake = WordIntakeService(db);
+    final outcome = await intake.addToDeck(deckId: deckId, result: result);
+    final existing = await intake.findExisting(result);
+    final word = existing?.existingWord;
+    if (word != null && !word.isFavorite) {
+      await db.wordDao.updateFavorite(word.id, true);
+    }
+    final refreshed = word == null
+        ? null
+        : await db.wordDao.getWordById(word.id);
+    if (!mounted) return;
+
+    setState(() {
+      _busy = false;
+      _existing = refreshed == null
+          ? existing
+          : WordIntakeResult(
+              status: WordIntakeStatus.alreadyExists,
+              existingWord: refreshed,
+              existingDeck: existing?.existingDeck,
+            );
+    });
+
+    final message = switch (outcome.status) {
+      WordIntakeStatus.added || WordIntakeStatus.alreadyExists =>
+        context.trArgs('已收藏并加入「{0}」', [deckName]),
+      WordIntakeStatus.failed => context.tr('添加失败'),
+    };
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -340,10 +385,7 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
         ],
         if (result.examples.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text(
-            context.tr('例句'),
-            style: theme.textTheme.labelLarge,
-          ),
+          Text(context.tr('例句'), style: theme.textTheme.labelLarge),
           const SizedBox(height: 4),
           for (final example in result.examples)
             Padding(
@@ -361,6 +403,16 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
     final colorScheme = Theme.of(context).colorScheme;
     final existingWord = _existing?.existingWord;
 
+    // 练习默认词书：设置了就把「收藏」和「入库」合并成一次操作
+    final defaultDeckId = ref.watch(practiceDefaultDeckProvider);
+    Deck? defaultDeck;
+    for (final deck in _decks) {
+      if (deck.id == defaultDeckId) {
+        defaultDeck = deck;
+        break;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -373,17 +425,19 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle_outline,
-                    size: 18, color: colorScheme.onSecondaryContainer),
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 18,
+                  color: colorScheme.onSecondaryContainer,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _existing?.existingDeck == null
                         ? context.tr('该单词已在词书中')
-                        : context.trArgs(
-                            '已在词书「{0}」',
-                            [_existing!.existingDeck!.name],
-                          ),
+                        : context.trArgs('已在词书「{0}」', [
+                            _existing!.existingDeck!.name,
+                          ]),
                     style: TextStyle(color: colorScheme.onSecondaryContainer),
                   ),
                 ),
@@ -405,6 +459,19 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
             ),
           )
         else ...[
+          if (defaultDeck != null) ...[
+            FilledButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => _favoriteIntoDefaultDeck(
+                      defaultDeck!.id,
+                      defaultDeck.name,
+                    ),
+              icon: const Icon(Icons.favorite, size: 18),
+              label: Text(context.trArgs('收藏并加入「{0}」', [defaultDeck.name])),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(
             context.tr('加入词书'),
             style: Theme.of(context).textTheme.labelLarge,
@@ -432,9 +499,9 @@ class _ContextLookupSheetState extends ConsumerState<ContextLookupSheet> {
         const SizedBox(height: 8),
         Text(
           context.tr('查词结果与所在句子一并解析，加入词书后可在学习模式复习'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ],
     );

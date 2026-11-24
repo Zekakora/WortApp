@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
+import '../../../ui/utils/wide_layout.dart';
 import 'training_setup_screen.dart';
 
 /// 题型列表（某个技能下的所有题型，未实现的标注"后续"）
@@ -28,15 +29,37 @@ class ExerciseTypeScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          for (final type in types)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _TypeCard(type: type),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // 宽屏（平板）：两列卡片，充分利用横向空间
+          if (!WideLayout.isWideWidth(constraints.maxWidth)) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                for (final type in types)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _TypeCard(type: type),
+                  ),
+              ],
+            );
+          }
+          final cardWidth = (constraints.maxWidth - 16 * 2 - 12) / 2;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final type in types)
+                  SizedBox(
+                    width: cardWidth,
+                    child: _TypeCard(type: type),
+                  ),
+              ],
             ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -57,10 +80,10 @@ class _TypeCard extends StatelessWidget {
       child: InkWell(
         onTap: type.implemented
             ? () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TrainingSetupScreen(type: type),
-                  ),
-                )
+                MaterialPageRoute(
+                  builder: (_) => TrainingSetupScreen(type: type),
+                ),
+              )
             : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -125,10 +148,7 @@ class _TypeCard extends StatelessWidget {
                 ),
               ),
               if (type.implemented)
-                Icon(
-                  Icons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -137,21 +157,21 @@ class _TypeCard extends StatelessWidget {
   }
 
   static IconData _iconOf(ExerciseType type) => switch (type) {
-        ExerciseType.listeningComprehension => Icons.hearing,
-        ExerciseType.dictation => Icons.keyboard,
-        ExerciseType.listeningCloze => Icons.playlist_add_check,
-        ExerciseType.dialogComprehension => Icons.forum_outlined,
-        ExerciseType.listeningSentenceOrdering => Icons.swap_vert,
-        ExerciseType.readingComprehension => Icons.menu_book,
-        ExerciseType.readingCloze => Icons.text_fields,
-        ExerciseType.contextVocabulary => Icons.translate,
-        ExerciseType.trueFalseReading => Icons.rule,
-        ExerciseType.paragraphOrdering => Icons.reorder,
-        ExerciseType.headingMatching => Icons.title,
-        ExerciseType.sentenceBuilding => Icons.construction,
-        ExerciseType.errorCorrection => Icons.edit_note,
-        ExerciseType.translationWriting => Icons.language,
-        ExerciseType.situationalWriting => Icons.mail_outline,
-        ExerciseType.freeWriting => Icons.edit,
-      };
+    ExerciseType.listeningComprehension => Icons.hearing,
+    ExerciseType.dictation => Icons.keyboard,
+    ExerciseType.listeningCloze => Icons.playlist_add_check,
+    ExerciseType.dialogComprehension => Icons.forum_outlined,
+    ExerciseType.listeningSentenceOrdering => Icons.swap_vert,
+    ExerciseType.readingComprehension => Icons.menu_book,
+    ExerciseType.readingCloze => Icons.text_fields,
+    ExerciseType.contextVocabulary => Icons.translate,
+    ExerciseType.trueFalseReading => Icons.rule,
+    ExerciseType.paragraphOrdering => Icons.reorder,
+    ExerciseType.headingMatching => Icons.title,
+    ExerciseType.sentenceBuilding => Icons.construction,
+    ExerciseType.errorCorrection => Icons.edit_note,
+    ExerciseType.translationWriting => Icons.language,
+    ExerciseType.situationalWriting => Icons.mail_outline,
+    ExerciseType.freeWriting => Icons.edit,
+  };
 }

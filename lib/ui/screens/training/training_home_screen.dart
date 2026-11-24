@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
+import '../../../ui/utils/wide_layout.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import 'exercise_type_screen.dart';
@@ -27,9 +28,7 @@ class TrainingHomeScreen extends ConsumerWidget {
           IconButton(
             tooltip: context.tr('练习历史'),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const TrainingHistoryScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const TrainingHistoryScreen()),
             ),
             icon: const Icon(Icons.history),
           ),
@@ -46,18 +45,31 @@ class TrainingHomeScreen extends ConsumerWidget {
             Text(
               context.tr('按技能专项练习：听力、阅读、写作互相独立，可只练其中一项'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-            if (!aiConfigured) ...[
-              const SizedBox(height: 12),
-              _ConfigHint(),
-            ],
+            if (!aiConfigured) ...[const SizedBox(height: 12), _ConfigHint()],
             const SizedBox(height: 16),
-            for (final skill in TrainingSkill.values) ...[
-              _SkillCard(skill: skill),
-              const SizedBox(height: 12),
-            ],
+            // 宽屏（平板）：三个技能入口并排，一眼看全
+            if (WideLayout.isWide(context))
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < TrainingSkill.values.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      Expanded(
+                        child: _SkillCard(skill: TrainingSkill.values[i]),
+                      ),
+                    ],
+                  ],
+                ),
+              )
+            else
+              for (final skill in TrainingSkill.values) ...[
+                _SkillCard(skill: skill),
+                const SizedBox(height: 12),
+              ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -91,9 +103,7 @@ class TrainingHomeScreen extends ConsumerWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: const Icon(Icons.assignment_turned_in_outlined),
-                    title: Text(
-                      context.tr(entry.exerciseType.titleZh),
-                    ),
+                    title: Text(context.tr(entry.exerciseType.titleZh)),
                     subtitle: Text(
                       '${entry.level.code} · '
                       '${entry.totalScore}/${entry.maxScore} · '
@@ -116,9 +126,8 @@ class TrainingHomeScreen extends ConsumerWidget {
 
   static String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final sameDay = now.year == date.year &&
-        now.month == date.month &&
-        now.day == date.day;
+    final sameDay =
+        now.year == date.year && now.month == date.month && now.day == date.day;
     String two(int value) => value.toString().padLeft(2, '0');
     return sameDay
         ? '${two(date.hour)}:${two(date.minute)}'
@@ -135,16 +144,15 @@ class _SkillCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final implemented =
-        ExerciseType.forSkill(skill).where((t) => t.implemented).length;
+    final implemented = ExerciseType.forSkill(
+      skill,
+    ).where((t) => t.implemented).length;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ExerciseTypeScreen(skill: skill),
-          ),
+          MaterialPageRoute(builder: (_) => ExerciseTypeScreen(skill: skill)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -157,14 +165,11 @@ class _SkillCard extends StatelessWidget {
                   color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  switch (skill) {
-                    TrainingSkill.listening => Icons.headphones,
-                    TrainingSkill.reading => Icons.auto_stories,
-                    TrainingSkill.writing => Icons.edit_note,
-                  },
-                  color: colorScheme.onPrimaryContainer,
-                ),
+                child: Icon(switch (skill) {
+                  TrainingSkill.listening => Icons.headphones,
+                  TrainingSkill.reading => Icons.auto_stories,
+                  TrainingSkill.writing => Icons.edit_note,
+                }, color: colorScheme.onPrimaryContainer),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -219,7 +224,10 @@ class _ConfigHint extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: colorScheme.onErrorContainer),
+          Icon(
+            Icons.warning_amber_rounded,
+            color: colorScheme.onErrorContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
