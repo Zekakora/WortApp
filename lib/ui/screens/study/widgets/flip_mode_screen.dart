@@ -24,30 +24,42 @@ class FlipModeScreen extends ConsumerStatefulWidget {
 class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
     with TickerProviderStateMixin {
   bool _isFlipped = false;
+
   /// 名词答题：用户选择的定冠词（die/das/der）
   String? _selectedArticle;
+
   /// 记录作答冠词对应的单词 id，切换单词时自动失效
   int? _selectedForWordId;
+
   /// 记录已自动发音的单词 id，同一题目只播放一次
   int? _lastAutoSpeakWordId;
+
   /// 平板分屏：控制右侧单词详情面板的模糊层
   final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
+
   /// 切词过渡：正在淡出的旧单词卡片（非 null 时播放退场动画）
   Word? _exitingWord;
+
   /// 旧卡退场时是否显示释义面：退场开始时冻结，防止动画期间闪回单词面
   bool _exitShowBack = false;
+
   /// 垂直拖动累计位移（用于上滑打开单词详情）
   double _verticalDragAccum = 0;
   late AnimationController _controller;
   late Animation<double> _animation;
+
   /// 切词退场动画：旧卡淡出消失
   late AnimationController _exitController;
+
   /// 退场淡出动画（1 → 0）
   late Animation<double> _exitFade;
+
   /// 新卡淡入动画：退场完成后播放（平时处于完成态不透明）
   late AnimationController _enterController;
+
   /// 新卡淡入动画（0 → 1）
   late Animation<double> _enterFade;
   final FlutterTts _tts = FlutterTts();
@@ -62,7 +74,9 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
     _animation = Tween<double>(begin: 0, end: 1).animate(
       // iOS/Material 系统标准曲线：强调中段快速过渡、两端舒缓
       CurvedAnimation(
-          parent: _controller, curve: Curves.easeInOutCubicEmphasized),
+        parent: _controller,
+        curve: Curves.easeInOutCubicEmphasized,
+      ),
     );
     _exitController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -109,7 +123,9 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
 
     // 名词：必须先答对定冠词才能翻牌
     final word = ref.read(studySessionProvider).currentWord;
-    if (word != null && NounArticle.isNounWithArticle(word) && !_hasAnsweredArticle(word)) {
+    if (word != null &&
+        NounArticle.isNounWithArticle(word) &&
+        !_hasAnsweredArticle(word)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -217,8 +233,7 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            context.trArgs('翻牌模式 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('翻牌模式 ({0})', [session.progressTitle])),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
@@ -358,7 +373,9 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
                 label: Text(
                   word.article!,
                   style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 backgroundColor: GenderColors.forArticle(word.article),
               ),
@@ -367,9 +384,9 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
             // 德语单词（不使用任何颜色标记，防止泄露答案）
             Text(
               word.baseForm ?? word.german,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -382,8 +399,8 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
             Text(
               context.tr('点击显示答案'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -403,23 +420,23 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
             Text(
               context.tr('中文释义'),
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               word.chinese,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
             if (word.example != null && word.example!.isNotEmpty) ...[
               Text(
                 context.tr('例句'),
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -433,8 +450,8 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
               Text(
                 context.trArgs('复数: {0}', [word.nounPlural!]),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ],
@@ -469,7 +486,8 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
                 onPressed: _openWordDetail,
               ),
             ),
-          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context))
+            const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -570,24 +588,23 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.celebration,
-              size: 80,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.celebration, size: 80, color: colorScheme.primary),
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -596,11 +613,12 @@ class _FlipModeScreenState extends ConsumerState<FlipModeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(

@@ -10,6 +10,7 @@ import 'widgets/flip_mode_screen.dart';
 import 'widgets/de_to_cn_screen.dart';
 import 'widgets/cn_to_de_screen.dart';
 import 'widgets/listen_mode_screen.dart';
+import 'widgets/mixed_mode_screen.dart';
 import 'widgets/spell_mode_screen.dart';
 import 'widgets/flash_card_screen.dart';
 import '../../widgets/study_rating_help.dart';
@@ -31,6 +32,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   static const _pickModeKey = 'studyPickMode';
   static const _randomPickKey = 'studyRandomPick';
   static const _reviewOnlyKey = 'studyReviewOnly';
+  static const _consecutiveGoalKey = 'studyConsecutiveGoal';
 
   /// 每轮单词数
   int _roundCount = 20;
@@ -44,6 +46,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   /// 只复习开关：开启后不抽新词，只复习到期词与今日已学单词
   bool _reviewOnly = false;
 
+  /// 每词连续答对几次才算学会（1 = 答对一次即通过）
+  int _consecutiveGoal = 1;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +56,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     _loadPickMode();
     _loadRandomPick();
     _loadReviewOnly();
+    _loadConsecutiveGoal();
   }
 
   /// 从数据库加载每轮单词数设置
@@ -79,7 +85,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   Future<void> _loadPickMode() async {
     final db = ref.read(databaseProvider);
     final value = await db?.getSetting(_pickModeKey);
-    final parsed = WordPickMode.values.where((m) => m.name == value).firstOrNull;
+    final parsed = WordPickMode.values
+        .where((m) => m.name == value)
+        .firstOrNull;
     if (parsed != null && mounted) {
       setState(() => _pickMode = parsed);
     }
@@ -133,6 +141,28 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       await db?.setSetting(_reviewOnlyKey, enabled.toString());
     } catch (e) {
       debugPrint('保存只复习开关失败: $e');
+    }
+  }
+
+  /// 从数据库加载「连续答对次数」设置
+  Future<void> _loadConsecutiveGoal() async {
+    final db = ref.read(databaseProvider);
+    final value = await db?.getSetting(_consecutiveGoalKey);
+    final parsed = int.tryParse(value ?? '');
+    if (parsed != null && parsed >= 1 && parsed <= 5 && mounted) {
+      setState(() => _consecutiveGoal = parsed);
+    }
+  }
+
+  /// 保存「连续答对次数」设置
+  Future<void> _setConsecutiveGoal(int goal) async {
+    final value = goal.clamp(1, 5);
+    setState(() => _consecutiveGoal = value);
+    final db = ref.read(databaseProvider);
+    try {
+      await db?.setSetting(_consecutiveGoalKey, value.toString());
+    } catch (e) {
+      debugPrint('保存连续答对次数失败: $e');
     }
   }
 
@@ -219,15 +249,15 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                   Text(
                     context.tr('请先选择一个词书'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.tr('在主页切换词书，或在词书管理中创建'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -254,20 +284,17 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           children: [
                             Text(
                               context.tr('当前词书'),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                             Text(
                               deck.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -294,9 +321,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           const SizedBox(width: 8),
                           Text(
                             context.tr('练习参数'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -338,12 +363,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                         const SizedBox(height: 8),
                         Text(
                           context.trArgs('当前: {0} 个', [_roundCount]),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color:
-                                    Theme.of(context).colorScheme.primary,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
@@ -351,15 +373,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       const SizedBox(height: 8),
                       Text(
                         context.tr(
-                            '新词与复习受每日上限约束；每次学习发放一批（每轮单词数），分批覆盖今天全部单词，覆盖完毕后自动开启下一大轮，轮数无上限'),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          '新词与复习受每日上限约束；每次学习发放一批（每轮单词数），分批覆盖今天全部单词，覆盖完毕后自动开启下一大轮，轮数无上限',
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -397,14 +415,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                       const SizedBox(height: 8),
                       Text(
                         _pickModeHint,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SwitchListTile(
@@ -419,13 +432,11 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           _reviewOnly
                               ? context.tr('开启：不抽新词，只复习到期词与今日已学单词')
                               : context.tr('关闭：按每日上限正常抽取新词与复习词'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                       ),
@@ -441,14 +452,56 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                           _randomPick
                               ? context.tr('开启：抽词打乱顺序，不按单词本顺序抽取')
                               : context.tr('关闭：按单词本顺序依次抽取'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // 每词连续答对次数（1 = 答对一次即通过）
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.repeat,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.tr('连续答对次数'),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<int>(
+                        segments: const [
+                          ButtonSegment(value: 1, label: Text('1')),
+                          ButtonSegment(value: 2, label: Text('2')),
+                          ButtonSegment(value: 3, label: Text('3')),
+                        ],
+                        selected: {_consecutiveGoal},
+                        onSelectionChanged: (selection) =>
+                            _setConsecutiveGoal(selection.first),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        context.tr('每个词需连续答对几次才算学会，答错重新计数'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -458,57 +511,78 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
               const SizedBox(height: 24),
               Text(
                 context.tr('选择学习模式'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              _StudyModeCard(
-                icon: Icons.flash_on,
-                title: context.tr('快闪卡模式'),
-                subtitle: context.tr('全屏卡片，限时回忆，滑动评分'),
-                color: Colors.amber.shade100,
-                onTap: () => _startStudy(context, deck.id, 'flash_card'),
-              ),
-              const SizedBox(height: 12),
-              _StudyModeCard(
-                icon: Icons.flip_to_back,
-                title: context.tr('经典翻牌模式'),
-                subtitle: context.tr('正面德语，背面释义，手动评分'),
-                color: Theme.of(context).colorScheme.primaryContainer,
-                onTap: () => _startStudy(context, deck.id, 'flip'),
-              ),
-              const SizedBox(height: 12),
-              _StudyModeCard(
-                icon: Icons.translate,
-                title: context.tr('看德语选中文'),
-                subtitle: context.tr('显示德语单词，选择正确中文释义'),
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                onTap: () => _startStudy(context, deck.id, 'de_to_cn'),
-              ),
-              const SizedBox(height: 12),
-              _StudyModeCard(
-                icon: Icons.g_translate,
-                title: context.tr('看中文选德语'),
-                subtitle: context.tr('显示中文释义，选择正确德语单词'),
-                color: Theme.of(context).colorScheme.tertiaryContainer,
-                onTap: () => _startStudy(context, deck.id, 'cn_to_de'),
-              ),
-              const SizedBox(height: 12),
-              _StudyModeCard(
-                icon: Icons.hearing,
-                title: context.tr('听德语选单词'),
-                subtitle: context.tr('播放 TTS 发音，选择对应单词'),
-                color: Theme.of(context).colorScheme.errorContainer,
-                onTap: () => _startStudy(context, deck.id, 'listen'),
-              ),
-              const SizedBox(height: 12),
-              _StudyModeCard(
-                icon: Icons.keyboard,
-                title: context.tr('德语拼写模式'),
-                subtitle: context.tr('输入德语单词拼写，支持特殊字符'),
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                onTap: () => _startStudy(context, deck.id, 'spell'),
+              // 学习模式卡片：窄屏单列，宽屏（平板横屏）两列
+              LayoutBuilder(
+                builder: (layoutContext, constraints) {
+                  final twoColumns = constraints.maxWidth >= 600;
+                  final cardWidth = twoColumns
+                      ? (constraints.maxWidth - 12) / 2
+                      : constraints.maxWidth;
+                  final cards = <Widget>[
+                    _StudyModeCard(
+                      icon: Icons.shuffle,
+                      title: context.tr('混合模式'),
+                      subtitle: context.tr('每个词随机切换题型，综合练'),
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      onTap: () => _startStudy(context, deck.id, 'mixed'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.flash_on,
+                      title: context.tr('快闪卡模式'),
+                      subtitle: context.tr('全屏卡片，限时回忆，滑动评分'),
+                      color: Colors.amber.shade100,
+                      onTap: () => _startStudy(context, deck.id, 'flash_card'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.flip_to_back,
+                      title: context.tr('经典翻牌模式'),
+                      subtitle: context.tr('正面德语，背面释义，手动评分'),
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      onTap: () => _startStudy(context, deck.id, 'flip'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.translate,
+                      title: context.tr('看德语选中文'),
+                      subtitle: context.tr('显示德语单词，选择正确中文释义'),
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      onTap: () => _startStudy(context, deck.id, 'de_to_cn'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.g_translate,
+                      title: context.tr('看中文选德语'),
+                      subtitle: context.tr('显示中文释义，选择正确德语单词'),
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      onTap: () => _startStudy(context, deck.id, 'cn_to_de'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.hearing,
+                      title: context.tr('听德语选单词'),
+                      subtitle: context.tr('播放 TTS 发音，选择对应单词'),
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      onTap: () => _startStudy(context, deck.id, 'listen'),
+                    ),
+                    _StudyModeCard(
+                      icon: Icons.keyboard,
+                      title: context.tr('德语拼写模式'),
+                      subtitle: context.tr('输入德语单词拼写，支持特殊字符'),
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      onTap: () => _startStudy(context, deck.id, 'spell'),
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final card in cards)
+                        SizedBox(width: cardWidth, child: card),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               // 错误统计排行榜入口（今日/历史，二级页面）
@@ -541,7 +615,10 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   }
 
   Future<void> _startStudy(
-      BuildContext context, int deckId, String mode) async {
+    BuildContext context,
+    int deckId,
+    String mode,
+  ) async {
     // 开始学习会话（受每日新词/复习上限与每轮单词数约束）
     final settings = ref.read(settingsProvider);
     final notifier = ref.read(studySessionProvider.notifier);
@@ -553,6 +630,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
       pickMode: _pickMode,
       randomPick: _randomPick,
       reviewOnly: _reviewOnly,
+      consecutiveGoal: _consecutiveGoal,
     );
 
     final session = ref.read(studySessionProvider);
@@ -570,6 +648,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
     if (context.mounted) {
       Widget screen;
       switch (mode) {
+        case 'mixed':
+          screen = const MixedModeScreen();
+          break;
         case 'flip':
           screen = const FlipModeScreen();
           break;
@@ -592,10 +673,7 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
           screen = const FlipModeScreen();
       }
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => screen),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
     }
   }
 }
@@ -642,16 +720,15 @@ class _StudyModeCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -664,6 +741,3 @@ class _StudyModeCard extends StatelessWidget {
     );
   }
 }
-
-
-

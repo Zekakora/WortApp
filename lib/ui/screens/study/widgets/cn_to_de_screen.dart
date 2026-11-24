@@ -29,12 +29,16 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
   List<String> _options = [];
   int _correctIndex = 0;
   int _lastWordId = -1;
+
   /// 名词作答：用户选择的定冠词（der/die/das）
   String? _selectedArticle;
+
   /// 记录词性作答对应的单词 id，切换单词时自动失效
   int? _articleWordId;
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
+
   /// 平板分屏：控制右侧单词详情面板的模糊层
   final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
   final FlutterTts _tts = FlutterTts();
@@ -188,8 +192,7 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            context.trArgs('看中文选德语 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('看中文选德语 ({0})', [session.progressTitle])),
         actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -213,9 +216,8 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                     const SizedBox(height: 48),
                     Text(
                       word.chinese,
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     // 名词：先选对词性（答对后正确选项显示对应颜色）
@@ -226,7 +228,8 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                             ? _selectedArticle
                             : null,
                         answered: _articleAnswered(word),
-                        onSelect: (article) => _onArticleSelected(word, article),
+                        onSelect: (article) =>
+                            _onArticleSelected(word, article),
                       ),
                     ],
                     const SizedBox(height: 48),
@@ -308,10 +311,11 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                 child: Text(
                   _options[index],
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: answerColor,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
+                    color: answerColor,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
                 ),
               ),
               IconButton(
@@ -370,7 +374,8 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
                 onPressed: _openWordDetail,
               ),
             ),
-          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context))
+            const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -444,7 +449,10 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
@@ -455,9 +463,9 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -466,11 +474,12 @@ class _CnToDeScreenState extends ConsumerState<CnToDeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(

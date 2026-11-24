@@ -31,6 +31,9 @@ class ExercisePrompts {
       ExerciseType.readingCloze => 320,
       ExerciseType.sentenceBuilding || ExerciseType.errorCorrection => 460,
       ExerciseType.mixedPractice => 430,
+      ExerciseType.listeningMix => 430,
+      ExerciseType.readingMix => 430,
+      ExerciseType.writingMix => 460,
       _ => 260,
     };
     final total = 1200 + perQuestion * questionCount;
@@ -193,6 +196,32 @@ class ExercisePrompts {
             'answerKey.referenceAnswers 给参考句，rubric 用五维 grammar(3)/vocabulary(2)/'
             'sentenceStructure(2)/taskCompletion(2)/naturalness(1)。'
             'stimulus.kind 填 "none"，stimulus.text 留空；客观题 points 为 1。';
+      case ExerciseType.listeningMix:
+        return '题型说明：生成  道**听力混合题**。stimulus.kind 填 "audio"，'
+            'stimulus.text 放一段 60–120 词的德语听力文本（独白或对话）。'
+            '题目在下面几类里混搭，至少覆盖两类：'
+            '① 听力理解/对话理解：questionType "single_choice"，3 个德语选项，'
+            'answerKey.correctAnswers 用字母（如 ["B"]），问的是听完后的理解；'
+            '② 听写："dictation"，context 放该句原文（用于朗读），prompt 只写指示语、不得泄露句子，'
+            'answerKey.acceptedAnswers 放原句；'
+            '③ 听力填空："fill_blank"，prompt 写 "Lücke (n): <含 ___ 的句子>"，'
+            'answerKey.acceptedAnswers 给答案。客观题 points 为 1。';
+      case ExerciseType.readingMix:
+        return '题型说明：生成  道**阅读混合题**。stimulus.kind 填 "text"，'
+            'stimulus.text 放一篇 150–250 词的德语短文。题目在下面几类里混搭，至少覆盖两类：'
+            '① 阅读理解 / 语境词汇 / 标题匹配：questionType "single_choice"，'
+            'answerKey.correctAnswers 用字母；'
+            '② 完形填空："fill_blank"，prompt 是含 ___ 的那一句，answerKey.acceptedAnswers 给答案；'
+            '③ 判断正误："true_false"，prompt 给一句德语陈述，'
+            'answerKey.acceptedAnswers 只用 "richtig" 或 "falsch"。客观题 points 为 1。';
+      case ExerciseType.writingMix:
+        return '题型说明：生成  道**写作混合题**，stimulus.kind 填 "none"，stimulus.text 留空。'
+            '题目在下面几类里混搭，至少覆盖两类：'
+            '① 句子构造（给德语词块/要求造句）；② 语法改错（给含错误的句子让学习者改）；'
+            '③ 中德翻译（给中文句子译成德语）；④ 情景写作（写邮件/预约/请假等）。'
+            '全部用 questionType "free_text"，每题 10 分，prompt 里用德语注明属于哪一类任务，'
+            'answerKey.referenceAnswers 给参考版本（不作唯一标准），'
+            'rubric 用五维 grammar(3)/vocabulary(2)/sentenceStructure(2)/taskCompletion(2)/naturalness(1)。';
       case ExerciseType.translationWriting:
       case ExerciseType.situationalWriting:
       case ExerciseType.freeWriting:
@@ -211,6 +240,7 @@ class ExercisePrompts {
       ExerciseType.errorCorrection ||
       ExerciseType.paragraphOrdering ||
       ExerciseType.mixedPractice => '',
+      ExerciseType.writingMix => '',
       _ => '短文或听力原文（德语）',
     };
 

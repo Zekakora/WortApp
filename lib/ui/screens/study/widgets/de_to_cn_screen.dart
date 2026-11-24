@@ -29,12 +29,16 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
   List<String> _options = [];
   int _correctIndex = 0;
   int _lastWordId = -1;
+
   /// 名词作答：用户选择的定冠词（der/die/das）
   String? _selectedArticle;
+
   /// 记录词性作答对应的单词 id，切换单词时自动失效
   int? _articleWordId;
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
+
   /// 平板分屏：控制右侧单词详情面板的模糊层
   final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
   final FlutterTts _tts = FlutterTts();
@@ -198,8 +202,7 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            context.trArgs('看德语选中文 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('看德语选中文 ({0})', [session.progressTitle])),
         actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -228,7 +231,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
                             ? _selectedArticle
                             : null,
                         answered: _articleAnswered(word),
-                        onSelect: (article) => _onArticleSelected(word, article),
+                        onSelect: (article) =>
+                            _onArticleSelected(word, article),
                       ),
                       const SizedBox(height: 16),
                     ] else if (word.article != null) ...[
@@ -236,7 +240,9 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
                         label: Text(
                           word.article!,
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         backgroundColor: genderColor,
                       ),
@@ -245,7 +251,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
                     // 德语单词（名词选对词性后才着色）
                     Text(
                       word.german,
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: showGenderColor ? genderColor : null,
                           ),
@@ -260,11 +267,11 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
                       child: GridView.builder(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
+                              crossAxisCount: 2,
+                              childAspectRatio: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
                         itemCount: _options.length,
                         itemBuilder: (context, index) {
                           return _buildOptionCard(index, colorScheme, word);
@@ -326,8 +333,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
           child: Text(
             _options[index],
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -380,7 +387,8 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
                 onPressed: _openWordDetail,
               ),
             ),
-          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context))
+            const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -455,7 +463,10 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
@@ -466,9 +477,9 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -477,11 +488,12 @@ class _DeToCnScreenState extends ConsumerState<DeToCnScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(

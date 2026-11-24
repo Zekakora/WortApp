@@ -1,4 +1,4 @@
-/// AI 生成结果的 Schema 解析与业务校验（任务书 §4.3）
+﻿/// AI 生成结果的 Schema 解析与业务校验（任务书 §4.3）
 ///
 /// 原则：**绝不把模型输出直接当成页面数据**。所有字段在这里做类型收敛、
 /// 缺失兜底与业务校验（选项数量、答案引用、分值、题数），
@@ -51,6 +51,22 @@ class ExerciseSchema {
   static Set<QuestionType> allowedQuestionTypes(ExerciseType type) =>
       switch (type) {
         // 混合练习：一套题里允许出现所有题干类型，判分按每题类型走
+        // 技能内混合：只允许该技能自己的题干类型
+        ExerciseType.listeningMix => const {
+          QuestionType.singleChoice,
+          QuestionType.multipleChoice,
+          QuestionType.trueFalse,
+          QuestionType.fillBlank,
+          QuestionType.dictation,
+        },
+        ExerciseType.readingMix => const {
+          QuestionType.singleChoice,
+          QuestionType.multipleChoice,
+          QuestionType.trueFalse,
+          QuestionType.fillBlank,
+          QuestionType.ordering,
+        },
+        ExerciseType.writingMix => const {QuestionType.freeText},
         ExerciseType.mixedPractice => const {
           QuestionType.singleChoice,
           QuestionType.multipleChoice,
@@ -91,6 +107,8 @@ class ExerciseSchema {
     ExerciseType.paragraphOrdering => false,
     // 混合练习的材料由各题自带（听写的句子、填空的句干），不需要统一正文
     ExerciseType.mixedPractice => false,
+    // 写作混合全是不需要材料的写作题
+    ExerciseType.writingMix => false,
     _ => true,
   };
 

@@ -1,4 +1,4 @@
-/// 学习模式相关文案——由本地化任务填充。
+﻿/// 学习模式相关文案——由本地化任务填充。
 const Map<String, String> studyEn = <String, String>{
   // 学习模式选择 / 参数
   '选择学习模式': 'Choose study mode',
@@ -34,15 +34,12 @@ const Map<String, String> studyEn = <String, String>{
   '随机背词': 'Shuffle words',
   '开启：抽词打乱顺序，不按单词本顺序抽取':
       'On: words are drawn in shuffled order, not in wordbook order',
-  '关闭：按单词本顺序依次抽取':
-      'Off: words are drawn in wordbook order',
+  '关闭：按单词本顺序依次抽取': 'Off: words are drawn in wordbook order',
   // 学习模式卡片
   '快闪卡模式': 'Flash card mode',
-  '全屏卡片，限时回忆，滑动评分':
-      'Full-screen cards, timed recall, swipe to rate',
+  '全屏卡片，限时回忆，滑动评分': 'Full-screen cards, timed recall, swipe to rate',
   '经典翻牌模式': 'Classic flip mode',
-  '正面德语，背面释义，手动评分':
-      'German on the front, meaning on the back, manual rating',
+  '正面德语，背面释义，手动评分': 'German on the front, meaning on the back, manual rating',
   '看德语选中文': 'German to Chinese',
   '显示德语单词，选择正确中文释义':
       'Show a German word and choose the correct Chinese meaning',
@@ -52,8 +49,7 @@ const Map<String, String> studyEn = <String, String>{
   '听德语选单词': 'Listen and choose',
   '播放 TTS 发音，选择对应单词': 'Play TTS audio and choose the matching word',
   '德语拼写模式': 'German spelling',
-  '输入德语单词拼写，支持特殊字符':
-      'Type the German spelling, special characters supported',
+  '输入德语单词拼写，支持特殊字符': 'Type the German spelling, special characters supported',
   // 自定义每轮单词数对话框
   '自定义每轮单词数': 'Custom words per round',
   '单词数量': 'Word count',
@@ -62,12 +58,10 @@ const Map<String, String> studyEn = <String, String>{
   '确定': 'OK',
   '请输入有效的正整数': 'Please enter a valid positive integer',
   '错误: {0}': 'Error: {0}',
-  '没有待学习的单词，请先导入词书':
-      'No words to study. Please import a wordbook first',
+  '没有待学习的单词，请先导入词书': 'No words to study. Please import a wordbook first',
   // 错误统计排行榜
   '错误统计排行榜': 'Error statistics ranking',
-  '今日/历史的错误次数与错误率':
-      'Error counts and error rates for today/history',
+  '今日/历史的错误次数与错误率': 'Error counts and error rates for today/history',
   '错误统计': 'Error statistics',
   '今天': 'Today',
   '历史': 'History',
@@ -100,7 +94,6 @@ const Map<String, String> studyEn = <String, String>{
   '恭喜完成！': 'Congratulations!',
   '本次学习 {0} 个单词': 'Studied {0} words this session',
   '正确率: {0}%': 'Accuracy: {0}%',
-  '返回': 'Back',
   // 翻牌模式
   '翻牌模式': 'Flip mode',
   '没有待学习的单词': 'No words to study',
@@ -125,8 +118,7 @@ const Map<String, String> studyEn = <String, String>{
   '拼写模式 ({0})': 'Spelling mode ({0})',
   '输入德语单词...': 'Type the German word...',
   '正确答案: {0}': 'Correct answer: {0}',
-  '支持宽容拼写: ae→ä, oe→ö, ue→ü, ss→ß':
-      'Lenient spelling: ae→ä, oe→ö, ue→ü, ss→ß',
+  '支持宽容拼写: ae→ä, oe→ö, ue→ü, ss→ß': 'Lenient spelling: ae→ä, oe→ö, ue→ü, ss→ß',
   '检查拼写': 'Check spelling',
   '名词首字母需要大写': 'Nouns must be capitalized',
   // 评分说明
@@ -149,15 +141,20 @@ const Map<String, String> studyEn = <String, String>{
       'Misspelled but recognizable, or cannot recognize by sound → choose “Hard”',
   '知道词义，但忘了冠词/词性（der·die·das）/复数/变位 → 选「模糊」':
       'Know the meaning but forgot the article/part of speech (der·die·das)/plural/conjugation → choose “Hard”',
-  '基本都答对，只是略慢 → 选「熟悉」':
-      'Mostly correct, just a bit slow → choose “Good”',
-  '一眼就会、毫不费力 → 选「简单」':
-      'Obvious at a glance, effortless → choose “Easy”',
+  '基本都答对，只是略慢 → 选「熟悉」': 'Mostly correct, just a bit slow → choose “Good”',
+  '一眼就会、毫不费力 → 选「简单」': 'Obvious at a glance, effortless → choose “Easy”',
   '小贴士：德语名词建议把冠词一起记牢再给「熟悉」；答错（忘记/模糊）会进入错词重考并计入错误统计。':
       'Tip: for German nouns, memorize the article together before rating “Good”; wrong answers (Forgot/Hard) enter wrong-word re-testing and count toward error statistics.',
   '知道了': 'Got it',
   // 变格卡片
   '助动词: {0}': 'Auxiliary verb: {0}',
+  // 连续答对次数 / 混合模式
+  '连续答对次数': 'Correct answers in a row',
+  '每个词需连续答对几次才算学会，答错重新计数':
+      'How many times in a row a word must be answered correctly to count as learned (a wrong answer resets it)',
+  '混合模式': 'Mixed mode',
+  '每个词随机切换题型，综合练': 'Each word uses a randomly chosen exercise type',
+  '本节练习完成': 'Session complete',
 };
 
 const Map<String, String> studyDe = <String, String>{
@@ -195,8 +192,7 @@ const Map<String, String> studyDe = <String, String>{
   '随机背词': 'Wörter mischen',
   '开启：抽词打乱顺序，不按单词本顺序抽取':
       'An: Wörter werden in gemischter Reihenfolge gezogen, nicht in Wortlistenreihenfolge',
-  '关闭：按单词本顺序依次抽取':
-      'Aus: Wörter werden in Wortlistenreihenfolge gezogen',
+  '关闭：按单词本顺序依次抽取': 'Aus: Wörter werden in Wortlistenreihenfolge gezogen',
   // 学习模式卡片
   '快闪卡模式': 'Karteikartenmodus',
   '全屏卡片，限时回忆，滑动评分':
@@ -211,8 +207,7 @@ const Map<String, String> studyDe = <String, String>{
   '显示中文释义，选择正确德语单词':
       'Chinesische Bedeutung anzeigen und das richtige deutsche Wort wählen',
   '听德语选单词': 'Hören und wählen',
-  '播放 TTS 发音，选择对应单词':
-      'TTS-Audio abspielen und das passende Wort wählen',
+  '播放 TTS 发音，选择对应单词': 'TTS-Audio abspielen und das passende Wort wählen',
   '德语拼写模式': 'Deutsche Rechtschreibung',
   '输入德语单词拼写，支持特殊字符':
       'Deutsche Schreibweise eingeben, Sonderzeichen unterstützt',
@@ -228,8 +223,7 @@ const Map<String, String> studyDe = <String, String>{
       'Keine Wörter zum Lernen. Bitte zuerst eine Wortliste importieren',
   // 错误统计排行榜
   '错误统计排行榜': 'Fehlerstatistik-Rangliste',
-  '今日/历史的错误次数与错误率':
-      'Fehleranzahl und Fehlerquote für heute/Verlauf',
+  '今日/历史的错误次数与错误率': 'Fehleranzahl und Fehlerquote für heute/Verlauf',
   '错误统计': 'Fehlerstatistik',
   '今天': 'Heute',
   '历史': 'Verlauf',
@@ -262,7 +256,6 @@ const Map<String, String> studyDe = <String, String>{
   '恭喜完成！': 'Herzlichen Glückwunsch!',
   '本次学习 {0} 个单词': 'In dieser Einheit {0} Wörter gelernt',
   '正确率: {0}%': 'Trefferquote: {0} %',
-  '返回': 'Zurück',
   // 翻牌模式
   '翻牌模式': 'Umdrehmodus',
   '没有待学习的单词': 'Keine Wörter zum Lernen',
@@ -311,13 +304,18 @@ const Map<String, String> studyDe = <String, String>{
       'Falsch geschrieben, aber erkennbar, oder akustisch nicht erkennbar → „Schwierig“ wählen',
   '知道词义，但忘了冠词/词性（der·die·das）/复数/变位 → 选「模糊」':
       'Bedeutung bekannt, aber Artikel/Wortart (der·die·das)/Plural/Konjugation vergessen → „Schwierig“ wählen',
-  '基本都答对，只是略慢 → 选「熟悉」':
-      'Meistens richtig, nur etwas langsam → „Gut“ wählen',
-  '一眼就会、毫不费力 → 选「简单」':
-      'Auf Anhieb klar, mühelos → „Einfach“ wählen',
+  '基本都答对，只是略慢 → 选「熟悉」': 'Meistens richtig, nur etwas langsam → „Gut“ wählen',
+  '一眼就会、毫不费力 → 选「简单」': 'Auf Anhieb klar, mühelos → „Einfach“ wählen',
   '小贴士：德语名词建议把冠词一起记牢再给「熟悉」；答错（忘记/模糊）会进入错词重考并计入错误统计。':
       'Tipp: Bei deutschen Substantiven den Artikel mitlernen, bevor Sie „Gut“ bewerten; falsche Antworten (Vergessen/Schwierig) kommen in die Fehlerwort-Nachprüfung und zählen zur Fehlerstatistik.',
   '知道了': 'Verstanden',
   // 变格卡片
   '助动词: {0}': 'Hilfsverb: {0}',
+  // Richtige Antworten in Folge / Gemischt
+  '连续答对次数': 'Richtige Antworten in Folge',
+  '每个词需连续答对几次才算学会，答错重新计数':
+      'Wie oft ein Wort hintereinander richtig beantwortet werden muss, um als gelernt zu gelten (Fehler setzt zurück)',
+  '混合模式': 'Gemischter Modus',
+  '每个词随机切换题型，综合练': 'Für jedes Wort wird zufällig eine Aufgabenart gewählt',
+  '本节练习完成': 'Einheit abgeschlossen',
 };

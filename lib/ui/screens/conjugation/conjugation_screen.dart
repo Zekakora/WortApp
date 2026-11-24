@@ -130,9 +130,9 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
   Future<void> _startDrill(BuildContext context, PracticeMode mode) async {
     final activeDeck = ref.read(activeDeckProvider).valueOrNull;
     if (activeDeck == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('请先选择一个词书'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr('请先选择一个词书'))));
       return;
     }
 
@@ -150,9 +150,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
       if (_pickMode == ConjugationPickMode.todayOnly) {
         // 只练今日单词：优先提示今日未学习，而非词书缺数据
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.tr('今日还没有学习过的单词，请先在学习模式中学习')),
-          ),
+          SnackBar(content: Text(context.tr('今日还没有学习过的单词，请先在学习模式中学习'))),
         );
         return;
       }
@@ -206,8 +204,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                   Text(
                     context.tr('请先选择一个词书'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -234,20 +232,16 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           children: [
                             Text(
                               context.tr('当前词书'),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                             Text(
                               deck.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -275,9 +269,7 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           const SizedBox(width: 8),
                           Text(
                             context.tr('练习参数'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -319,12 +311,9 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                         const SizedBox(height: 8),
                         Text(
                           context.trArgs('当前: {0} 个', [_wordCount]),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color:
-                                    Theme.of(context).colorScheme.primary,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
@@ -357,14 +346,9 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                         _pickMode == ConjugationPickMode.todayOnly
                             ? context.tr('仅从今天学习过的单词中抽取')
                             : context.tr('从整个词书随机抽取'),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -374,42 +358,59 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
               // 练习类型
               Text(
                 context.tr('选择练习类型'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              // 动词变位
-              _CategorySection(
-                icon: Icons.directions_run,
-                title: context.tr('动词变位'),
-                subtitle: 'Verb Konjugation',
-                color: Theme.of(context).colorScheme.primaryContainer,
-                iconColor: Theme.of(context).colorScheme.primary,
-                modes: PracticeMode.allVerbModes,
-                onModeTap: (mode) => _startDrill(context, mode),
-              ),
-              const SizedBox(height: 12),
-              // 名词变格
-              _CategorySection(
-                icon: Icons.category,
-                title: context.tr('名词变格'),
-                subtitle: 'Nomen Deklination',
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                iconColor: Theme.of(context).colorScheme.secondary,
-                modes: PracticeMode.allNounModes,
-                onModeTap: (mode) => _startDrill(context, mode),
-              ),
-              const SizedBox(height: 12),
-              // 形容词变级（无二级子项，点击直接进入：比较级 + 最高级）
-              _CategorySection(
-                icon: Icons.trending_up,
-                title: context.tr('形容词变级'),
-                subtitle: context.tr('Adjektiv Steigerung · 比较级 & 最高级'),
-                color: Theme.of(context).colorScheme.tertiaryContainer,
-                iconColor: Theme.of(context).colorScheme.tertiary,
-                directMode: PracticeMode.adjSteigerung,
-                onModeTap: (mode) => _startDrill(context, mode),
+              // 练习类型卡片：窄屏单列，宽屏（平板横屏）两列
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumns = constraints.maxWidth >= 600;
+                  final cardWidth = twoColumns
+                      ? (constraints.maxWidth - 12) / 2
+                      : constraints.maxWidth;
+                  final cards = <Widget>[
+                    // 动词变位
+                    _CategorySection(
+                      icon: Icons.directions_run,
+                      title: context.tr('动词变位'),
+                      subtitle: 'Verb Konjugation',
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      modes: PracticeMode.allVerbModes,
+                      onModeTap: (mode) => _startDrill(context, mode),
+                    ),
+                    // 名词变格
+                    _CategorySection(
+                      icon: Icons.category,
+                      title: context.tr('名词变格'),
+                      subtitle: 'Nomen Deklination',
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      iconColor: Theme.of(context).colorScheme.secondary,
+                      modes: PracticeMode.allNounModes,
+                      onModeTap: (mode) => _startDrill(context, mode),
+                    ),
+                    // 形容词变级（无二级子项，点击直接进入）
+                    _CategorySection(
+                      icon: Icons.trending_up,
+                      title: context.tr('形容词变级'),
+                      subtitle: context.tr('Adjektiv Steigerung · 比较级 & 最高级'),
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      iconColor: Theme.of(context).colorScheme.tertiary,
+                      directMode: PracticeMode.adjSteigerung,
+                      onModeTap: (mode) => _startDrill(context, mode),
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final card in cards)
+                        SizedBox(width: cardWidth, child: card),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               // 变位数据管理
@@ -421,10 +422,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                     children: [
                       Text(
                         context.tr('变位数据管理'),
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       ListTile(
@@ -437,13 +436,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                           context.tr('管理变位数据'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: Text(
-                          context.tr('查看各单词变位数据状态，可多选更新 / 删除'),
-                        ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                        ),
+                        subtitle: Text(context.tr('查看各单词变位数据状态，可多选更新 / 删除')),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                         onTap: () => _openDataManager(context, deck.id),
                       ),
                       const Divider(),
@@ -457,10 +451,8 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
                       Text(
                         context.tr('使用 AI 分析词书中的词汇，生成变位数据并缓存到本地'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -500,9 +492,9 @@ class _ConjugationScreenState extends ConsumerState<ConjugationScreen> {
 
     if (activeDeck == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('请先选择一个词书'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr('请先选择一个词书'))));
       }
       return;
     }
@@ -534,6 +526,7 @@ class _GenerateProgressDialog extends ConsumerStatefulWidget {
   final int deckId;
   final int concurrency;
   final BatchUpdateNotifier notifier;
+
   /// 任务完成后刷新变位缓存的回调（由父级传入，规避对话框关闭后 ref 失效）
   final VoidCallback onDone;
 
@@ -653,9 +646,7 @@ class _GenerateProgressDialogState
       title: Text(
         isEmpty
             ? context.tr('无需生成')
-            : (_isComplete
-                ? context.tr('生成完成')
-                : context.tr('AI 生成变位数据')),
+            : (_isComplete ? context.tr('生成完成') : context.tr('AI 生成变位数据')),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -688,9 +679,7 @@ class _GenerateProgressDialogState
             else
               Text(
                 context.trArgs('成功 {0} 个', [_completed]) +
-                    (_failed > 0
-                        ? context.trArgs('，失败 {0} 个', [_failed])
-                        : ''),
+                    (_failed > 0 ? context.trArgs('，失败 {0} 个', [_failed]) : ''),
               ),
           ],
         ],
@@ -743,7 +732,9 @@ class _CategorySection extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 8),
+            horizontal: 16,
+            vertical: 8,
+          ),
           leading: Container(
             width: 48,
             height: 48,
@@ -755,10 +746,9 @@ class _CategorySection extends StatelessWidget {
           ),
           title: Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           subtitle: Text(subtitle),
           trailing: const Icon(Icons.arrow_forward_ios, size: 14),
@@ -781,10 +771,9 @@ class _CategorySection extends StatelessWidget {
         ),
         title: Text(
           title,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(subtitle),
         children: [

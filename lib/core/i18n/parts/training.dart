@@ -238,6 +238,15 @@ const Map<String, String> trainingEn = <String, String>{
   '混合练习': 'Mixed practice',
   '听、读、写题型混合出题，一节课练全面':
       'Listening, grammar and writing questions in one session',
+  '听力混合': 'Listening mix',
+  '听力理解、对话理解、听写、填空混搭出题':
+      'Mixed comprehension, dialog, dictation and cloze tasks',
+  '阅读混合': 'Reading mix',
+  '阅读理解、完形、语境词汇、判断正误混搭出题':
+      'Mixed comprehension, cloze, vocabulary and true/false tasks',
+  '写作混合': 'Writing mix',
+  '句子构造、改错、翻译、情景写作混搭出题':
+      'Mixed sentence building, error correction, translation and situational writing',
   // 错题重练 / 写作知识点统计
   '重练错题': 'Practise wrong answers',
   '本次没有错题': 'No wrong answers this time',
@@ -503,6 +512,15 @@ const Map<String, String> trainingDe = <String, String>{
   '混合': 'Gemischt',
   '混合练习': 'Gemischt üben',
   '听、读、写题型混合出题，一节课练全面': 'Hör-, Grammatik- und Schreibaufgaben in einer Einheit',
+  '听力混合': 'Hören gemischt',
+  '听力理解、对话理解、听写、填空混搭出题':
+      'Gemischte Aufgaben aus Hörverstehen, Dialog, Diktat und Lückentext',
+  '阅读混合': 'Lesen gemischt',
+  '阅读理解、完形、语境词汇、判断正误混搭出题':
+      'Gemischte Aufgaben aus Leseverstehen, Lückentext, Wortschatz und richtig/falsch',
+  '写作混合': 'Schreiben gemischt',
+  '句子构造、改错、翻译、情景写作混搭出题':
+      'Gemischte Aufgaben aus Satzbildung, Fehlerkorrektur, Übersetzung und situativem Schreiben',
   // Fehler wiederholen / Schreib-Lernpunkte
   '重练错题': 'Fehler erneut üben',
   '本次没有错题': 'Diesmal keine Fehler',

@@ -37,29 +37,41 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     with TickerProviderStateMixin {
   /// 当前灯条阶段（yellow 起揭示释义，red = 模糊判定）
   _CardPhase _phase = _CardPhase.green;
+
   /// 是否进入模糊判定阶段：红灯亮起即为 true，此时右划才算模糊
   bool _hardEligible = false;
+
   /// 阶段计时器（绿 2.5s → 黄 2.5s → 红，红灯亮起即进入模糊判定）
   Timer? _phaseTimer;
+
   /// 卡片跟手拖动偏移
   double _dragOffset = 0;
+
   /// 是否正在播放滑出动画（防止重入）
   bool _swiping = false;
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略操作
   bool _submitting = false;
+
   /// 滑出/回弹动画控制器
   late final AnimationController _slideController;
+
   /// 新卡进入淡入控制器（切词时从 0 淡入到 1，easeOutCubic 非线性）
   late final AnimationController _enterController;
+
   /// 水平位移动画（起点 = 当前拖动偏移，终点 = 屏幕外或 0）
   Animation<double> _slideX = const AlwaysStoppedAnimation<double>(0);
+
   /// 滑出动画开始时锁定的本轮反馈（以当时的灯条阶段为准）
   FeedbackLevel? _pendingFeedback;
+
   /// 记录已自动发音的单词 id，同一题只播放一次
   int? _lastAutoSpeakWordId;
+
   /// 切词序号：每次切到新词递增，用作揭示内容 AnimatedOpacity 的 key，
   /// 强制重建以跳过淡出动画（新卡出现时释义/词性必须立即隐藏）
   int _cardGeneration = 0;
+
   /// 垂直拖动累计位移（用于上滑打开单词详情）
   double _verticalDragAccum = 0;
   final FlutterTts _tts = FlutterTts();
@@ -212,12 +224,16 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     _slideX = const AlwaysStoppedAnimation<double>(0);
     final width = MediaQuery.sizeOf(context).width;
     setState(() {
-      _slideX = Tween<double>(
-        begin: start,
-        end: start + direction * width * 1.4,
-      ).animate(
-        CurvedAnimation(parent: _slideController, curve: Curves.easeInCubic),
-      );
+      _slideX =
+          Tween<double>(
+            begin: start,
+            end: start + direction * width * 1.4,
+          ).animate(
+            CurvedAnimation(
+              parent: _slideController,
+              curve: Curves.easeInCubic,
+            ),
+          );
     });
     _slideController.forward(from: 0);
   }
@@ -310,8 +326,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     return Scaffold(
       // 无熟练度标记：仅进度标题
       appBar: AppBar(
-        title:
-            Text(context.trArgs('快闪卡模式 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('快闪卡模式 ({0})', [session.progressTitle])),
         actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -353,8 +368,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                           ? context.tr('右划 = 模糊 · 左划 = 忘记 · 上滑 = 详情')
                           : context.tr('右划 = 熟练 · 左划 = 忘记 · 上滑 = 详情'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     TextButton.icon(
@@ -396,8 +411,7 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
   /// 最终不透明度 = 滑动淡出（指数曲线，先慢后快）× 新卡进入淡入（easeOutCubic）。
   /// 用 AnimatedBuilder 同时监听滑动与进入控制器：滑出/回弹/淡入动画逐帧生效，
   /// 卡片内容预构建为 child，动画帧内只重建变换与透明度，避免重复构建。
-  Widget _buildCard(
-      ColorScheme colorScheme, Word word, double screenWidth) {
+  Widget _buildCard(ColorScheme colorScheme, Word word, double screenWidth) {
     return AnimatedBuilder(
       animation: Listenable.merge([_slideController, _enterController]),
       builder: (context, child) {
@@ -411,17 +425,15 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             .toDouble();
         final slideOpacity = 1.0 - math.pow(progress, 2.0).toDouble();
         // 新卡进入淡入（非线性：先快后慢，easeOutCubic）
-        final enterOpacity =
-            Curves.easeOutCubic.transform(_enterController.value);
+        final enterOpacity = Curves.easeOutCubic.transform(
+          _enterController.value,
+        );
 
         return Transform.translate(
           offset: Offset(dx, 0),
           child: Transform.rotate(
             angle: angle,
-            child: Opacity(
-              opacity: slideOpacity * enterOpacity,
-              child: child,
-            ),
+            child: Opacity(opacity: slideOpacity * enterOpacity, child: child),
           ),
         );
       },
@@ -459,7 +471,9 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
                   padding: const EdgeInsets.only(bottom: 14),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 6),
+                      horizontal: 18,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: GenderColors.forArticleSurface(article),
                       borderRadius: BorderRadius.circular(20),
@@ -484,9 +498,9 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
               word.baseForm ?? word.german,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
             const SizedBox(height: 8),
             // 发音按钮
@@ -517,20 +531,28 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _PhaseLight(active: _phase == _CardPhase.green, color: Colors.green.shade500),
+          _PhaseLight(
+            active: _phase == _CardPhase.green,
+            color: Colors.green.shade500,
+          ),
           const SizedBox(width: 14),
-          _PhaseLight(active: _phase == _CardPhase.yellow, color: Colors.amber.shade600),
+          _PhaseLight(
+            active: _phase == _CardPhase.yellow,
+            color: Colors.amber.shade600,
+          ),
           const SizedBox(width: 14),
-          _PhaseLight(active: _phase == _CardPhase.red, color: Colors.red.shade400),
+          _PhaseLight(
+            active: _phase == _CardPhase.red,
+            color: Colors.red.shade400,
+          ),
         ],
       ),
     );
@@ -548,12 +570,16 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
             decoration: BoxDecoration(
-              color: WordTypeColors.forWordTypeSurface(word.wordType,
-                  article: word.article),
+              color: WordTypeColors.forWordTypeSurface(
+                word.wordType,
+                article: word.article,
+              ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: WordTypeColors.forWordType(word.wordType,
-                    article: word.article),
+                color: WordTypeColors.forWordType(
+                  word.wordType,
+                  article: word.article,
+                ),
               ),
             ),
             child: Text(
@@ -562,8 +588,10 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: WordTypeColors.forWordType(word.wordType,
-                    article: word.article),
+                color: WordTypeColors.forWordType(
+                  word.wordType,
+                  article: word.article,
+                ),
               ),
             ),
           ),
@@ -574,9 +602,9 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
               definitions[i],
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
             ),
             if (i != definitions.length - 1) const SizedBox(height: 10),
           ],
@@ -587,8 +615,8 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             Text(
               context.trArgs('复数: {0}', [word.nounPlural!]),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],
@@ -626,7 +654,10 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
@@ -637,9 +668,9 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -648,11 +679,12 @@ class _FlashCardScreenState extends ConsumerState<FlashCardScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(

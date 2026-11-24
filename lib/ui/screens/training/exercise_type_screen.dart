@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
@@ -142,5 +142,8 @@ class _TypeCard extends StatelessWidget {
     ExerciseType.situationalWriting => Icons.mail_outline,
     ExerciseType.freeWriting => Icons.edit,
     ExerciseType.mixedPractice => Icons.shuffle,
+    ExerciseType.listeningMix => Icons.multitrack_audio,
+    ExerciseType.readingMix => Icons.chrome_reader_mode,
+    ExerciseType.writingMix => Icons.draw,
   };
 }

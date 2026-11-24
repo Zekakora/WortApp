@@ -72,9 +72,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
   void _openDetail(StudyStatEntry entry) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => WordDetailScreen(wordId: entry.wordId),
-      ),
+      MaterialPageRoute(builder: (_) => WordDetailScreen(wordId: entry.wordId)),
     );
   }
 
@@ -149,31 +147,30 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
             child: Text(
               context.tr('每次练习记录出现与错误次数，忘记/模糊计为错误'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(
             child: _entries == null
                 ? const Center(child: CircularProgressIndicator())
                 : isEmpty
-                    ? Center(
-                        child: Text(
-                          _range == StatRange.today
-                              ? context.tr('今天还没有练习记录')
-                              : context.tr('暂无历史统计记录'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        itemCount: entries.length,
-                        itemBuilder: (context, index) =>
-                            _buildStatRow(entries[index], index + 1),
+                ? Center(
+                    child: Text(
+                      _range == StatRange.today
+                          ? context.tr('今天还没有练习记录')
+                          : context.tr('暂无历史统计记录'),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) =>
+                        _buildStatRow(entries[index], index + 1),
+                  ),
           ),
         ],
       ),
@@ -187,10 +184,10 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
     final rankColor = rank == 1
         ? Colors.red
         : rank == 2
-            ? Colors.orange
-            : rank == 3
-                ? Colors.amber
-                : colorScheme.onSurfaceVariant;
+        ? Colors.orange
+        : rank == 3
+        ? Colors.amber
+        : colorScheme.onSurfaceVariant;
 
     return InkWell(
       onTap: () => _openDetail(entry),
@@ -205,10 +202,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
               child: Text(
                 '$rank',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: rankColor,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, color: rankColor),
               ),
             ),
             const SizedBox(width: 8),
@@ -223,9 +217,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                         child: Text(
                           entry.german,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
+                          style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -233,7 +225,9 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: genderColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
@@ -255,8 +249,8 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -269,19 +263,19 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                 Text(
                   _metric == StatMetric.errors
                       ? context.trArgs('错误 {0} 次', [entry.errors])
-                      : context.trArgs(
-                          '错误率 {0}%',
-                          [(entry.errorRate * 100).toStringAsFixed(0)]),
+                      : context.trArgs('错误率 {0}%', [
+                          (entry.errorRate * 100).toStringAsFixed(0),
+                        ]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: entry.errors > 0 ? Colors.red : null,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: entry.errors > 0 ? Colors.red : null,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   context.trArgs('出现 {0} 次', [entry.appearances]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -294,9 +288,7 @@ class _StudyStatsScreenState extends ConsumerState<StudyStatsScreen> {
                 size: 20,
                 color: entry.isFavorite ? Colors.amber : null,
               ),
-              tooltip: entry.isFavorite
-                  ? context.tr('取消收藏')
-                  : context.tr('收藏'),
+              tooltip: entry.isFavorite ? context.tr('取消收藏') : context.tr('收藏'),
               onPressed: () => _toggleFavorite(entry),
             ),
           ],

@@ -38,7 +38,8 @@ class DistractorPool {
 /// 选项池在会话启动时（[StudySession.distractorPool]）从所有词库一次性随机
 /// 抽取“每轮单词数 × 5”个单词生成；整个会话中每道题的干扰项都从该池中
 /// 同步抽取，无异步加载、无二次刷新。
-mixin DistractorPoolMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+mixin DistractorPoolMixin<T extends ConsumerStatefulWidget>
+    on ConsumerState<T> {
   /// 从当前学习会话的选项池随机抽取 [count] 个干扰项
   List<String> pickDistractors({
     required Word correctWord,
@@ -46,10 +47,8 @@ mixin DistractorPoolMixin<T extends ConsumerStatefulWidget> on ConsumerState<T> 
     int count = 3,
   }) {
     final pool = ref.read(studySessionProvider).distractorPool;
-    return DistractorPool(pool).pick(
-      correctWord: correctWord,
-      selector: selector,
-      count: count,
-    );
+    return DistractorPool(
+      pool,
+    ).pick(correctWord: correctWord, selector: selector, count: count);
   }
 }

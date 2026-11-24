@@ -20,7 +20,10 @@ final reviewSchedulerProvider = Provider<ReviewScheduler?>((ref) {
 /// - 监听 [studySessionProvider]：每次答题提交反馈后自动重新计算计划，
 ///   主页学习进度随之实时刷新
 /// - 使用设置中的每日新词/复习上限（而非默认值）
-final studyPlanProvider = FutureProvider.family<StudyPlan?, int>((ref, deckId) async {
+final studyPlanProvider = FutureProvider.family<StudyPlan?, int>((
+  ref,
+  deckId,
+) async {
   final scheduler = ref.watch(reviewSchedulerProvider);
   if (scheduler == null) return null;
   // 监听学习会话：提交反馈（state 变化）后重新计算，驱动主页进度刷新
@@ -44,7 +47,10 @@ final studyPlanProvider = FutureProvider.family<StudyPlan?, int>((ref, deckId) a
 enum WordPickMode { normal, favoriteBoost, favoriteOnly, wrongTodayOnly }
 
 /// 获取词书中所有单词（用于学习模式）
-final allWordsForStudyProvider = FutureProvider.family<List<Word>, int>((ref, deckId) async {
+final allWordsForStudyProvider = FutureProvider.family<List<Word>, int>((
+  ref,
+  deckId,
+) async {
   final db = ref.watch(databaseProvider);
   if (db == null) return [];
   return db.wordDao.getWordsByDeck(deckId);
@@ -53,6 +59,7 @@ final allWordsForStudyProvider = FutureProvider.family<List<Word>, int>((ref, de
 /// 学习会话状态
 class StudySession {
   final List<Word> words;
+
   /// 干扰项选项池：会话启动时从所有词库随机抽取（每轮单词数 × 5），
   /// 供四选一模式整个会话使用，每道题的干扰项从池中同步抽取
   final List<Word> distractorPool;
@@ -62,6 +69,7 @@ class StudySession {
   final bool isCompleted;
   final bool isLoading;
   final String? error;
+
   /// 是否为循环复习模式（今日新词/复习上限均用尽，兜底复习今日已学单词）
   ///
   /// 循环模式下每一大轮按伪随机顺序覆盖全部计划单词（每词每轮至多出现
@@ -69,27 +77,43 @@ class StudySession {
   /// 结束会话；进度持久化（settings 表），下次进入接着学下一批（不重复
   /// 不遗漏），大轮内全部覆盖完毕后自动开启下一大轮，轮数无上限
   final bool isLooping;
+
   /// 当前大轮数（从 1 开始；仅循环模式有意义，无上限）
   final int loopCount;
+
   /// 循环复习模式：当前大轮总词数
   final int loopTotal;
+
   /// 循环复习模式：进入本次会话前，当前大轮已学词数
   final int loopLearned;
+
   /// 循环复习模式：当前大轮尚未答过的单词 id（保持本轮伪随机顺序；
   /// 已发放未作答的词仍在其中，答完一个移除一个并持久化）
   final List<int> loopPendingIds;
+
   /// 循环复习模式：当前大轮创建日期（yyyy-MM-dd），跨天自动开启新一轮
   final String loopDate;
+
   /// 今日错词模式：每个词连续「首次答对」的轮数（毕业判定，达到
   /// [StudySessionNotifier.wrongWordGraduateStreak] 后移出错词列表）
   final Map<int, int> loopStreak;
+
   /// 今日错词模式：当前轮内每个词已重排次数（答错排到队尾，上限防死循环）
   final Map<int, int> loopReQueueCount;
+
   /// 错词重考队列：答错（忘记/模糊）的单词 id，主列表学完后按先进先出重考。
   /// 答对移出；循环复习模式不使用重考（每大轮本就覆盖全部单词）
   final List<int> redoQueue;
+
   /// 各单词本轮内重考次数（达到上限后放弃重考，避免无限循环）
   final Map<int, int> redoRetries;
+
+  /// 每词「连续答对」计数（仅非循环模式且 [consecutiveGoal] > 1 时使用）：
+  /// 连续答对达到目标次数才算本次学会，答错清零
+  final Map<int, int> sessionStreak;
+
+  /// 每词需要连续答对几次才算学会（1 = 原有行为：答对一次即通过）
+  final int consecutiveGoal;
 
   const StudySession({
     required this.words,
@@ -110,6 +134,8 @@ class StudySession {
     this.loopReQueueCount = const {},
     this.redoQueue = const [],
     this.redoRetries = const {},
+    this.sessionStreak = const {},
+    this.consecutiveGoal = 1,
   });
 
   /// 是否处于错词重考阶段（主列表已学完，正在重考答错的单词）
@@ -167,6 +193,8 @@ class StudySession {
     Map<int, int>? loopReQueueCount,
     List<int>? redoQueue,
     Map<int, int>? redoRetries,
+    Map<int, int>? sessionStreak,
+    int? consecutiveGoal,
   }) {
     return StudySession(
       words: words ?? this.words,
@@ -187,6 +215,8 @@ class StudySession {
       loopReQueueCount: loopReQueueCount ?? this.loopReQueueCount,
       redoQueue: redoQueue ?? this.redoQueue,
       redoRetries: redoRetries ?? this.redoRetries,
+      sessionStreak: sessionStreak ?? this.sessionStreak,
+      consecutiveGoal: consecutiveGoal ?? this.consecutiveGoal,
     );
   }
 }
@@ -194,18 +224,21 @@ class StudySession {
 /// 学习会话 StateNotifier
 class StudySessionNotifier extends StateNotifier<StudySession> {
   final AppDatabase? _db;
+
   /// 当前会话所属词书（循环复习进度持久化用）
   int? _sessionDeckId;
+
   /// 当前会话抓词模式（非循环会话进度快照持久化用）
   WordPickMode? _sessionPickMode;
+
   /// 当前会话是否开启随机背词（抓词时打乱顺序，不按单词本顺序抽取；
   /// 非循环会话进度快照按“模式+随机开关”区分，切换后重新抓词）
   bool _sessionRandomPick = false;
+
   /// 当前会话是否开启「只复习」（不抽新词；用于非循环会话快照区分）
   bool _sessionReviewOnly = false;
 
-  StudySessionNotifier(this._db)
-      : super(const StudySession(words: []));
+  StudySessionNotifier(this._db) : super(const StudySession(words: []));
 
   /// 开始学习会话
   ///
@@ -233,6 +266,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     WordPickMode pickMode = WordPickMode.normal,
     bool randomPick = false,
     bool reviewOnly = false,
+    int consecutiveGoal = 1,
   }) async {
     if (_db == null) {
       state = const StudySession(words: [], error: '数据库未就绪');
@@ -387,8 +421,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
             ? await _db.studyStatDao.getTodayWrongWordIds(deckId: deckId)
             : null;
         loopStreak = sameDay ? progress.streak : const <int, int>{};
-        loopReQueueCount =
-            sameDay ? progress.reQueueCount : const <int, int>{};
+        loopReQueueCount = sameDay ? progress.reQueueCount : const <int, int>{};
 
         bool validForRound(Word w) {
           if (pickMode == WordPickMode.favoriteOnly && !w.isFavorite) {
@@ -396,7 +429,9 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
           }
           if (wrongIds != null) {
             if (!wrongIds.contains(w.id)) return false;
-            if ((loopStreak[w.id] ?? 0) >= wrongWordGraduateStreak) return false;
+            if ((loopStreak[w.id] ?? 0) >= wrongWordGraduateStreak) {
+              return false;
+            }
           }
           return true;
         }
@@ -501,6 +536,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
         loopReQueueCount: loopReQueueCount,
         redoQueue: resumeRedoQueue,
         redoRetries: resumeRedoRetries,
+        consecutiveGoal: consecutiveGoal < 1 ? 1 : consecutiveGoal,
       );
     } catch (e) {
       state = StudySession(words: [], error: '加载单词失败: $e');
@@ -552,9 +588,11 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
 
   /// 错词重考上限：同一单词在本轮内最多重考次数（超过后放弃，避免无限循环）
   static const int maxRedoRetries = 2;
+
   /// 今日错词：连续多少轮「首次答对」后才算练熟毕业（移出错词列表）。
   /// 一轮 = 覆盖全部错词的一次完整复习，天然有时间间隔，抗短时记忆。
   static const int wrongWordGraduateStreak = 3;
+
   /// 今日错词：答错后每轮最多重排到队尾的次数（防无限循环）
   static const int maxReQueuePerRound = 2;
 
@@ -574,15 +612,30 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     await _db.submitStudyFeedback(wordId: word.id, quality: quality);
 
     // 记录错误统计（忘记/模糊计为错误，用于错误统计排行榜）
-    await _db.studyStatDao.recordAttempt(
-      wordId: word.id,
-      isError: quality < 3,
-    );
+    await _db.studyStatDao.recordAttempt(wordId: word.id, isError: quality < 3);
 
     final isCorrect = quality >= 3;
     final isLooping = state.isLooping;
     final isRedo = state.isRedoPhase;
     final nextIndex = state.currentIndex + 1;
+
+    // 每词「连续答对 N 次才算学会」：
+    // - 仅非循环模式生效（循环模式每大轮本就覆盖全部单词，不重复追问）
+    // - 答对累计、答错清零；未达到目标次数时把词排到重考队列队尾继续
+    // - consecutiveGoal = 1 时行为与原来完全一致（答对一次即通过）
+    final goal = state.consecutiveGoal;
+    var sessionStreak = Map<int, int>.of(state.sessionStreak);
+    var streakReached = true;
+    if (goal > 1 && !isLooping) {
+      if (!isCorrect) {
+        sessionStreak[word.id] = 0;
+        streakReached = false;
+      } else {
+        final next = (sessionStreak[word.id] ?? 0) + 1;
+        sessionStreak[word.id] = next;
+        streakReached = next >= goal;
+      }
+    }
 
     // 任何模式答错都清零该词在「今日错词」中的连续干净轮数。
     // 今日错词循环分支自身会重置，这里跳过避免重复读写
@@ -660,8 +713,12 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
         // 重考超过上限：放弃该词，避免无限循环
         redoRetries.remove(word.id);
       }
+    } else if (goal > 1 && !streakReached) {
+      // 答对了但还没连对够次数：排到队尾继续追问（不计入答错重考上限）
+      redoQueue.add(word.id);
+      redoRetries.remove(word.id);
     } else if (isRedo) {
-      // 重考答对：清除重考次数记录
+      // 重考答对且已达成连续正确次数：清除重考次数记录
       redoRetries.remove(word.id);
     }
 
@@ -674,6 +731,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
       isCompleted: isCompleted,
       redoQueue: redoQueue,
       redoRetries: redoRetries,
+      sessionStreak: sessionStreak,
     );
 
     // 非循环模式：持久化会话快照（中途退出后可续学，不重复已学单词）；
@@ -687,7 +745,10 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
           _SessionSnapshot(
             date: _dateKey(DateTime.now()),
             pickMode: _snapshotModeKey(
-                _sessionPickMode!, _sessionRandomPick, _sessionReviewOnly),
+              _sessionPickMode!,
+              _sessionRandomPick,
+              _sessionReviewOnly,
+            ),
             wordIds: state.words.map((w) => w.id).toList(),
             currentIndex: state.currentIndex,
             redoQueue: state.redoQueue,
@@ -705,8 +766,10 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   Future<void> _resetWrongReviewStreak(int deckId, int wordId) async {
     if (_db == null) return;
     try {
-      final progress =
-          await _readLoopProgress(deckId, WordPickMode.wrongTodayOnly);
+      final progress = await _readLoopProgress(
+        deckId,
+        WordPickMode.wrongTodayOnly,
+      );
       if (progress == null ||
           progress.streak.isEmpty ||
           !progress.streak.containsKey(wordId)) {
@@ -746,9 +809,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     final updated = await _db.wordDao.getWordById(wordId);
     if (updated == null) return;
     state = state.copyWith(
-      words: [
-        for (final w in state.words) w.id == wordId ? updated : w,
-      ],
+      words: [for (final w in state.words) w.id == wordId ? updated : w],
     );
   }
 
@@ -765,7 +826,9 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
 
   /// 读取词书循环复习进度（无/损坏时返回 null，由调用方开启新一轮）
   Future<_LoopProgress?> _readLoopProgress(
-      int deckId, WordPickMode mode) async {
+    int deckId,
+    WordPickMode mode,
+  ) async {
     if (_db == null) return null;
     final raw = await _db.getSetting(_loopProgressKey(deckId, mode));
     if (raw == null) return null;
@@ -788,7 +851,10 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
 
   /// 保存词书循环复习进度（失败不影响学习）
   Future<void> _saveLoopProgress(
-      int deckId, WordPickMode mode, _LoopProgress progress) async {
+    int deckId,
+    WordPickMode mode,
+    _LoopProgress progress,
+  ) async {
     if (_db == null) return;
     try {
       await _db.setSetting(
@@ -799,8 +865,9 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
           'total': progress.total,
           'pendingIds': progress.pendingIds,
           'streak': progress.streak.map((k, v) => MapEntry('$k', v)),
-          'reQueueCount':
-              progress.reQueueCount.map((k, v) => MapEntry('$k', v)),
+          'reQueueCount': progress.reQueueCount.map(
+            (k, v) => MapEntry('$k', v),
+          ),
         }),
       );
     } catch (_) {
@@ -812,9 +879,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
   static Map<int, int> _readIntMap(Object? raw) {
     final map = raw;
     if (map is! Map) return const {};
-    return map.map(
-      (k, v) => MapEntry(int.parse('$k'), (v as num).toInt()),
-    );
+    return map.map((k, v) => MapEntry(int.parse('$k'), (v as num).toInt()));
   }
 
   static String _loopProgressKey(int deckId, WordPickMode mode) =>
@@ -860,7 +925,8 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
     var keptBeforeCursor = 0;
     for (var i = 0; i < restored.length; i++) {
       final w = restored[i];
-      final valid = redoSet.contains(w.id) ||
+      final valid =
+          redoSet.contains(w.id) ||
           (pickMode != WordPickMode.favoriteOnly || w.isFavorite) &&
               (wrongIds == null || wrongIds.contains(w.id));
       if (!valid) continue;
@@ -912,8 +978,9 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
         redoQueue: (map['redoQueue'] as List? ?? const [])
             .map((e) => (e as num).toInt())
             .toList(),
-        redoRetries: (map['redoRetries'] as Map? ?? const {})
-            .map((k, v) => MapEntry(int.parse('$k'), (v as num).toInt())),
+        redoRetries: (map['redoRetries'] as Map? ?? const {}).map(
+          (k, v) => MapEntry(int.parse('$k'), (v as num).toInt()),
+        ),
         completedCount: (map['completedCount'] as num?)?.toInt() ?? 0,
         correctCount: (map['correctCount'] as num?)?.toInt() ?? 0,
       );
@@ -924,7 +991,9 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
 
   /// 保存词书非循环会话快照（失败不影响学习）
   Future<void> _saveSessionSnapshot(
-      int deckId, _SessionSnapshot snapshot) async {
+    int deckId,
+    _SessionSnapshot snapshot,
+  ) async {
     if (_db == null) return;
     try {
       await _db.setSetting(
@@ -935,8 +1004,7 @@ class StudySessionNotifier extends StateNotifier<StudySession> {
           'wordIds': snapshot.wordIds,
           'currentIndex': snapshot.currentIndex,
           'redoQueue': snapshot.redoQueue,
-          'redoRetries': snapshot.redoRetries
-              .map((k, v) => MapEntry('$k', v)),
+          'redoRetries': snapshot.redoRetries.map((k, v) => MapEntry('$k', v)),
           'completedCount': snapshot.completedCount,
           'correctCount': snapshot.correctCount,
         }),
@@ -995,18 +1063,25 @@ class _ResumedSession {
 class _SessionSnapshot {
   /// 会话创建日期（yyyy-MM-dd），跨天自动失效重新抓词
   final String date;
+
   /// 抓词模式（仅同模式重进可续学，避免不同会话串场）
   final String pickMode;
+
   /// 会话完整词表（按原顺序）
   final List<int> wordIds;
+
   /// 主列表游标（已答词在游标之前）
   final int currentIndex;
+
   /// 错词重考队列（先进先出）
   final List<int> redoQueue;
+
   /// 各单词重考次数
   final Map<int, int> redoRetries;
+
   /// 已完成词数（含已答过的词）
   final int completedCount;
+
   /// 答对词数
   final int correctCount;
 
@@ -1028,10 +1103,13 @@ class _LoopProgress {
   final String date;
   final int loopCount;
   final int total;
+
   /// 本轮尚未答过的单词 id（保持本轮伪随机顺序）
   final List<int> pendingIds;
+
   /// 每个词连续「首次答对」的轮数（今日错词模式毕业判定用）
   final Map<int, int> streak;
+
   /// 当前轮内每个词已重排次数（答错排到队尾，上限防死循环）
   final Map<int, int> reQueueCount;
 
@@ -1055,9 +1133,9 @@ String _dateKey(DateTime d) {
 /// 学习会话 Provider
 final studySessionProvider =
     StateNotifierProvider<StudySessionNotifier, StudySession>((ref) {
-  final db = ref.watch(databaseProvider);
-  return StudySessionNotifier(db);
-});
+      final db = ref.watch(databaseProvider);
+      return StudySessionNotifier(db);
+    });
 
 /// 连续打卡天数 Provider
 ///

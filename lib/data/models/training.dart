@@ -233,6 +233,36 @@ enum ExerciseType {
     '听、读、写题型混合出题，一节课练全面',
     QuestionType.singleChoice,
     GradingMode.mixed,
+  ),
+
+  /// 技能内混合：听力（听力理解 / 对话理解 / 听写 / 听力填空混搭）
+  listeningMix(
+    'listening_mix',
+    TrainingSkill.listening,
+    '听力混合',
+    '听力理解、对话理解、听写、填空混搭出题',
+    QuestionType.singleChoice,
+    GradingMode.mixed,
+  ),
+
+  /// 技能内混合：阅读（阅读理解 / 完形 / 语境词汇 / 判断正误 / 排序混搭）
+  readingMix(
+    'reading_mix',
+    TrainingSkill.reading,
+    '阅读混合',
+    '阅读理解、完形、语境词汇、判断正误混搭出题',
+    QuestionType.singleChoice,
+    GradingMode.mixed,
+  ),
+
+  /// 技能内混合：写作（句子构造 / 改错 / 翻译 / 情景 / 自由写作混搭，全部 AI 评分）
+  writingMix(
+    'writing_mix',
+    TrainingSkill.writing,
+    '写作混合',
+    '句子构造、改错、翻译、情景写作混搭出题',
+    QuestionType.freeText,
+    GradingMode.mixed,
   );
 
   const ExerciseType(

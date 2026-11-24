@@ -27,19 +27,26 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
   final TextEditingController _controller = TextEditingController();
   bool _answered = false;
   bool? _isCorrect;
+
   /// 名词作答：用户选择的定冠词（der/die/das）
   String? _selectedArticle;
+
   /// 记录词性作答对应的单词 id，切换单词时自动失效
   int? _articleWordId;
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
   final FlutterTts _tts = FlutterTts();
+
   /// 自动确认防抖定时器（停止输入一段时间后自动检查拼写）
   Timer? _debounce;
+
   /// 记录当前题目单词 id，用于新题下发时触发自动发音
   int _lastWordId = -1;
+
   /// 平板分屏：控制右侧单词详情面板的模糊层
   final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
+
   /// 输入框焦点：键盘收起（失焦）时撤销待触发的自动判定，
   /// 避免「输入法一消失就自动提交」
   final FocusNode _inputFocus = FocusNode();
@@ -210,8 +217,7 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            context.trArgs('拼写模式 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('拼写模式 ({0})', [session.progressTitle])),
         actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -236,9 +242,8 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                     // 中文提示
                     Text(
                       word.chinese,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     // 名词：先选对词性（定冠词）才能作答，选对前不显示冠词以免泄露
                     if (NounArticle.isNounWithArticle(word)) ...[
@@ -248,7 +253,8 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                             ? _selectedArticle
                             : null,
                         answered: _articleAnswered(word),
-                        onSelect: (article) => _onArticleSelected(word, article),
+                        onSelect: (article) =>
+                            _onArticleSelected(word, article),
                       ),
                     ] else if (word.article != null) ...[
                       const SizedBox(height: 8),
@@ -256,10 +262,11 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                         label: Text(
                           word.article!,
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        backgroundColor:
-                            GenderColors.forArticle(word.article),
+                        backgroundColor: GenderColors.forArticle(word.article),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -278,7 +285,7 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                         hintText: context.tr('输入德语单词...'),
                         errorText: _answered && _isCorrect == false
                             ? context.trArgs('正确答案: {0}', [
-                                '${word.article != null ? "${word.article} " : ""}${word.german}'
+                                '${word.article != null ? "${word.article} " : ""}${word.german}',
                               ])
                             : null,
                         suffixIcon: _answered
@@ -304,8 +311,11 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline,
-                                size: 20, color: colorScheme.primary),
+                            Icon(
+                              Icons.info_outline,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -337,10 +347,7 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       runSpacing: 8,
       children: specialChars.map((char) {
         return ActionChip(
-          label: Text(
-            char,
-            style: const TextStyle(fontSize: 18),
-          ),
+          label: Text(char, style: const TextStyle(fontSize: 18)),
           onPressed: _answered
               ? null
               : () {
@@ -348,7 +355,9 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                   final selection = _controller.selection;
                   // 从未聚焦过输入框时 selection 是无效值（offset = -1），
                   // 直接 replaceRange 会抛 RangeError 把页面打红，此时追加到末尾
-                  final start = selection.isValid ? selection.start : text.length;
+                  final start = selection.isValid
+                      ? selection.start
+                      : text.length;
                   final end = selection.isValid ? selection.end : text.length;
                   final newText = text.replaceRange(start, end, char);
                   _controller.value = TextEditingValue(
@@ -373,7 +382,8 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       child: SizedBox(
         width: double.infinity,
         child: FilledButton(
-          onPressed: _controller.text.isNotEmpty &&
+          onPressed:
+              _controller.text.isNotEmpty &&
                   _canAnswer(ref.read(studySessionProvider).currentWord)
               ? _checkAnswer
               : null,
@@ -409,7 +419,8 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
                 onPressed: _openWordDetail,
               ),
             ),
-          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context))
+            const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -484,7 +495,10 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
     }
 
     if (!result) {
-      final capitalResult = GermanParser.checkCapitalization(input, word.german);
+      final capitalResult = GermanParser.checkCapitalization(
+        input,
+        word.german,
+      );
       if (capitalResult.needsCapitalize) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -517,7 +531,10 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
@@ -528,9 +545,9 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -539,11 +556,12 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(

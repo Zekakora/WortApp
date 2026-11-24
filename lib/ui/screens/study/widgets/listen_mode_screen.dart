@@ -29,12 +29,16 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
   List<String> _options = [];
   int _correctIndex = 0;
   int _lastWordId = -1;
+
   /// 名词作答：用户选择的定冠词（der/die/das）
   String? _selectedArticle;
+
   /// 记录词性作答对应的单词 id，切换单词时自动失效
   int? _articleWordId;
+
   /// 防重入：提交反馈（含 SM-2 落库）期间忽略重复点击
   bool _submitting = false;
+
   /// 平板分屏：控制右侧单词详情面板的模糊层
   final GlobalKey<StudySplitLayoutState> _splitKey = GlobalKey();
   final FlutterTts _tts = FlutterTts();
@@ -207,8 +211,7 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            context.trArgs('听德语选单词 ({0})', [session.progressTitle])),
+        title: Text(context.trArgs('听德语选单词 ({0})', [session.progressTitle])),
         actions: const [StudyRatingHelpButton()],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -242,8 +245,8 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
                     Text(
                       context.tr('点击播放发音'),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     // 名词：先选对词性（答对后正确选项显示对应颜色）
                     if (isNoun) ...[
@@ -253,7 +256,8 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
                             ? _selectedArticle
                             : null,
                         answered: _articleAnswered(word),
-                        onSelect: (article) => _onArticleSelected(word, article),
+                        onSelect: (article) =>
+                            _onArticleSelected(word, article),
                       ),
                     ],
                     const SizedBox(height: 48),
@@ -261,11 +265,11 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
                       child: GridView.builder(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
+                              crossAxisCount: 2,
+                              childAspectRatio: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
                         itemCount: _options.length,
                         itemBuilder: (context, index) {
                           return _buildOptionCard(index, colorScheme, word);
@@ -336,9 +340,9 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
           child: Text(
             _options[index],
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: answerColor,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+              color: answerColor,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -391,7 +395,8 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
                 onPressed: _openWordDetail,
               ),
             ),
-          if (!StudySplitLayout.isSplitWidth(context)) const SizedBox(height: 8),
+          if (!StudySplitLayout.isSplitWidth(context))
+            const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -465,7 +470,10 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
   }
 
   Widget _buildCompletedScreen(
-      BuildContext context, ColorScheme colorScheme, StudySession session) {
+    BuildContext context,
+    ColorScheme colorScheme,
+    StudySession session,
+  ) {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('学习完成'))),
       body: Center(
@@ -476,9 +484,9 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
             const SizedBox(height: 24),
             Text(
               context.tr('恭喜完成！'),
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
@@ -487,11 +495,12 @@ class _ListenModeScreenState extends ConsumerState<ListenModeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              context.trArgs(
-                  '正确率: {0}%', [(session.accuracy * 100).toStringAsFixed(0)]),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                  ),
+              context.trArgs('正确率: {0}%', [
+                (session.accuracy * 100).toStringAsFixed(0),
+              ]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
             ),
             const SizedBox(height: 32),
             FilledButton(
