@@ -130,7 +130,7 @@ class _ResultBodyState extends State<_ResultBody> {
       );
     }
 
-    // 宽屏：上方原文 + 结果详情，底部是可上下滚动的小网格选题
+    // 宽屏：左原文，右栏内部 = 结果详情 + 底部小网格选题
     final index = _selected.clamp(0, view.items.length - 1);
     final item = view.items[index];
     final hasStimulus = exercise.stimulusText.isNotEmpty;
@@ -144,6 +144,23 @@ class _ResultBodyState extends State<_ResultBody> {
         total: view.items.length,
         asCard: false,
       ),
+    );
+
+    // 右栏：详情占满剩余高度，小网格固定在右栏底部（不跨到原文那一栏）
+    final rightPane = Column(
+      children: [
+        Expanded(child: detail),
+        const Divider(height: 1),
+        _QuestionGrid(
+          items: view.items,
+          attemptsByKey: {
+            for (final entry in view.items)
+              entry.question.key: view.attemptOf(entry.question.key),
+          },
+          selected: index,
+          onSelected: (value) => setState(() => _selected = value),
+        ),
+      ],
     );
 
     return Column(
@@ -171,20 +188,10 @@ class _ResultBodyState extends State<_ResultBody> {
                       ),
                     ),
                     const VerticalDivider(width: 1, thickness: 1),
-                    Expanded(flex: 3, child: detail),
+                    Expanded(flex: 3, child: rightPane),
                   ],
                 )
-              : detail,
-        ),
-        const Divider(height: 1),
-        _QuestionGrid(
-          items: view.items,
-          attemptsByKey: {
-            for (final entry in view.items)
-              entry.question.key: view.attemptOf(entry.question.key),
-          },
-          selected: index,
-          onSelected: (value) => setState(() => _selected = value),
+              : rightPane,
         ),
         SafeArea(
           top: false,
@@ -198,7 +205,7 @@ class _ResultBodyState extends State<_ResultBody> {
   }
 }
 
-/// 底部题目小网格：只显示「第 N 题」+ 对错标志，可上下滚动
+/// 右栏底部的题目小网格：只显示「第 N 题」+ 对错标志，可上下滚动
 class _QuestionGrid extends StatelessWidget {
   final List<ExerciseQuestionView> items;
   final Map<String, ExerciseAttempt?> attemptsByKey;
