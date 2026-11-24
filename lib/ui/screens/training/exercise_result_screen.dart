@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
@@ -9,7 +10,9 @@ import '../../../data/database/daos/exercise_dao.dart';
 import '../../../data/models/training.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
+import '../../../ui/utils/selection_sentence.dart';
 import '../../../ui/utils/wide_layout.dart';
+import '../../../ui/widgets/context_lookup_sheet.dart';
 import 'training_setup_screen.dart';
 
 /// 结果页：得分、逐题对错、正确答案、解析、听写差异与写作 Rubric
@@ -113,6 +116,7 @@ class _ResultBodyState extends State<_ResultBody> {
             _StimulusSection(
               text: exercise.stimulusText,
               isListening: type.skill == TrainingSkill.listening,
+              cefrLevel: exercise.level,
             ),
           ],
           const SizedBox(height: 16),
@@ -178,11 +182,12 @@ class _ResultBodyState extends State<_ResultBody> {
                     Expanded(
                       flex: 2,
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 8, 16),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
                         children: [
                           _StimulusSection(
                             text: exercise.stimulusText,
                             isListening: type.skill == TrainingSkill.listening,
+                            cefrLevel: exercise.level,
                           ),
                         ],
                       ),
@@ -222,9 +227,9 @@ class _QuestionGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 108),
+      constraints: const BoxConstraints(maxHeight: 100),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -390,7 +395,14 @@ class _StimulusSection extends ConsumerStatefulWidget {
   final String text;
   final bool isListening;
 
-  const _StimulusSection({required this.text, this.isListening = false});
+  /// 材料 CEFR 等级（长按查词时一起交给查词引擎）
+  final String? cefrLevel;
+
+  const _StimulusSection({
+    required this.text,
+    this.isListening = false,
+    this.cefrLevel,
+  });
 
   @override
   ConsumerState<_StimulusSection> createState() => _StimulusSectionState();
@@ -438,7 +450,7 @@ class _StimulusSectionState extends ConsumerState<_StimulusSection> {
     final label = context.tr(widget.isListening ? '听力原文' : '原文');
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
@@ -499,14 +511,57 @@ class _StimulusSectionState extends ConsumerState<_StimulusSection> {
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 280),
               child: SingleChildScrollView(
-                child: SelectableText(
-                  widget.text,
-                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
-                ),
+                child: _buildSelectableText(context),
               ),
             ),
         ],
       ),
+    );
+  }
+
+  /// 原文同样支持长按查词：选区文本 + 所在句子一起交给语境查词面板
+  Widget _buildSelectableText(BuildContext context) {
+    final theme = Theme.of(context);
+    return SelectableText(
+      widget.text,
+      style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
+      contextMenuBuilder: (menuContext, editableTextState) {
+        final value = editableTextState.textEditingValue;
+        final selection = value.selection;
+        final selected = selection.isValid && !selection.isCollapsed
+            ? selection.textInside(value.text).trim()
+            : '';
+        final sentence = selected.isEmpty
+            ? null
+            : sentenceAtOffset(value.text, selection.start);
+
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableTextState.contextMenuAnchors,
+          buttonItems: [
+            if (selected.isNotEmpty)
+              ContextMenuButtonItem(
+                label: context.tr('查词'),
+                onPressed: () {
+                  editableTextState.hideToolbar();
+                  ContextLookupSheet.show(
+                    context,
+                    selectedText: selected,
+                    sentence: sentence,
+                    surrounding: widget.text,
+                    cefrLevel: widget.cefrLevel,
+                  );
+                },
+              ),
+            ContextMenuButtonItem(
+              label: context.tr('复制'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: selected));
+                editableTextState.hideToolbar();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

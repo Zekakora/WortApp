@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/i18n/app_localizations.dart';
+import '../../../utils/selection_sentence.dart';
 import './speech_controls.dart';
 
 /// 材料区（阅读短文 / 听力音频 / 无材料）
@@ -63,23 +64,9 @@ class StimulusView extends StatelessWidget {
     return _TextBody(text: text, onLookup: onLookup, label: null);
   }
 
-  /// 在当前段落里找选中位置所在的句子
-  static String? sentenceAt(String text, int selectionStart) {
-    if (text.isEmpty) return null;
-    final index = selectionStart.clamp(0, text.length - 1);
-    var start = index;
-    var end = index;
-    const terminators = {'.', '!', '?', '\n'};
-    while (start > 0 && !terminators.contains(text[start - 1])) {
-      start--;
-    }
-    while (end < text.length && !terminators.contains(text[end])) {
-      end++;
-    }
-    if (end < text.length) end++;
-    final sentence = text.substring(start, end).trim();
-    return sentence.isEmpty ? null : sentence;
-  }
+  /// 在当前段落里找选中位置所在的句子（实现见 [sentenceAtOffset]）
+  static String? sentenceAt(String text, int selectionStart) =>
+      sentenceAtOffset(text, selectionStart);
 }
 
 class _TextBody extends StatelessWidget {

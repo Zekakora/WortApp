@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
+import '../../../ui/utils/training_icons.dart';
 import '../../../ui/utils/wide_layout.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/training_provider.dart';
@@ -152,7 +153,9 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
                           Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: const Icon(Icons.play_circle_outline),
+                              leading: Icon(
+                                trainingSkillIcon(entry.exerciseType.skill),
+                              ),
                               title: Text(
                                 context.tr(entry.exerciseType.titleZh),
                               ),
@@ -194,7 +197,9 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
                           Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: _scoreBadge(context, entry),
+                              leading: Icon(
+                                trainingSkillIcon(entry.exerciseType.skill),
+                              ),
                               title: Text(
                                 context.tr(entry.exerciseType.titleZh),
                               ),
@@ -202,6 +207,7 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
                                 '${entry.level.code} · '
                                 '${context.tr(entry.difficulty.titleZh)}'
                                 '${entry.topic.isEmpty ? '' : ' · ${context.tr(entry.topic)}'}'
+                                ' · ${(entry.ratio * 100).round()}%'
                                 ' · ${_formatDate(entry.submittedAt ?? entry.createdAt)}',
                               ),
                               trailing: IconButton(
@@ -225,22 +231,6 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  static Widget _scoreBadge(BuildContext context, ExerciseHistoryEntry entry) {
-    final percent = (entry.ratio * 100).round();
-    final color = percent >= 80
-        ? Colors.green
-        : percent >= 50
-        ? Colors.orange
-        : Theme.of(context).colorScheme.error;
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.15),
-      child: Text(
-        '$percent',
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
@@ -200,10 +200,10 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
           contentPadding: EdgeInsets.zero,
           title: Text(context.tr('优先使用近期学习的词汇')),
           subtitle: Text(
-            context.trArgs(
-              '从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现',
-              [vocabFocus.deckName, vocabFocus.words.length],
-            ),
+            context.trArgs('从「{0}」取 {1} 个词（今日学习 / 待复习 / 收藏）作参考，不必全部出现', [
+              vocabFocus.deckName,
+              vocabFocus.words.length,
+            ]),
           ),
           value: _useVocabularyFocus,
           onChanged: (value) => _update(() => _useVocabularyFocus = value),
@@ -259,7 +259,7 @@ class _TrainingSetupScreenState extends ConsumerState<TrainingSetupScreen> {
 
     final focus =
         ref.read(trainingVocabularyFocusProvider).valueOrNull ??
-            const TrainingVocabularyFocus();
+        const TrainingVocabularyFocus();
     final vocabularyFocus = _useVocabularyFocus && !focus.isEmpty
         ? focus.promptText
         : null;

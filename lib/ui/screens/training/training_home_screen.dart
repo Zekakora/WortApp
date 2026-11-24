@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../data/models/training.dart';
+import '../../../ui/utils/training_icons.dart';
 import '../../../ui/utils/wide_layout.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
@@ -102,7 +103,7 @@ class TrainingHomeScreen extends ConsumerWidget {
                 Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    leading: const Icon(Icons.assignment_turned_in_outlined),
+                    leading: Icon(trainingSkillIcon(entry.exerciseType.skill)),
                     title: Text(context.tr(entry.exerciseType.titleZh)),
                     subtitle: Text(
                       '${entry.level.code} · '
@@ -165,11 +166,10 @@ class _SkillCard extends StatelessWidget {
                   color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(switch (skill) {
-                  TrainingSkill.listening => Icons.headphones,
-                  TrainingSkill.reading => Icons.auto_stories,
-                  TrainingSkill.writing => Icons.edit_note,
-                }, color: colorScheme.onPrimaryContainer),
+                child: Icon(
+                  trainingSkillIcon(skill),
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
