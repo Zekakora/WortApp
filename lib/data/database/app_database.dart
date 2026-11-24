@@ -11,6 +11,9 @@ import 'tables/ai_request_status.dart';
 import 'tables/settings.dart';
 import 'tables/study_stats.dart';
 import 'tables/deletion_logs.dart';
+import 'tables/exercises.dart';
+import 'tables/exercise_questions.dart';
+import 'tables/exercise_attempts.dart';
 import 'daos/deck_dao.dart';
 import 'daos/word_dao.dart';
 import 'daos/sm2_dao.dart';
@@ -18,6 +21,7 @@ import 'daos/conjugation_dao.dart';
 import 'daos/ai_cache_dao.dart';
 import 'daos/ai_status_dao.dart';
 import 'daos/study_stat_dao.dart';
+import 'daos/exercise_dao.dart';
 
 import 'app_database_native.dart'
     if (dart.library.html) 'app_database_web.dart' as impl;
@@ -35,6 +39,9 @@ part 'app_database.g.dart';
     Settings,
     StudyStats,
     DeletionLogs,
+    Exercises,
+    ExerciseQuestions,
+    ExerciseAttempts,
   ],
   daos: [
     DeckDao,
@@ -44,13 +51,14 @@ part 'app_database.g.dart';
     AiCacheDao,
     AiStatusDao,
     StudyStatDao,
+    ExerciseDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? impl.openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -74,6 +82,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             // 删除墓碑表（跨端删除传播用）
             await m.createTable(deletionLogs);
+          }
+          if (from < 6) {
+            // AI 训练模块：练习集 / 题目 / 答题记录（仅本地，不参与同步与备份）
+            await m.createTable(exercises);
+            await m.createTable(exerciseQuestions);
+            await m.createTable(exerciseAttempts);
           }
         },
       );

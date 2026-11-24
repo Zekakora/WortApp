@@ -313,6 +313,42 @@ class Inflection {
   }
 }
 
+/// 查词语境（训练模块长按查词用）
+///
+/// 只把「用户选中的词」交给引擎会得到脱离语境的字面解释，
+/// 因此选中词、所在句子、必要时前后句与材料等级一起传入，
+/// 让 AI 判断该词在**这个句子里的**含义（任务书 §6.1）。
+class LookupContext {
+  /// 用户选中的原始文本（可能是变位形式或短语）
+  final String selectedText;
+
+  /// 所在完整句子
+  final String? sentence;
+
+  /// 前后句或段落
+  final String? context;
+
+  /// 材料 CEFR 等级（如 B1）
+  final String? cefrLevel;
+
+  const LookupContext({
+    required this.selectedText,
+    this.sentence,
+    this.context,
+    this.cefrLevel,
+  });
+
+  /// 是否提供了足够的语境信息
+  bool get hasContext =>
+      (sentence != null && sentence!.trim().isNotEmpty) ||
+      (context != null && context!.trim().isNotEmpty);
+
+  @override
+  String toString() =>
+      'LookupContext(selectedText: $selectedText, level: $cefrLevel, '
+      'hasSentence: ${sentence?.isNotEmpty ?? false})';
+}
+
 /// 查词引擎抽象接口
 abstract class DictionaryEngine {
   /// 引擎名称
@@ -321,5 +357,10 @@ abstract class DictionaryEngine {
   /// 查词
   ///
   /// [forceRefresh] 为 true 时跳过本地缓存，强制向引擎发起新请求（用于手动更新）。
-  Future<DictionaryResult?> lookup(String word, {bool forceRefresh = false});
+  /// [context] 非空时按语境解释词义（仅 AI 引擎支持，其余引擎忽略）。
+  Future<DictionaryResult?> lookup(
+    String word, {
+    bool forceRefresh = false,
+    LookupContext? context,
+  });
 }

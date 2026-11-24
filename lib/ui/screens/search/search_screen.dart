@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:drift/drift.dart' as drift;
-import 'dart:convert';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/i18n/app_localizations.dart';
-import '../../../core/utils/german_parser.dart';
 import '../../../providers/database_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/deck_provider.dart';
@@ -15,6 +13,7 @@ import '../../../data/database/app_database.dart';
 import '../../../services/ai/batch_ai_service.dart';
 import '../../../services/dictionary/ai_dictionary_engine.dart';
 import '../../../services/dictionary/dictionary_engine.dart';
+import '../../../services/dictionary/word_intake_service.dart';
 import '../../../ui/widgets/word_type_chip.dart';
 import '../../../ui/widgets/inflection_widgets.dart';
 import '../../../ui/widgets/batch_task_widgets.dart';
@@ -902,18 +901,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   /// 全局规范化查重：同一词不允许在任何词书中重复
-  /// （`der Hund` 与 `Hund` 归为同一词），命中时返回已存在的单词与所在词书
+  /// （`der Hund` 与 `Hund` 归为同一词），命中时返回已存在的单词与所在词书。
+  ///
+  /// 查重规则集中在 [WordIntakeService]，训练模块的长按查词也走同一套逻辑。
   Future<({Word word, Deck? deck})?> _findExistingWord(
       DictionaryResult result) async {
     final db = ref.read(databaseProvider);
     if (db == null) return null;
-    final key = GermanParser.canonicalKey(result.word);
-    final existing = await db.wordDao.findWordByCanonicalKey(key);
-    if (existing == null) return null;
-    return (word: existing, deck: await db.deckDao.getDeckById(existing.deckId));
+    final existing = await WordIntakeService(db).findExisting(result);
+    final word = existing?.existingWord;
+    if (word == null) return null;
+    return (word: word, deck: existing?.existingDeck);
   }
 
-  /// 把查词结果写入指定词书。
+  /// 把查词结果写入指定词书（入库逻辑见 [WordIntakeService]）。
   ///
   /// 只负责入库与提示，**不**关闭任何弹窗：弹窗由各自的面板关闭，
   /// 否则多余的 `Navigator.pop` 会把根页面一起弹掉（首页只有一个路由，一旦被
@@ -931,133 +932,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
-    final existing = await _findExistingWord(result);
-    if (existing != null) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            existing.deck == null
-                ? context.tr('该单词已存在，未重复添加')
-                : context.trArgs(
-                    '该单词已存在于词书「{0}」，未重复添加',
-                    [existing.deck!.name],
-                  ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    // 添加单词（含变格数据：动词三态/名词第二格/形容词变级）
-    final now = DateTime.now();
-
-    // 纯词典来源（Wiktionary / 德语助手）：只添加单词本身，释义/词性/变格等一律不写入，避免数据干扰
-    if (result.wordOnly) {
-      await db.wordDao.createWord(
-        WordsCompanion(
-          deckId: drift.Value(deckId),
-          german: drift.Value(result.word),
-          chinese: const drift.Value(''),
-          createdAt: drift.Value(now),
-          updatedAt: drift.Value(now),
-        ),
-      );
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(context.tr('已添加到词书'))),
-      );
-      return;
-    }
-
-    final infFields = Inflection.wordsFields(result);
-    await db.wordDao.createWord(
-      WordsCompanion(
-        deckId: drift.Value(deckId),
-        german: drift.Value(result.word),
-        article: drift.Value(result.article),
-        baseForm: drift.Value(result.word),
-        wordType: drift.Value(result.partOfSpeech),
-        chinese: drift.Value(
-            result.definitions.isNotEmpty ? result.definitions.first : ''),
-        example: drift.Value(
-            result.examples.isNotEmpty ? result.examples.first : null),
-        nounType: drift.Value(result.nounType),
-        nounPlural: drift.Value(result.plural),
-        verbPresent: infFields['verbPresent'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['verbPresent']),
-        verbPast: infFields['verbPast'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['verbPast']),
-        verbPerfect: infFields['verbPerfect'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['verbPerfect']),
-        nounGenitive: infFields['nounGenitive'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['nounGenitive']),
-        adjComparative: infFields['adjComparative'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['adjComparative']),
-        adjSuperlative: infFields['adjSuperlative'] == null
-            ? const drift.Value.absent()
-            : drift.Value(infFields['adjSuperlative']),
-        createdAt: drift.Value(now),
-        updatedAt: drift.Value(now),
-      ),
-    );
-
-    // 变格数据写入 conjugation_cache，与变格练习打通
-    final newWord = await db.wordDao.findWordByGerman(deckId, result.word);
-    final inflectionJson = result.normalizedInflection;
-    if (newWord != null &&
-        inflectionJson != null &&
-        !Inflection.isEmpty(inflectionJson)) {
-      await db.conjugationDao.upsert(newWord.id, jsonEncode(inflectionJson));
-    }
-
-    // 确保AI结果被缓存（查词时可能已缓存，这里再确认一次）
-    if (result.engine == 'AI 解析') {
-      try {
-        final existingCache = await db.aiCacheDao.getCachedResult(result.word);
-        if (existingCache == null) {
-          // 如果缓存不存在，重建并保存（包含所有字段）
-          final cacheJson = jsonEncode({
-            'word': result.word,
-            'article': result.article ?? '',
-            'plural': result.plural ?? '',
-            'definitions': result.definitions,
-            'examples': result.examples,
-            'part_of_speech': result.partOfSpeech ?? '',
-            'analysis': result.aiAnalysis ?? '',
-            'verb_type': result.verbType,
-            'conjugation': result.conjugation ?? {},
-            'separable_prefix': result.separablePrefix,
-            'base_verb': result.baseVerb,
-            'collocations': result.collocations?.map((c) => {
-              'pattern': c.pattern,
-              'case': c.caseType,
-              'meaning': c.meaning,
-            }).toList() ?? [],
-            'noun_type': result.nounType,
-            'inflection': result.normalizedInflection,
-          });
-          await db.aiCacheDao.saveToCache(
-            word: result.word,
-            resultJson: cacheJson,
-          );
-        }
-      } catch (e) {
-        debugPrint('缓存保存失败: $e');
-      }
-    }
-
+    final outcome =
+        await WordIntakeService(db).addToDeck(deckId: deckId, result: result);
     if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(content: Text(context.tr('已添加到词书'))),
-    );
-  }
 
+    final message = switch (outcome.status) {
+      WordIntakeStatus.added => context.tr('已添加到词书'),
+      WordIntakeStatus.alreadyExists => outcome.existingDeck == null
+          ? context.tr('该单词已存在，未重复添加')
+          : context.trArgs(
+              '该单词已存在于词书「{0}」，未重复添加',
+              [outcome.existingDeck!.name],
+            ),
+      WordIntakeStatus.failed =>
+        context.trArgs('添加失败: {0}', [outcome.error ?? '']),
+    };
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
   /// 新建词书并立即把当前查词结果加入其中。
   ///
   /// 返回 `true` 表示已处理完毕（面板据此关闭），`false` 表示失败（面板保持展开，

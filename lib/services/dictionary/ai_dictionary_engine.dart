@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../ai/ai_service.dart';
@@ -25,11 +25,18 @@ class AIDictionaryEngine implements DictionaryEngine {
   String get name => 'AI 解析';
 
   @override
-  Future<DictionaryResult?> lookup(String word, {bool forceRefresh = false}) async {
+  Future<DictionaryResult?> lookup(
+    String word, {
+    bool forceRefresh = false,
+    LookupContext? context,
+  }) async {
+    // 语境查询不读也不写缓存：同一个词在不同句子里的解释不同，
+    // 若命中按词缓存的旧结果，会把"这个句子里"的含义覆盖成上一次的语境。
+    final hasContext = context != null && context.hasContext;
     try {
       // 先检查缓存（手动更新 forceRefresh=true 时跳过缓存，强制请求 AI）
       final cacheGetter = getCacheCallback;
-      if (!forceRefresh && cacheGetter != null) {
+      if (!forceRefresh && !hasContext && cacheGetter != null) {
         String? cachedJson;
         try {
           cachedJson = await cacheGetter(word);
@@ -88,10 +95,15 @@ ${_languageDirective()}
 注意：inflection 只返回与词性对应的键（动词返回 praesens/praeteritum/perfekt/passiv 四个时态，其中 passiv 为现在时被动态（werden + 过去分词）的 6 人称形式；名词返回 genitiv/plural，形容词返回 komparativ/superlativ），其他词性返回null。时态键（praesens/praeteritum/perfekt/passiv/genitiv/plural/komparativ/superlativ）必须直接放在 inflection 顶层，绝对不要使用中文键名（如"动词时""名词时"）或额外嵌套。变位人称键名必须用 er_sie_es、sie_Sie。''';
 
       String response;
+      final contextBlock = hasContext ? _contextBlock(context) : '';
       try {
         response = await _aiService.chat(
-          systemPrompt: systemPrompt,
-          userMessage: '请解析德语单词: $word',
+          systemPrompt: hasContext
+              ? '$systemPrompt$contextBlock'
+              : systemPrompt,
+          userMessage: hasContext
+              ? '请解析下面的德语单词，并说明它在上面的句子里的具体含义: $word'
+              : '请解析德语单词: $word',
           temperature: 0.3,
           maxTokens: 8192,
         );
@@ -99,8 +111,8 @@ ${_languageDirective()}
         debugPrint('AI 请求失败，尝试简化请求: $e');
         response = await _aiService.chat(
           systemPrompt:
-              '德语词典。返回纯JSON。释义最多2个，例句1个，分析30字内。${_languageDirective()}',
-          userMessage: '解析: $word',
+              '德语词典。返回纯JSON。释义最多2个，例句1个，分析30字内。${_languageDirective()}$contextBlock',
+          userMessage: hasContext ? '解析（含语境）: $word' : '解析: $word',
           temperature: 0.3,
           maxTokens: 4096,
         );
@@ -125,25 +137,54 @@ ${_languageDirective()}
       debugPrint('Extracted JSON: $jsonStr');
 
       // 缓存结果（仅当包含释义时缓存，避免把不完整数据写入缓存）
+      // 语境查询不写缓存：缓存以单词为键，写入会把"某句子里"的解释覆盖成通用解释。
       final result = _parseResult(word, jsonStr);
       if (result.definitions.isNotEmpty) {
         final cacheWriter = cacheCallback;
-        if (cacheWriter != null) {
+        if (cacheWriter != null && !hasContext) {
           await cacheWriter(word, jsonStr);
         }
-        await _recordStatus(word, true, null);
+        if (!hasContext) await _recordStatus(word, true, null);
       } else {
         // AI 响应了但没有有效释义，按失败记录
         debugPrint('AI 未返回有效释义: $word');
-        await _recordStatus(word, false, 'AI 未返回有效释义');
+        if (!hasContext) await _recordStatus(word, false, 'AI 未返回有效释义');
       }
 
       return result;
     } catch (e) {
       debugPrint('AI 查词失败: $e');
-      await _recordStatus(word, false, e.toString());
+      if (!hasContext) await _recordStatus(word, false, e.toString());
       return null;
     }
+  }
+
+  /// 语境信息块：告诉模型"解释这个词在这个句子里的意思"，
+  /// 并要求它在释义里点明冠词/复数、动词原形/反身/介词搭配等有用信息。
+  String _contextBlock(LookupContext? context) {
+    if (context == null) return '';
+    final buffer = StringBuffer()
+      ..writeln()
+      ..writeln('语境（重要，请按语境解释词义）：')
+      ..writeln('- 用户选中的文本：${context.selectedText}');
+    final sentence = context.sentence?.trim() ?? '';
+    if (sentence.isNotEmpty) {
+      buffer.writeln('- 所在句子：$sentence');
+    }
+    final surrounding = context.context?.trim() ?? '';
+    if (surrounding.isNotEmpty) {
+      buffer.writeln('- 上下文：$surrounding');
+    }
+    final level = context.cefrLevel?.trim() ?? '';
+    if (level.isNotEmpty) {
+      buffer.writeln('- 材料等级：$level');
+    }
+    buffer.writeln(
+      'requirements: definitions 必须说明该词在这句话中的具体含义（不要只给通用义项）；'
+      '若选中文本是变位形式或短语，word 字段填原形，并在 analysis 里指出原形与变化关系；'
+      '名词补全冠词与复数，动词补全原形与介词搭配。',
+    );
+    return buffer.toString();
   }
 
   /// 记录 AI 请求状态（失败不影响查词流程本身）

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dictionary_engine.dart';
@@ -19,7 +19,11 @@ class WiktionaryEngine implements DictionaryEngine {
   String get name => engineName;
 
   @override
-  Future<DictionaryResult?> lookup(String word, {bool forceRefresh = false}) async {
+  Future<DictionaryResult?> lookup(
+    String word, {
+    bool forceRefresh = false,
+    LookupContext? context,
+  }) async {
     try {
       // Wiktionary 无本地缓存，forceRefresh 无实际作用，忽略
       // 使用 Wiktionary REST API 摘要（summary）

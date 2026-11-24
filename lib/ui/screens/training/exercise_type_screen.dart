@@ -1,0 +1,157 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/i18n/app_localizations.dart';
+import '../../../data/models/training.dart';
+import 'training_setup_screen.dart';
+
+/// 题型列表（某个技能下的所有题型，未实现的标注"后续"）
+class ExerciseTypeScreen extends ConsumerWidget {
+  final TrainingSkill skill;
+
+  const ExerciseTypeScreen({super.key, required this.skill});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final types = ExerciseType.forSkill(skill);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Text(skill.germanName),
+            const SizedBox(width: 8),
+            Text(
+              context.tr(skill.titleZh),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          for (final type in types)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TypeCard(type: type),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeCard extends StatelessWidget {
+  final ExerciseType type;
+
+  const _TypeCard({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: type.implemented
+            ? () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TrainingSetupScreen(type: type),
+                  ),
+                )
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: type.implemented
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _iconOf(type),
+                  color: type.implemented
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            context.tr(type.titleZh),
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        if (!type.implemented) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              context.tr('后续'),
+                              style: theme.textTheme.labelSmall,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.tr(type.descZh),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (type.implemented)
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static IconData _iconOf(ExerciseType type) => switch (type) {
+        ExerciseType.listeningComprehension => Icons.hearing,
+        ExerciseType.dictation => Icons.keyboard,
+        ExerciseType.listeningCloze => Icons.playlist_add_check,
+        ExerciseType.dialogComprehension => Icons.forum_outlined,
+        ExerciseType.listeningSentenceOrdering => Icons.swap_vert,
+        ExerciseType.readingComprehension => Icons.menu_book,
+        ExerciseType.readingCloze => Icons.text_fields,
+        ExerciseType.contextVocabulary => Icons.translate,
+        ExerciseType.trueFalseReading => Icons.rule,
+        ExerciseType.paragraphOrdering => Icons.reorder,
+        ExerciseType.headingMatching => Icons.title,
+        ExerciseType.sentenceBuilding => Icons.construction,
+        ExerciseType.errorCorrection => Icons.edit_note,
+        ExerciseType.translationWriting => Icons.language,
+        ExerciseType.situationalWriting => Icons.mail_outline,
+        ExerciseType.freeWriting => Icons.edit,
+      };
+}

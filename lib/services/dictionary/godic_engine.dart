@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dictionary_engine.dart';
 
@@ -21,7 +21,11 @@ class GedicDictionaryEngine implements DictionaryEngine {
   String get name => engineName;
 
   @override
-  Future<DictionaryResult?> lookup(String word, {bool forceRefresh = false}) async {
+  Future<DictionaryResult?> lookup(
+    String word, {
+    bool forceRefresh = false,
+    LookupContext? context,
+  }) async {
     try {
       // 德语助手无本地缓存，forceRefresh 无实际作用，忽略
       final url = Uri.parse(

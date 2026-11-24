@@ -1,4 +1,4 @@
-import 'parts/common.dart';
+﻿import 'parts/common.dart';
 import 'parts/conjugation.dart';
 import 'parts/core_strings.dart';
 import 'parts/deck.dart';
@@ -6,6 +6,7 @@ import 'parts/home.dart';
 import 'parts/search.dart';
 import 'parts/settings.dart';
 import 'parts/study.dart';
+import 'parts/training.dart';
 
 /// 英文翻译表（中文原文 → 英文）。
 ///
@@ -19,6 +20,7 @@ final Map<String, String> kEnTranslations = <String, String>{
   ...settingsEn,
   ...studyEn,
   ...conjugationEn,
+  ...trainingEn,
   // common 放最后：通用文案（取消/保存等）在各分片中重复出现，以 common 为准
   ...commonEn,
 };

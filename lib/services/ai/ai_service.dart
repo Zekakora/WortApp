@@ -4,11 +4,20 @@ import '../../core/i18n/app_localizations.dart';
 
 /// AI 服务抽象接口
 abstract class AIService {
+  /// 发起一次对话请求
+  ///
+  /// [jsonMode] 为 true 时向服务端声明 `response_format: json_object`
+  /// （OpenAI 兼容协议）。部分厂商不支持该字段，故默认关闭：
+  /// 训练模块生成结构化数据时打开，失败回退由调用方重试时关闭。
+  /// [maxTokens] 训练模块生成整套题目时需要显式放大（默认 2048 会被截断）。
+  /// [timeout] 单次请求的接收超时（覆盖默认 120s）。
   Future<String> chat({
     required String systemPrompt,
     required String userMessage,
     double temperature = 0.7,
     int maxTokens = 2048,
+    bool jsonMode = false,
+    Duration? timeout,
   });
 }
 
@@ -39,6 +48,8 @@ class ConfigurableAIService implements AIService {
     required String userMessage,
     double temperature = 0.7,
     int maxTokens = 2048,
+    bool jsonMode = false,
+    Duration? timeout,
   }) async {
     try {
       debugPrint('AI Request: baseUrl=$baseUrl, model=$model');
@@ -54,7 +65,11 @@ class ConfigurableAIService implements AIService {
           'temperature': temperature,
           'max_tokens': maxTokens,
           'stream': false,
+          if (jsonMode) 'response_format': {'type': 'json_object'},
         },
+        options: timeout == null
+            ? null
+            : Options(receiveTimeout: timeout),
       );
 
       final data = response.data;
