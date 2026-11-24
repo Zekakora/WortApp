@@ -46,3 +46,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 本地依赖覆盖（vendored packages）
+# pubspec.yaml 的 dependency_overrides 指向 third_party/ 下的三个包（flutter_onedrive /
+# oauth_webauth / flutter_inappwebview_windows，为修 OneDrive 登录而改）。
+# 这些包的源码不纳入版本控制：从 clone 恢复后必须自行把这些包放回 third_party/，
+# 否则 `flutter pub get` 会因路径依赖缺失而失败。
+/third_party/
+
+# 构建产物与个人数据（体积大，不入库）
+*.apk
+/WortApp*.json
