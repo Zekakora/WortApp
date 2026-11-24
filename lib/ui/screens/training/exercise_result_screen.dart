@@ -7,6 +7,7 @@ import '../../../core/i18n/app_localizations.dart';
 import '../../../data/database/app_database.dart';
 import '../../../data/database/daos/exercise_dao.dart';
 import '../../../data/models/training.dart';
+import '../../../providers/settings_provider.dart';
 import '../../../providers/training_provider.dart';
 import '../../../ui/utils/wide_layout.dart';
 import 'training_setup_screen.dart';
@@ -103,9 +104,17 @@ class _ResultBodyState extends State<_ResultBody> {
 
     if (!WideLayout.isWide(context) || view.items.length < 2) {
       return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           header,
+          // 阅读理解 / 完形填空：结果页也要能看到原文（可折叠，默认展开）
+          if (exercise.stimulusText.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _StimulusSection(
+              text: exercise.stimulusText,
+              isListening: type.skill == TrainingSkill.listening,
+            ),
+          ],
           const SizedBox(height: 16),
           for (var i = 0; i < view.items.length; i++)
             _QuestionReview(
@@ -121,14 +130,14 @@ class _ResultBodyState extends State<_ResultBody> {
       );
     }
 
-    // 宽屏：左题目列表 + 右结果详情
+    // 宽屏：左原文 + 题目列表，右结果详情
     final index = _selected.clamp(0, view.items.length - 1);
     final item = view.items[index];
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: header,
         ),
         const Divider(height: 1),
@@ -141,6 +150,13 @@ class _ResultBodyState extends State<_ResultBody> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(12, 12, 8, 24),
                   children: [
+                    if (exercise.stimulusText.isNotEmpty) ...[
+                      _StimulusSection(
+                        text: exercise.stimulusText,
+                        isListening: type.skill == TrainingSkill.listening,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 8),
                       child: Text(
@@ -307,77 +323,196 @@ class _ScoreHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final percent = (ratio * 100).round();
 
+    // 紧凑两行：得分 + 百分比 + 类型/等级等元信息，避免占掉半屏
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '$score',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onPrimaryContainer,
+              height: 1.1,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 2),
+            child: Text(
+              '/$maxScore',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: colorScheme.onPrimaryContainer.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$percent%',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '${context.tr(type.titleZh)}'
+              '${topic.isEmpty ? '' : ' · ${context.tr(topic)}'}'
+              '${durationSeconds != null && durationSeconds! > 0 ? ' · ${context.trArgs('耗时 {0} 秒', [durationSeconds])}' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _MetaChip(label: level),
+          const SizedBox(width: 4),
+          _MetaChip(
+            label: context.tr(TrainingDifficulty.fromCode(difficulty).titleZh),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 原文卡片（结果页：阅读短文 / 听力原文）
+///
+/// - 阅读：原文默认展开，可隐藏/显示；
+/// - 听力：额外给播放按钮（复用 SpeechPlaybackService，德语语音不可用时
+///   显示说明而不是无效按钮），方便"再听一遍"对照原文。
+class _StimulusSection extends ConsumerStatefulWidget {
+  final String text;
+  final bool isListening;
+
+  const _StimulusSection({required this.text, this.isListening = false});
+
+  @override
+  ConsumerState<_StimulusSection> createState() => _StimulusSectionState();
+}
+
+class _StimulusSectionState extends ConsumerState<_StimulusSection> {
+  bool _visible = true;
+  bool _playing = false;
+  bool _speechChecked = false;
+  bool _speechAvailable = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isListening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _prepareSpeech());
+    }
+  }
+
+  Future<void> _prepareSpeech() async {
+    final service = ref.read(trainingSpeechProvider);
+    await service.initialize(rate: ref.read(settingsProvider).ttsSpeed);
+    if (!mounted) return;
+    setState(() {
+      _speechChecked = true;
+      _speechAvailable = service.isAvailable;
+    });
+  }
+
+  Future<void> _togglePlay() async {
+    final service = ref.read(trainingSpeechProvider);
+    if (_playing) {
+      await service.stop();
+      if (mounted) setState(() => _playing = false);
+      return;
+    }
+    setState(() => _playing = true);
+    await service.speak(widget.text);
+    if (mounted) setState(() => _playing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = context.tr(widget.isListening ? '听力原文' : '原文');
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '$score',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6, left: 4),
-                child: Text(
-                  '/ $maxScore',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ),
+              Text(label, style: theme.textTheme.labelMedium),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimaryContainer.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$percent%',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
+              if (widget.isListening) ...[
+                if (!_speechChecked)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else if (_speechAvailable)
+                  IconButton(
+                    tooltip: _playing ? context.tr('停止') : context.tr('播放'),
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 20,
+                    onPressed: _togglePlay,
+                    icon: Icon(
+                      _playing
+                          ? Icons.stop_circle_outlined
+                          : Icons.play_circle_outline,
+                    ),
                   ),
+              ],
+              TextButton.icon(
+                onPressed: () => setState(() => _visible = !_visible),
+                icon: Icon(
+                  _visible
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
                 ),
+                label: Text(_visible ? context.tr('隐藏原文') : context.tr('显示原文')),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            context.tr(type.titleZh),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.onPrimaryContainer,
+          if (widget.isListening && _speechChecked && !_speechAvailable)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                context.tr('此设备没有德语语音，无法播放听力材料'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              _MetaChip(label: level),
-              _MetaChip(
-                label: context.tr(
-                  TrainingDifficulty.fromCode(difficulty).titleZh,
+          if (_visible)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  widget.text,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
                 ),
               ),
-              if (topic.isNotEmpty) _MetaChip(label: context.tr(topic)),
-              if (durationSeconds != null && durationSeconds! > 0)
-                _MetaChip(label: context.trArgs('耗时 {0} 秒', [durationSeconds])),
-            ],
-          ),
+            ),
         ],
       ),
     );

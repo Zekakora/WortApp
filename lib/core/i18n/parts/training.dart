@@ -81,8 +81,7 @@ const Map<String, String> trainingEn = <String, String>{
   '随机主题': 'Random topic',
   '词汇范围': 'Vocabulary scope',
   '优先使用收藏词汇': 'Prefer favourite vocabulary',
-  '共 {0} 个收藏词，生成时会尽量用到':
-      '{0} favourite words will be used where natural',
+  '共 {0} 个收藏词，生成时会尽量用到': '{0} favourite words will be used where natural',
   '开始练习': 'Start practice',
   '正在生成题目…': 'Generating questions…',
   '尚未配置 AI API Key，无法生成练习题':
@@ -97,8 +96,7 @@ const Map<String, String> trainingEn = <String, String>{
   '生成失败': 'Generation failed',
   '生成失败: {0}': 'Generation failed: {0}',
   '知道了': 'Got it',
-  '请先在设置中配置 AI API Key':
-      'Please configure an AI API key in Settings first',
+  '请先在设置中配置 AI API Key': 'Please configure an AI API key in Settings first',
   '请先在设置中配置 AI API Key，并确认数据库已就绪':
       'Please configure an AI API key in Settings and make sure the database is ready',
   '生成的练习读取失败': 'The generated exercise could not be loaded',
@@ -117,8 +115,7 @@ const Map<String, String> trainingEn = <String, String>{
   '提交失败': 'Submission failed',
   '提交失败: {0}': 'Submission failed: {0}',
   '还有题目未作答': 'Unanswered questions',
-  '还有 {0} 题未作答，确定提交吗？':
-      '{0} questions are still unanswered. Submit anyway?',
+  '还有 {0} 题未作答，确定提交吗？': '{0} questions are still unanswered. Submit anyway?',
   '继续作答': 'Keep going',
   '仍然提交': 'Submit anyway',
   '你的答案': 'Your answer',
@@ -201,8 +198,7 @@ const Map<String, String> trainingEn = <String, String>{
   '复制': 'Copy',
   '关闭': 'Close',
   '已结合所在句子解析': 'Explained in the context of the sentence',
-  '长按选择单词可查词并加入词书':
-      'Long-press a word to look it up and add it to a wordbook',
+  '长按选择单词可查词并加入词书': 'Long-press a word to look it up and add it to a wordbook',
   '加入词书': 'Add to wordbook',
   '该单词已存在，未重复添加': 'This word already exists — not added again',
   '该单词已在词书中': 'This word is already in a wordbook',
@@ -211,8 +207,7 @@ const Map<String, String> trainingEn = <String, String>{
   '取消收藏': 'Remove favourite',
   '已添加到词书': 'Added to the wordbook',
   '添加失败': 'Could not add the word',
-  '还没有词书，请先创建一个词书':
-      'No wordbooks yet. Please create one first.',
+  '还没有词书，请先创建一个词书': 'No wordbooks yet. Please create one first.',
   '例句': 'Examples',
   '查词结果与所在句子一并解析，加入词书后可在学习模式复习':
       'The lookup uses the surrounding sentence; once added, the word is available in study mode',
@@ -223,14 +218,16 @@ const Map<String, String> trainingEn = <String, String>{
   '设为练习默认词书': 'Set as default practice wordbook',
   '取消练习默认词书': 'Remove default practice wordbook',
   '已取消练习默认词书': 'Default practice wordbook removed',
-  '练习中收藏的词将加入「{0}」':
-      'Words favourited during practice will be added to “{0}”',
+  '练习中收藏的词将加入「{0}」': 'Words favourited during practice will be added to “{0}”',
   '收藏并加入「{0}」': 'Favourite and add to “{0}”',
   '已收藏并加入「{0}」': 'Favourited and added to “{0}”',
 
   // 平板布局
   '题目列表': 'Questions',
   '第 {0} 题': 'Question {0}',
+  '原文': 'Text',
+  '隐藏原文': 'Hide text',
+  '显示原文': 'Show text',
   '{0} 题': '{0} questions',
   '收藏词汇': 'Favourite words',
 };
@@ -271,33 +268,28 @@ const Map<String, String> trainingDe = <String, String>{
   '对话理解': 'Dialogverstehen',
   '听生活场景对话并作答': 'Einen Alltagsdialog hören und beantworten',
   '语句排序': 'Satzreihenfolge',
-  '听取片段后排列正确顺序':
-      'Gehörte Fragmente in die richtige Reihenfolge bringen',
+  '听取片段后排列正确顺序': 'Gehörte Fragmente in die richtige Reihenfolge bringen',
   '阅读理解': 'Leseverstehen',
   '阅读德语短文并回答选择题':
       'Einen kurzen deutschen Text lesen und Multiple-Choice-Fragen beantworten',
   '完形填空': 'Lückentext',
   '从短文中挖空，填写缺失词': 'Die fehlenden Wörter im kurzen Text ergänzen',
   '语境词汇': 'Wortschatz im Kontext',
-  '根据上下文选择词义或搭配':
-      'Bedeutung oder Kollokation aus dem Kontext wählen',
+  '根据上下文选择词义或搭配': 'Bedeutung oder Kollokation aus dem Kontext wählen',
   '判断正误': 'Richtig oder falsch',
   '判断陈述与材料是否一致': 'Prüfen, ob eine Aussage zum Text passt',
   '段落排序': 'Absatzordnung',
-  '排列句子或段落恢复逻辑':
-      'Sätze oder Absätze in eine logische Reihenfolge bringen',
+  '排列句子或段落恢复逻辑': 'Sätze oder Absätze in eine logische Reihenfolge bringen',
   '标题匹配': 'Überschriften zuordnen',
   '为段落匹配最合适的标题': 'Jedem Absatz die passende Überschrift zuordnen',
   '句子构造': 'Satzbildung',
-  '按给定词语与要求写出德语句子':
-      'Aus den vorgegebenen Wörtern einen deutschen Satz bilden',
+  '按给定词语与要求写出德语句子': 'Aus den vorgegebenen Wörtern einen deutschen Satz bilden',
   '语法改错': 'Fehlerkorrektur',
   '找出并改正句中的错误': 'Fehler im Satz finden und korrigieren',
   '中德翻译': 'Übersetzung (ZH → DE)',
   '把中文句子译成德语': 'Einen chinesischen Satz ins Deutsche übersetzen',
   '情景写作': 'Situatives Schreiben',
-  '按场景写邮件、预约、请假等':
-      'E-Mails, Termine oder Anträge für eine Situation schreiben',
+  '按场景写邮件、预约、请假等': 'E-Mails, Termine oder Anträge für eine Situation schreiben',
   '自由写作': 'Freies Schreiben',
   '按主题与字数写短文': 'Einen kurzen Text zu einem Thema mit Wortvorgabe schreiben',
 
@@ -354,8 +346,7 @@ const Map<String, String> trainingDe = <String, String>{
   '提交失败': 'Abgabe fehlgeschlagen',
   '提交失败: {0}': 'Abgabe fehlgeschlagen: {0}',
   '还有题目未作答': 'Unbeantwortete Fragen',
-  '还有 {0} 题未作答，确定提交吗？':
-      '{0} Fragen sind noch unbeantwortet. Trotzdem abgeben?',
+  '还有 {0} 题未作答，确定提交吗？': '{0} Fragen sind noch unbeantwortet. Trotzdem abgeben?',
   '继续作答': 'Weiter üben',
   '仍然提交': 'Trotzdem abgeben',
   '你的答案': 'Ihre Antwort',
@@ -441,16 +432,14 @@ const Map<String, String> trainingDe = <String, String>{
   '长按选择单词可查词并加入词书':
       'Wort lange drücken, um es nachzuschlagen und zur Wortliste hinzuzufügen',
   '加入词书': 'Zur Wortliste hinzufügen',
-  '该单词已存在，未重复添加':
-      'Dieses Wort existiert bereits – nicht erneut hinzugefügt',
+  '该单词已存在，未重复添加': 'Dieses Wort existiert bereits – nicht erneut hinzugefügt',
   '该单词已在词书中': 'Dieses Wort ist bereits in einer Wortliste',
   '已在词书「{0}」': 'Bereits in „{0}“',
   '收藏': 'Favorit',
   '取消收藏': 'Favorit entfernen',
   '已添加到词书': 'Zur Wortliste hinzugefügt',
   '添加失败': 'Hinzufügen fehlgeschlagen',
-  '还没有词书，请先创建一个词书':
-      'Noch keine Wortlisten. Bitte erstellen Sie zuerst eine.',
+  '还没有词书，请先创建一个词书': 'Noch keine Wortlisten. Bitte erstellen Sie zuerst eine.',
   '例句': 'Beispiele',
   '查词结果与所在句子一并解析，加入词书后可在学习模式复习':
       'Die Suche berücksichtigt den Satzkontext; nach dem Hinzufügen ist das Wort im Lernmodus verfügbar',
@@ -469,6 +458,9 @@ const Map<String, String> trainingDe = <String, String>{
   // Tablet-Layout
   '题目列表': 'Fragen',
   '第 {0} 题': 'Frage {0}',
+  '原文': 'Text',
+  '隐藏原文': 'Text ausblenden',
+  '显示原文': 'Text einblenden',
   '{0} 题': '{0} Fragen',
   '收藏词汇': 'Favoriten',
 };

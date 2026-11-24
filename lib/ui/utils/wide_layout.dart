@@ -2,13 +2,14 @@ import 'package:flutter/widgets.dart';
 
 /// 宽屏（平板 / 折叠屏展开 / 桌面）判定
 ///
-/// 断点与学习模式的 `StudySplitLayout.minSplitWidth` 保持一致（720dp），
-/// 这样"什么时候变成两栏"在整个应用里是同一套标准。
+/// 断点取 600dp（Material 3 的 compact / medium 分界）：横屏手机与平板都会
+/// 进入两栏，竖屏手机保持单栏。之前用 720dp 时，逻辑宽度 668dp 的平板
+/// （如 1880px / 450dpi）反而排在"窄屏"，分栏永远不生效。
 class WideLayout {
   WideLayout._();
 
-  /// 分屏断点：≥ 720dp 视为宽屏
-  static const double breakpoint = 720;
+  /// 分屏断点：≥ 600dp 视为宽屏
+  static const double breakpoint = 600;
 
   /// 当前窗口是否宽屏
   static bool isWide(BuildContext context) =>

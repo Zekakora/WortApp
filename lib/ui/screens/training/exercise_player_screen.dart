@@ -198,7 +198,7 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          flex: 3,
+          flex: 5,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
             child: Column(
@@ -220,7 +220,7 @@ class _ExercisePlayerScreenState extends ConsumerState<ExercisePlayerScreen> {
         ),
         const VerticalDivider(width: 1, thickness: 1),
         Expanded(
-          flex: 2,
+          flex: 4,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 20, 20, 20),
             child: Column(
