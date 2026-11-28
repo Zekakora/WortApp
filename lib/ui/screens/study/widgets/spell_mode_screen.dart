@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:async';
@@ -245,7 +245,10 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
         left: Column(
           children: [
             Expanded(
-              child: Padding(
+              // 键盘弹出时可用高度会被压缩：内容改为可滚动，
+              // 否则底部（特殊字符键盘 / 反馈按钮）会被挤到屏幕外触发
+              // "bottom overflowed"。
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [

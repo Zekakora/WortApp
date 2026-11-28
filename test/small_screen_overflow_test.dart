@@ -109,4 +109,29 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('拼写模式：键盘弹出（底部 320 被占）后不出现 bottom overflow', (
+    tester,
+  ) async {
+    final notifier = StudySessionNotifier(db);
+    await notifier.startSession(
+      deckId: 1,
+      dailyNewLimit: 20,
+      dailyReviewLimit: 50,
+      roundLimit: 10,
+    );
+    await pumpScreen(
+      tester,
+      const SpellModeScreen(),
+      overrides: [studySessionProvider.overrideWith((ref) => notifier)],
+    );
+
+    // 模拟软键盘弹出：视口底部被遮挡 320px
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+  });
 }
