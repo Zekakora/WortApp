@@ -50,6 +50,9 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
   /// 每词连续答对几次才算学会（1 = 答对一次即通过）
   int _consecutiveGoal = 1;
 
+  /// 练习参数是否展开（默认收起，避免整个页面被参数占满）
+  bool _paramsExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -325,176 +328,201 @@ class _StudyScreenState extends ConsumerState<StudyScreen> {
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: _paramsExpanded ? '收起' : '展开',
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              _paramsExpanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                            ),
+                            onPressed: () => setState(
+                              () => _paramsExpanded = !_paramsExpanded,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        context.tr('每轮单词数'),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<int>(
-                        segments: [
-                          for (final count in _presetCounts)
+                      // 练习参数默认收起，点标题右侧箭头展开
+                      if (_paramsExpanded) ...[
+                        Text(
+                          context.tr('每轮单词数'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<int>(
+                          segments: [
+                            for (final count in _presetCounts)
+                              ButtonSegment(
+                                value: count,
+                                label: Text(context.trArgs('{0} 个', [count])),
+                              ),
                             ButtonSegment(
-                              value: count,
-                              label: Text(context.trArgs('{0} 个', [count])),
+                              value: -1,
+                              label: Text(context.tr('自定义')),
                             ),
-                          ButtonSegment(
-                            value: -1,
-                            label: Text(context.tr('自定义')),
+                          ],
+                          selected: {
+                            if (_presetCounts.contains(_roundCount))
+                              _roundCount
+                            else
+                              -1,
+                          },
+                          onSelectionChanged: (selection) {
+                            final value = selection.first;
+                            if (value == -1) {
+                              _showCustomCountDialog();
+                            } else {
+                              _setRoundCount(value);
+                            }
+                          },
+                        ),
+                        if (!_presetCounts.contains(_roundCount)) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.trArgs('当前: {0} 个', [_roundCount]),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ],
-                        selected: {
-                          if (_presetCounts.contains(_roundCount))
-                            _roundCount
-                          else
-                            -1,
-                        },
-                        onSelectionChanged: (selection) {
-                          final value = selection.first;
-                          if (value == -1) {
-                            _showCustomCountDialog();
-                          } else {
-                            _setRoundCount(value);
-                          }
-                        },
-                      ),
-                      if (!_presetCounts.contains(_roundCount)) ...[
                         const SizedBox(height: 8),
                         Text(
-                          context.trArgs('当前: {0} 个', [_roundCount]),
+                          context.tr(
+                            '新词与复习受每日上限约束；每次学习发放一批（每轮单词数），分批覆盖今天全部单词，覆盖完毕后自动开启下一大轮，轮数无上限',
+                          ),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w600,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          context.tr('抓词模式'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<WordPickMode>(
+                          segments: [
+                            ButtonSegment(
+                              value: WordPickMode.normal,
+                              label: Text(context.tr('正常抓词')),
+                            ),
+                            ButtonSegment(
+                              value: WordPickMode.favoriteBoost,
+                              label: Text(context.tr('收藏优先')),
+                            ),
+                            ButtonSegment(
+                              value: WordPickMode.favoriteOnly,
+                              label: Text(context.tr('只抓收藏')),
+                            ),
+                            ButtonSegment(
+                              value: WordPickMode.wrongTodayOnly,
+                              label: Text(context.tr('今日错词')),
+                            ),
+                          ],
+                          selected: {_pickMode},
+                          style: SegmentedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onSelectionChanged: (selection) {
+                            _setPickMode(selection.first);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _pickModeHint,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _reviewOnly,
+                          onChanged: (value) => _setReviewOnly(value),
+                          title: Text(
+                            context.tr('只复习'),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          subtitle: Text(
+                            _reviewOnly
+                                ? context.tr('开启：不抽新词，只复习到期词与今日已学单词')
+                                : context.tr('关闭：按每日上限正常抽取新词与复习词'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _randomPick,
+                          onChanged: (value) => _setRandomPick(value),
+                          title: Text(
+                            context.tr('随机背词'),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          subtitle: Text(
+                            _randomPick
+                                ? context.tr('开启：抽词打乱顺序，不按单词本顺序抽取')
+                                : context.tr('关闭：按单词本顺序依次抽取'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                        const Divider(height: 24),
+
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.repeat,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.tr('连续答对次数'),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<int>(
+                          segments: const [
+                            ButtonSegment(value: 1, label: Text('1')),
+                            ButtonSegment(value: 2, label: Text('2')),
+                            ButtonSegment(value: 3, label: Text('3')),
+                          ],
+                          selected: {_consecutiveGoal},
+                          onSelectionChanged: (selection) =>
+                              _setConsecutiveGoal(selection.first),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          context.tr('每个词需连续答对几次才算学会，答错重新计数'),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      Text(
-                        context.tr(
-                          '新词与复习受每日上限约束；每次学习发放一批（每轮单词数），分批覆盖今天全部单词，覆盖完毕后自动开启下一大轮，轮数无上限',
-                        ),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        context.tr('抓词模式'),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<WordPickMode>(
-                        segments: [
-                          ButtonSegment(
-                            value: WordPickMode.normal,
-                            label: Text(context.tr('正常抓词')),
-                          ),
-                          ButtonSegment(
-                            value: WordPickMode.favoriteBoost,
-                            label: Text(context.tr('收藏优先')),
-                          ),
-                          ButtonSegment(
-                            value: WordPickMode.favoriteOnly,
-                            label: Text(context.tr('只抓收藏')),
-                          ),
-                          ButtonSegment(
-                            value: WordPickMode.wrongTodayOnly,
-                            label: Text(context.tr('今日错词')),
-                          ),
-                        ],
-                        selected: {_pickMode},
-                        style: SegmentedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onSelectionChanged: (selection) {
-                          _setPickMode(selection.first);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _pickModeHint,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _reviewOnly,
-                        onChanged: (value) => _setReviewOnly(value),
-                        title: Text(
-                          context.tr('只复习'),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        subtitle: Text(
-                          _reviewOnly
-                              ? context.tr('开启：不抽新词，只复习到期词与今日已学单词')
-                              : context.tr('关闭：按每日上限正常抽取新词与复习词'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: _randomPick,
-                        onChanged: (value) => _setRandomPick(value),
-                        title: Text(
-                          context.tr('随机背词'),
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        subtitle: Text(
-                          _randomPick
-                              ? context.tr('开启：抽词打乱顺序，不按单词本顺序抽取')
-                              : context.tr('关闭：按单词本顺序依次抽取'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                      const Divider(height: 24),
-
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.repeat,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            context.tr('连续答对次数'),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<int>(
-                        segments: const [
-                          ButtonSegment(value: 1, label: Text('1')),
-                          ButtonSegment(value: 2, label: Text('2')),
-                          ButtonSegment(value: 3, label: Text('3')),
-                        ],
-                        selected: {_consecutiveGoal},
-                        onSelectionChanged: (selection) =>
-                            _setConsecutiveGoal(selection.first),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        context.tr('每个词需连续答对几次才算学会，答错重新计数'),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
                     ],
                   ),
                 ),

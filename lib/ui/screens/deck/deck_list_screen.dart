@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
@@ -49,9 +49,7 @@ class DeckListScreen extends ConsumerWidget {
           if (batchUpdateState.hasRunningTask)
             _BatchUpdateProgressBar(state: batchUpdateState),
           // 主要内容
-          Expanded(
-            child: _buildBody(context, ref, dbState),
-          ),
+          Expanded(child: _buildBody(context, ref, dbState)),
         ],
       ),
       floatingActionButton: dbState.database != null
@@ -80,7 +78,11 @@ class DeckListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, DatabaseState dbState) {
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    DatabaseState dbState,
+  ) {
     // 数据库加载中
     if (dbState.isLoading) {
       return Center(
@@ -158,31 +160,28 @@ class DeckListScreen extends ConsumerWidget {
                           Icon(
                             Icons.library_books_outlined,
                             size: 64,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(height: 16),
                           Text(
                             context.tr('还没有词书'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
+                            style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             context.tr('点击 + 创建词书，或导入 Excel/CSV 文件'),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                         ],
@@ -219,7 +218,10 @@ class DeckListScreen extends ConsumerWidget {
 
   /// 手动刷新词书（桌面端无法下拉刷新，提供按钮入口）
   Future<void> _refreshDecks(
-      BuildContext context, WidgetRef ref, AppDatabase db) async {
+    BuildContext context,
+    WidgetRef ref,
+    AppDatabase db,
+  ) async {
     await _refreshDeckData(ref, db);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -273,9 +275,9 @@ class DeckListScreen extends ConsumerWidget {
     if (context.mounted) {
       final db = ref.read(databaseProvider);
       if (db == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('数据库未就绪'))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.tr('数据库未就绪'))));
         return;
       }
 
@@ -283,9 +285,9 @@ class DeckListScreen extends ConsumerWidget {
 
       if (context.mounted) {
         if (decks.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.tr('请先创建一个词书'))),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.tr('请先创建一个词书'))));
           return;
         }
 
@@ -345,8 +347,7 @@ class DeckListScreen extends ConsumerWidget {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(context.tr(
-              result.errors.isEmpty ? '备份导入成功' : '备份导入完成')),
+          title: Text(context.tr(result.errors.isEmpty ? '备份导入成功' : '备份导入完成')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,12 +358,17 @@ class DeckListScreen extends ConsumerWidget {
                 Text(context.trArgs('跳过(重复): {0}', [result.skipCount])),
               if (result.hasErrors) ...[
                 const SizedBox(height: 8),
-                Text(context.tr('错误详情:'),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  context.tr('错误详情:'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 ...result.errors.take(5).map((e) => Text('• $e')),
                 if (result.errors.length > 5)
-                  Text(context.trArgs(
-                      '... 还有 {0} 个错误', [result.errors.length - 5])),
+                  Text(
+                    context.trArgs('... 还有 {0} 个错误', [
+                      result.errors.length - 5,
+                    ]),
+                  ),
               ],
             ],
           ),
@@ -378,7 +384,13 @@ class DeckListScreen extends ConsumerWidget {
   }
 
   void _doImport(
-      BuildContext context, WidgetRef ref, String? filePath, Uint8List? fileBytes, String fileName, int deckId) async {
+    BuildContext context,
+    WidgetRef ref,
+    String? filePath,
+    Uint8List? fileBytes,
+    String fileName,
+    int deckId,
+  ) async {
     final db = ref.read(databaseProvider);
     if (db == null) return;
 
@@ -444,8 +456,7 @@ class DeckListScreen extends ConsumerWidget {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(context.tr(
-              result.isFullySuccessful ? '导入成功' : '导入完成')),
+          title: Text(context.tr(result.isFullySuccessful ? '导入成功' : '导入完成')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,12 +467,17 @@ class DeckListScreen extends ConsumerWidget {
                 Text(context.trArgs('跳过: {0}', [result.skipCount])),
               if (result.hasErrors) ...[
                 const SizedBox(height: 8),
-                Text(context.tr('错误详情:'),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  context.tr('错误详情:'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 ...result.errors.take(5).map((e) => Text('• $e')),
                 if (result.errors.length > 5)
-                  Text(context.trArgs(
-                      '... 还有 {0} 个错误', [result.errors.length - 5])),
+                  Text(
+                    context.trArgs('... 还有 {0} 个错误', [
+                      result.errors.length - 5,
+                    ]),
+                  ),
               ],
             ],
           ),
@@ -482,9 +498,11 @@ class DeckListScreen extends ConsumerWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(context.tr('AI 更新词意')),
-            content: Text(context.trArgs(
-                '成功导入 {0} 个单词。是否使用 AI 自动获取词意、词性等信息？',
-                [result.successCount])),
+            content: Text(
+              context.trArgs('成功导入 {0} 个单词。是否使用 AI 自动获取词意、词性等信息？', [
+                result.successCount,
+              ]),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -505,7 +523,11 @@ class DeckListScreen extends ConsumerWidget {
     }
   }
 
-  void _startBatchUpdate(BuildContext context, WidgetRef ref, int deckId) async {
+  void _startBatchUpdate(
+    BuildContext context,
+    WidgetRef ref,
+    int deckId,
+  ) async {
     final db = ref.read(databaseProvider);
     final aiEngine = ref.read(aiDictionaryEngineProvider);
 
@@ -558,10 +580,8 @@ class _DeckCard extends ConsumerWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => WordListScreen(
-                deckId: deck.id,
-                deckName: deck.name,
-              ),
+              builder: (_) =>
+                  WordListScreen(deckId: deck.id, deckName: deck.name),
             ),
           );
         },
@@ -593,34 +613,36 @@ class _DeckCard extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          deck.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                        // 词书名可能很长：限一行省略，避免 Row 溢出
+                        Flexible(
+                          child: Text(
+                            deck.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
                         if (deck.isActive) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               context.tr('当前'),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     fontWeight: FontWeight.w600,
                                   ),
                             ),
@@ -633,13 +655,11 @@ class _DeckCard extends ConsumerWidget {
                         ? wordCount.when(
                             data: (count) => Text(
                               context.trArgs('{0} 个单词', [count]),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                             loading: () => const Text('...'),
@@ -666,10 +686,7 @@ class _DeckCard extends ConsumerWidget {
                     value: 'import',
                     child: Text(context.tr('导入单词')),
                   ),
-                  PopupMenuItem(
-                    value: 'export',
-                    child: Text(context.tr('导出')),
-                  ),
+                  PopupMenuItem(value: 'export', child: Text(context.tr('导出'))),
                   // 练习里收藏的词若还不在任何词书，会自动加入这本词书
                   PopupMenuItem(
                     value: 'practiceDefault',
@@ -681,8 +698,10 @@ class _DeckCard extends ConsumerWidget {
                   ),
                   PopupMenuItem(
                     value: 'delete',
-                    child: Text(context.tr('删除'),
-                        style: const TextStyle(color: Colors.red)),
+                    child: Text(
+                      context.tr('删除'),
+                      style: const TextStyle(color: Colors.red),
+                    ),
                   ),
                 ],
               ),
@@ -693,8 +712,7 @@ class _DeckCard extends ConsumerWidget {
     );
   }
 
-  void _onMenuAction(
-      BuildContext context, WidgetRef ref, String action) async {
+  void _onMenuAction(BuildContext context, WidgetRef ref, String action) async {
     final db = ref.read(databaseProvider);
     if (db == null) return;
 
@@ -805,18 +823,14 @@ class _DeckCard extends ConsumerWidget {
         await File(filePath).writeAsBytes(data.bytes, flush: true);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text(context.trArgs('已导出到: {0}', [filePath]))),
+            SnackBar(content: Text(context.trArgs('已导出到: {0}', [filePath]))),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  context.trArgs('保存导出文件失败: {0}', [e]))),
+          SnackBar(content: Text(context.trArgs('保存导出文件失败: {0}', [e]))),
         );
       }
     }
@@ -831,9 +845,7 @@ class _DeckCard extends ConsumerWidget {
         title: Text(context.tr('重命名词书')),
         content: TextField(
           controller: controller,
-          decoration: InputDecoration(
-            labelText: context.tr('词书名称'),
-          ),
+          decoration: InputDecoration(labelText: context.tr('词书名称')),
           autofocus: true,
         ),
         actions: [
@@ -893,8 +905,7 @@ class _DeckCard extends ConsumerWidget {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) =>
-            const Center(child: CircularProgressIndicator()),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       ImportResult importResult;
@@ -921,10 +932,12 @@ class _DeckCard extends ConsumerWidget {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.trArgs(
-              '导入完成: {0}/{1} 成功',
-              [importResult.successCount, importResult.totalRows],
-            )),
+            content: Text(
+              context.trArgs('导入完成: {0}/{1} 成功', [
+                importResult.successCount,
+                importResult.totalRows,
+              ]),
+            ),
           ),
         );
       }
@@ -936,9 +949,11 @@ class _DeckCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.tr('删除词书')),
-        content: Text(context.trArgs(
-            '确定要删除词书"{0}"吗？\n\n此操作将删除词书中的所有单词和学习记录，且不可恢复。',
-            [deck.name])),
+        content: Text(
+          context.trArgs('确定要删除词书"{0}"吗？\n\n此操作将删除词书中的所有单词和学习记录，且不可恢复。', [
+            deck.name,
+          ]),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1047,9 +1062,11 @@ class _CreateDeckDialogState extends ConsumerState<_CreateDeckDialog> {
     db.deckDao.createDeck(
       DecksCompanion(
         name: drift.Value(_nameController.text.trim()),
-        description: drift.Value(_descController.text.trim().isEmpty
-            ? null
-            : _descController.text.trim()),
+        description: drift.Value(
+          _descController.text.trim().isEmpty
+              ? null
+              : _descController.text.trim(),
+        ),
         createdAt: drift.Value(now),
         updatedAt: drift.Value(now),
       ),
@@ -1083,7 +1100,9 @@ class _SelectDeckDialog extends StatelessWidget {
                     : null,
               ),
               title: Text(deck.name),
-              subtitle: deck.description != null ? Text(deck.description!) : null,
+              subtitle: deck.description != null
+                  ? Text(deck.description!)
+                  : null,
               onTap: () => Navigator.pop(context, deck.id),
             );
           },
@@ -1132,8 +1151,7 @@ class _ExportDialog extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.save_alt),
             title: Text(context.tr('数据库备份 (.json)')),
-            subtitle: Text(
-                context.tr('包含单词全部数据、复习记录和变位信息，可用于备份恢复')),
+            subtitle: Text(context.tr('包含单词全部数据、复习记录和变位信息，可用于备份恢复')),
             onTap: () => Navigator.pop(context, ExportFormat.backupJson),
           ),
         ],
@@ -1174,16 +1192,18 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
                 child: Text(
                   context.trArgs('AI 正在更新词意 {0}', [state.progressText]),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
               ),
               if (state.currentTask?.currentWord != null)
                 Text(
                   state.currentTask!.currentWord!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                  ),
                 ),
               const SizedBox(width: 8),
               GestureDetector(
@@ -1202,7 +1222,9 @@ class _BatchUpdateProgressBar extends ConsumerWidget {
           const SizedBox(height: 4),
           LinearProgressIndicator(
             value: state.currentTask?.progress,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.5),
             valueColor: AlwaysStoppedAnimation<Color>(
               Theme.of(context).colorScheme.primary,
             ),

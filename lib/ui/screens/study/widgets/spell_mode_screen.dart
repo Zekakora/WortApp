@@ -136,11 +136,11 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
     }
   }
 
-  /// 自动确认开启且已有输入时，停止输入 800ms 后自动检查拼写
+  /// 自动确认开启时的「已答对就自动提交」
   ///
-  /// 只在「键盘打开 + 输入法已上屏」时才自动判定：收起输入法（失焦）或
-  /// 输入法仍在组词时提交，会把用户还没输完的词判错 —— 表现为
-  /// 「输入法一消失就自动提交」。
+  /// 只有在**当前输入已经和正确拼写一致**时才自动判定；输入不完整或拼错时
+  /// 一律不动，等用户自己按确认按钮。
+  /// （之前的实现是「停止输入 800ms 就判定」，导致打到一半停一下就判错。）
   void _scheduleAutoCheck() {
     if (!ref.read(settingsProvider).autoConfirm) return;
     if (_answered) return;
@@ -154,6 +154,17 @@ class _SpellModeScreenState extends ConsumerState<SpellModeScreen> {
       // 等待期间键盘可能已收起、或输入法又进入组词，这里重新确认一次
       if (!_inputFocus.hasFocus) return;
       if (_controller.value.composing.isValid) return;
+      final word = ref.read(studySessionProvider).currentWord;
+      if (word == null) return;
+      final tolerant = ref.read(settingsProvider).tolerantSpelling;
+      if (!GermanParser.compareSpelling(
+        _controller.text,
+        word.german,
+        tolerant: tolerant,
+      )) {
+        // 还没打对：不自动提交，避免把没打完的词判错
+        return;
+      }
       _checkAnswer();
     });
   }
